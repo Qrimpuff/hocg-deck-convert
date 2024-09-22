@@ -31,8 +31,13 @@ watch_path = ["src", "assets"]
 
 # CSS style file
 
-style = []
-
+style = [
+   # Include from public_dir.
+   "./style.css",
+   # Or some asset from online cdn.
+   "https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css",
+   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+]
 # Javascript code file
 script = []
 
