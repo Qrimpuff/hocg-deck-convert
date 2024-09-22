@@ -36,21 +36,6 @@ static DECK_ERROR: GlobalSignal<String> = Signal::global(String::new);
 
 #[component]
 fn Form() -> Element {
-    let from_text = move |event: Event<FormData>| {
-        *COMMON_DECK.write() = None;
-        *DECK_ERROR.write() = "".into();
-        if event.value().is_empty() {
-            return;
-        }
-
-        let deck = holodelta::Deck::from_text(&event.value());
-        info!("{:?}", deck);
-        match deck {
-            Ok(deck) => *COMMON_DECK.write() = Some(deck.into()),
-            Err(e) => *DECK_ERROR.write() = e.to_string(),
-        }
-    };
-
     rsx! {
         form { class: "box",
             div { class: "field",
@@ -67,6 +52,8 @@ fn Form() -> Element {
                     }
                 }
             }
+
+            holodelta::Import { common_deck: COMMON_DECK.signal() }
 
             // div { class: "field",
             //     div { class: "control",
@@ -98,18 +85,6 @@ fn Form() -> Element {
             //         }
             //     }
             // }
-
-            div { class: "field",
-                label { class: "label", "Json" }
-                div { class: "control",
-                    textarea {
-                        placeholder: "e.g. Hello world",
-                        class: "textarea",
-                        oninput: from_text
-                    }
-                }
-                p { class: "help is-danger", "{DECK_ERROR}" }
-            }
 
             div { class: "field",
                 label { class: "label", "Export format" }
@@ -147,12 +122,7 @@ fn Form() -> Element {
             //     }
             // }
 
-            div { class: "field",
-                label { class: "label", "Json" }
-                div { class: "control",
-                    textarea { placeholder: "e.g. Hello world", class: "textarea" }
-                }
-            }
+            holodelta::Export { common_deck: COMMON_DECK.signal() }
         }
     }
 }
@@ -165,16 +135,16 @@ fn DeckPreview() -> Element {
     };
 
     let oshi = rsx! {
-        Card { card: deck.oshi.clone(), oshi: true }
+        Card { card: deck.oshi.clone(), card_type: CardType::Oshi }
     };
     let main_deck = deck.main_deck.iter().map(move |card| {
         rsx! {
-            Card { card: card.clone(), oshi: false }
+            Card { card: card.clone(), card_type: CardType::Main }
         }
     });
     let cheer_deck = deck.cheer_deck.iter().map(move |card| {
         rsx! {
-            Card { card: card.clone(), oshi: false }
+            Card { card: card.clone(), card_type: CardType::Cheer }
         }
     });
 
@@ -182,15 +152,15 @@ fn DeckPreview() -> Element {
         h2 { class: "title is-4 is-spaced", "Deck content" }
         div { class: "block is-flex is-flex-wrap-wrap",
             div { class: "block",
-                h3 { class: "subtitle ", "Oshi" }
+                h3 { class: "subtitle mb-0", "Oshi" }
                 div { class: "block is-flex is-flex-wrap-wrap", {oshi} }
             }
             div { class: "block",
-                h3 { class: "subtitle ", "Cheer deck" }
+                h3 { class: "subtitle mb-0", "Cheer deck" }
                 div { class: "block is-flex is-flex-wrap-wrap", {cheer_deck} }
             }
             div { class: "block",
-                h3 { class: "subtitle ", "Main deck" }
+                h3 { class: "subtitle mb-0", "Main deck" }
                 div { class: "block is-flex is-flex-wrap-wrap", {main_deck} }
             }
         }
@@ -198,12 +168,37 @@ fn DeckPreview() -> Element {
 }
 
 #[component]
-fn Card(card: CommonCardEntry, oshi: bool) -> Element {
-    let img_class = if oshi { "card-img-oshi" } else { "card-img" };
+fn Card(card: CommonCardEntry, card_type: CardType) -> Element {
+    let card_number = card.card_number;
+
+    let img_class = if card_type == CardType::Oshi {
+        "card-img-oshi"
+    } else {
+        "card-img"
+    };
+
+    let img_path = {
+        let set = card_number.split("-").next().unwrap();
+        format!("{set}/{card_number}_C.webp")
+    };
+
+    let error_img_path = match card_type {
+        CardType::Oshi | CardType::Cheer => "cheer-back.webp",
+        CardType::Main => "card-back.webp",
+    };
+
     rsx! {
         div {
-            figure { class: "image m-1 {img_class}",
-                img { src: "https://qrimpuff.github.io/hocg-fan-sim-assets/img/hSD01/hSD01-009_R.webp" }
+            figure { class: "image m-2 {img_class}",
+                img {
+                    title: "{card_number}",
+                    border_radius: "3.7%",
+                    src: "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{img_path}",
+                    "onerror": "this.src='https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}'"
+                }
+                if card_type != CardType::Oshi {
+                    span { class: "badge is-bottom is-dark", "{card.amount}" }
+                }
             }
         }
     }

@@ -3,6 +3,13 @@ pub mod holodelta;
 pub mod holoduel;
 pub mod tabletop_sim;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardType {
+    Oshi,
+    Cheer,
+    Main,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommonCardEntry {
     pub card_number: String,
