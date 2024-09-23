@@ -2,6 +2,8 @@
 
 pub mod sources;
 
+use std::collections::BTreeMap;
+
 use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 use sources::*;
@@ -15,6 +17,16 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    let _p2_c: Coroutine<()> = use_coroutine(|_rx| async move {
+        *CARDS_INFO.write() =
+            reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/cards_info.json")
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap()
+    });
+
     rsx! {
         section { class: "section",
             div { class: "container",
@@ -31,8 +43,8 @@ fn App() -> Element {
     }
 }
 
-static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(|| None);
-static DECK_ERROR: GlobalSignal<String> = Signal::global(String::new);
+static CARDS_INFO: GlobalSignal<CardsInfoMap> = Signal::global(Default::default);
+static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::default);
 
 #[component]
 fn Form() -> Element {
@@ -53,7 +65,7 @@ fn Form() -> Element {
                 }
             }
 
-            holodelta::Import { common_deck: COMMON_DECK.signal() }
+            holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
 
             // div { class: "field",
             //     div { class: "control",
@@ -122,9 +134,16 @@ fn Form() -> Element {
             //     }
             // }
 
-            holodelta::Export { common_deck: COMMON_DECK.signal() }
+            holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardType {
+    Oshi,
+    Cheer,
+    Main,
 }
 
 #[component]
@@ -135,16 +154,16 @@ fn DeckPreview() -> Element {
     };
 
     let oshi = rsx! {
-        Card { card: deck.oshi.clone(), card_type: CardType::Oshi }
+        Cards { cards: deck.oshi.clone(), card_type: CardType::Oshi }
     };
-    let main_deck = deck.main_deck.iter().map(move |card| {
+    let main_deck = deck.main_deck.iter().map(move |cards| {
         rsx! {
-            Card { card: card.clone(), card_type: CardType::Main }
+            Cards { cards: cards.clone(), card_type: CardType::Main }
         }
     });
-    let cheer_deck = deck.cheer_deck.iter().map(move |card| {
+    let cheer_deck = deck.cheer_deck.iter().map(move |cards| {
         rsx! {
-            Card { card: card.clone(), card_type: CardType::Cheer }
+            Cards { cards: cards.clone(), card_type: CardType::Cheer }
         }
     });
 
@@ -168,8 +187,8 @@ fn DeckPreview() -> Element {
 }
 
 #[component]
-fn Card(card: CommonCardEntry, card_type: CardType) -> Element {
-    let card_number = card.card_number;
+fn Cards(cards: CommonCards, card_type: CardType) -> Element {
+    let card_number = cards.card_number;
 
     let img_class = if card_type == CardType::Oshi {
         "card-img-oshi"
@@ -177,14 +196,21 @@ fn Card(card: CommonCardEntry, card_type: CardType) -> Element {
         "card-img"
     };
 
-    let img_path = {
-        let set = card_number.split("-").next().unwrap();
-        format!("{set}/{card_number}_C.webp")
-    };
-
     let error_img_path = match card_type {
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
         CardType::Main => "card-back.webp",
+    };
+
+    let img_path = {
+        if let Some(manage_id) = &cards.manage_id {
+            if let Some(card) = CARDS_INFO.read().get(&manage_id.parse::<u32>().unwrap()) {
+                card.img.clone()
+            } else {
+                error_img_path.into()
+            }
+        } else {
+            error_img_path.into()
+        }
     };
 
     rsx! {
@@ -197,7 +223,7 @@ fn Card(card: CommonCardEntry, card_type: CardType) -> Element {
                     "onerror": "this.src='https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}'"
                 }
                 if card_type != CardType::Oshi {
-                    span { class: "badge is-bottom is-dark", "{card.amount}" }
+                    span { class: "badge is-bottom is-dark", "{cards.amount}" }
                 }
             }
         }

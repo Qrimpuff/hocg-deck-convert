@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 use serde::{Deserialize, Serialize};
 
-use super::{CommonCardEntry, CommonDeck};
+use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
 
 type OshiCard = (String, u32);
 type DeckCard = (String, u32, u32);
@@ -36,59 +36,68 @@ impl Deck {
     }
 }
 
-impl From<CommonCardEntry> for OshiCard {
-    fn from(value: CommonCardEntry) -> Self {
-        (value.card_number, value.rarity)
+impl CommonCardsConversion for OshiCard {
+    fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self {
+        (cards.card_number.clone(), cards.art_order(map))
     }
-}
-impl From<OshiCard> for CommonCardEntry {
-    fn from(value: OshiCard) -> Self {
-        CommonCardEntry {
-            card_number: value.0,
-            rarity: value.1,
-            amount: 1,
-        }
+
+    fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
+        CommonCards::from_card_number_and_art_order(value.0, value.1, 1, map)
     }
 }
 
-impl From<CommonCardEntry> for DeckCard {
-    fn from(value: CommonCardEntry) -> Self {
-        (value.card_number, value.amount, value.rarity)
+impl CommonCardsConversion for DeckCard {
+    fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self {
+        (
+            cards.card_number.clone(),
+            cards.amount,
+            cards.art_order(map),
+        )
     }
-}
-impl From<DeckCard> for CommonCardEntry {
-    fn from(value: DeckCard) -> Self {
-        CommonCardEntry {
-            card_number: value.0,
-            rarity: value.2,
-            amount: value.1,
-        }
+
+    fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
+        CommonCards::from_card_number_and_art_order(value.0, value.2, value.1, map)
     }
 }
 
-impl From<CommonDeck> for Deck {
-    fn from(value: CommonDeck) -> Self {
+impl CommonDeckConversion for Deck {
+    fn from_common_deck(deck: CommonDeck, map: &CardsInfoMap) -> Self {
         Deck {
-            deck_name: value.deck_name,
-            oshi: value.oshi.into(),
-            deck: value.main_deck.into_iter().map(Into::into).collect(),
-            cheer_deck: value.cheer_deck.into_iter().map(Into::into).collect(),
+            deck_name: deck.deck_name,
+            oshi: OshiCard::from_common_cards(deck.oshi, map),
+            deck: deck
+                .main_deck
+                .into_iter()
+                .map(|c| DeckCard::from_common_cards(c, map))
+                .collect(),
+            cheer_deck: deck
+                .cheer_deck
+                .into_iter()
+                .map(|c| DeckCard::from_common_cards(c, map))
+                .collect(),
         }
     }
-}
-impl From<Deck> for CommonDeck {
-    fn from(value: Deck) -> Self {
+
+    fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck {
         CommonDeck {
             deck_name: value.deck_name,
-            oshi: value.oshi.into(),
-            main_deck: value.deck.into_iter().map(Into::into).collect(),
-            cheer_deck: value.cheer_deck.into_iter().map(Into::into).collect(),
+            oshi: OshiCard::to_common_cards(value.oshi, map),
+            main_deck: value
+                .deck
+                .into_iter()
+                .map(|c| DeckCard::to_common_cards(c, map))
+                .collect(),
+            cheer_deck: value
+                .cheer_deck
+                .into_iter()
+                .map(|c| DeckCard::to_common_cards(c, map))
+                .collect(),
         }
     }
 }
 
 #[component]
-pub fn Import(mut common_deck: Signal<Option<CommonDeck>>) -> Element {
+pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
     let mut deck_error = use_signal(String::new);
 
     let from_text = move |event: Event<FormData>| {
@@ -101,7 +110,7 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>) -> Element {
         let deck = Deck::from_text(&event.value());
         info!("{:?}", deck);
         match deck {
-            Ok(deck) => *common_deck.write() = Some(deck.into()),
+            Ok(deck) => *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read())),
             Err(e) => *deck_error.write() = e.to_string(),
         }
     };
@@ -122,10 +131,14 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>) -> Element {
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<Option<CommonDeck>>) -> Element {
+pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
     let mut deck_error = use_signal(String::new);
 
-    let deck: Option<Deck> = common_deck.read().as_ref().map(|d| d.clone().into());
+    let deck: Option<Deck> = common_deck
+        .read()
+        .as_ref()
+        .map(|d| Deck::from_common_deck(d.clone(), &map.read()));
+    info!("{:?}", deck);
     let text = match deck {
         Some(deck) => match deck.to_text() {
             Ok(text) => text,
