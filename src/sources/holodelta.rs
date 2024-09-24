@@ -8,8 +8,11 @@ use crate::download_file;
 
 use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
 
-type OshiCard = (String, u32);
-type DeckCard = (String, u32, u32);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OshiCard(String, u32);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DeckCard(String, u32, u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,7 +43,7 @@ impl Deck {
 
 impl CommonCardsConversion for OshiCard {
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self {
-        (cards.card_number.clone(), cards.art_order(map))
+        OshiCard(cards.card_number.clone(), cards.art_order(map))
     }
 
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
@@ -50,7 +53,7 @@ impl CommonCardsConversion for OshiCard {
 
 impl CommonCardsConversion for DeckCard {
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self {
-        (
+        DeckCard(
             cards.card_number.clone(),
             cards.amount,
             cards.art_order(map),
@@ -212,7 +215,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             )
         });
         if let Some((file_name, deck)) = deck {
-            let file_name = format!("{}.json", file_name.unwrap_or("holoDelta_deck".into()));
+            let file_name = format!("{}.holodelta.json", file_name.unwrap_or("deck".into()));
             match deck.to_file() {
                 Ok(file) => download_file(&file_name, &file[..]),
                 Err(e) => *deck_error.write() = e.to_string(),

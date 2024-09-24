@@ -7,6 +7,14 @@ pub mod holodelta;
 pub mod holoduel;
 pub mod tabletop_sim;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeckType {
+    DeckLog,
+    HoloDelta,
+    HoloDuel,
+    TabletopSim,
+}
+
 trait CommonCardsConversion {
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self;
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards;
@@ -91,7 +99,6 @@ impl CommonDeck {
                     'a'..='z' | '0'..='9' => c,
                     _ => '_',
                 })
-                .chain("_deck".chars())
                 .collect(),
         )
     }

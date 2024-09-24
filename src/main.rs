@@ -51,6 +51,9 @@ static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::d
 
 #[component]
 fn Form() -> Element {
+    let mut deck_source = use_signal(|| None);
+    let mut export_format = use_signal(|| None);
+
     rsx! {
         form { class: "box",
             fieldset {
@@ -59,18 +62,34 @@ fn Form() -> Element {
                     label { "for": "deck_source", class: "label", "Deck source" }
                     div { class: "control",
                         div { class: "select",
-                            select { id: "deck_source",
+                            select {
+                                id: "deck_source",
+                                oninput: move |ev| {
+                                    *COMMON_DECK.write() = None;
+                                    *deck_source
+                                        .write() = match ev.value().as_str() {
+                                        "holo_delta" => Some(DeckType::HoloDelta),
+                                        "holo_duel" => Some(DeckType::HoloDuel),
+                                        _ => None,
+                                    };
+                                },
                                 // option { "Deck Log" }
-                                // option { "HoloDuel" }
                                 // option { "Tabletop Simulator (by Noodlebrain)" }
                                 // option { "I don't know..." }
-                                option { "holoDelta" }
+                                option { value: "none", "Select" }
+                                option { value: "holo_delta", "holoDelta" }
+                                option { value: "holo_duel", "HoloDuel" }
                             }
                         }
                     }
                 }
 
-                holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                if deck_source.read().as_ref() == Some(&DeckType::HoloDelta) {
+                    holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if deck_source.read().as_ref() == Some(&DeckType::HoloDuel) {
+                    holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
             }
 
             hr {}
@@ -81,11 +100,21 @@ fn Form() -> Element {
                     label { "for": "export_format", class: "label", "Export format" }
                     div { class: "control",
                         div { class: "select",
-                            select { id: "export_format",
+                            select {
+                                id: "export_format",
+                                oninput: move |ev| {
+                                    *export_format
+                                        .write() = match ev.value().as_str() {
+                                        "holo_delta" => Some(DeckType::HoloDelta),
+                                        "holo_duel" => Some(DeckType::HoloDuel),
+                                        _ => None,
+                                    }
+                                },
                                 // option { "Deck Log" }
-                                // option { "HoloDuel" }
                                 // option { "Tabletop Simulator (by Noodlebrain)" }
-                                option { "holoDelta" }
+                                option { value: "none", "Select" }
+                                option { value: "holo_delta", "holoDelta" }
+                                option { value: "holo_duel", "HoloDuel" }
                             }
                         }
                     }
@@ -113,7 +142,12 @@ fn Form() -> Element {
                 //     }
                 // }
 
-                holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                if export_format.read().as_ref() == Some(&DeckType::HoloDelta) {
+                    holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if export_format.read().as_ref() == Some(&DeckType::HoloDuel) {
+                    holoduel::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
             }
         }
     }
@@ -130,7 +164,7 @@ pub enum CardType {
 fn DeckPreview() -> Element {
     let deck = COMMON_DECK.read();
     let Some(deck) = deck.as_ref() else {
-        return rsx! {};
+        return rsx! {  };
     };
 
     let oshi = rsx! {
