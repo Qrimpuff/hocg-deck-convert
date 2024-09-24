@@ -66,10 +66,35 @@ impl CommonCards {
 
 #[derive(Debug, Clone)]
 pub struct CommonDeck {
-    pub deck_name: String,
+    pub name: String,
     pub oshi: CommonCards,
     pub main_deck: Vec<CommonCards>,
     pub cheer_deck: Vec<CommonCards>,
+}
+
+impl CommonDeck {
+    pub fn file_name(&self) -> Option<String> {
+        if !self.name.is_ascii() {
+            return None;
+        }
+
+        if self.name.trim().is_empty() {
+            return None;
+        }
+
+        Some(
+            self.name
+                .trim()
+                .to_lowercase()
+                .chars()
+                .map(|c| match c {
+                    'a'..='z' | '0'..='9' => c,
+                    _ => '_',
+                })
+                .chain("_deck".chars())
+                .collect(),
+        )
+    }
 }
 
 pub type CardsInfoMap = BTreeMap<u32, CardInfoEntry>;

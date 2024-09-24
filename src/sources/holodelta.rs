@@ -1,8 +1,10 @@
 use std::error::Error;
 
 use dioxus::prelude::*;
-use dioxus_logger::tracing::{info, Level};
+use dioxus_logger::tracing::info;
 use serde::{Deserialize, Serialize};
+
+use crate::download_file;
 
 use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
 
@@ -63,7 +65,7 @@ impl CommonCardsConversion for DeckCard {
 impl CommonDeckConversion for Deck {
     fn from_common_deck(deck: CommonDeck, map: &CardsInfoMap) -> Self {
         Deck {
-            deck_name: deck.deck_name,
+            deck_name: deck.name,
             oshi: OshiCard::from_common_cards(deck.oshi, map),
             deck: deck
                 .main_deck
@@ -80,7 +82,7 @@ impl CommonDeckConversion for Deck {
 
     fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck {
         CommonDeck {
-            deck_name: value.deck_name,
+            name: value.deck_name,
             oshi: OshiCard::to_common_cards(value.oshi, map),
             main_deck: value
                 .deck
@@ -99,8 +101,10 @@ impl CommonDeckConversion for Deck {
 #[component]
 pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
     let mut deck_error = use_signal(String::new);
+    let mut json = use_signal(String::new);
 
     let from_text = move |event: Event<FormData>| {
+        *json.write() = event.value().clone();
         *common_deck.write() = None;
         *deck_error.write() = "".into();
         if event.value().is_empty() {
@@ -115,14 +119,64 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         }
     };
 
+    let from_file = move |event: Event<FormData>| async move {
+        *common_deck.write() = None;
+        *deck_error.write() = "".into();
+        *json.write() = "".into();
+        if let Some(file_engine) = event.files() {
+            let files = file_engine.files();
+            for file_name in &files {
+                if let Some(contents) = file_engine.read_file(file_name).await {
+                    let deck = Deck::from_file(&contents);
+                    info!("{:?}", deck);
+                    match deck {
+                        Ok(deck) => {
+                            *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                            match String::from_utf8(contents) {
+                                Ok(contents) => *json.write() = contents,
+                                Err(e) => *deck_error.write() = e.to_string(),
+                            }
+                        }
+                        Err(e) => *deck_error.write() = e.to_string(),
+                    }
+                }
+            }
+        }
+    };
+
     rsx! {
         div { class: "field",
-            label { class: "label", "Json" }
+            div { class: "control",
+                div { class: "file",
+                    label { "for": "holodelta_import_file", class: "file-label",
+                        input {
+                            id: "holodelta_import_file",
+                            r#type: "file",
+                            class: "file-input",
+                            accept: ".json",
+                            onchange: from_file
+                        }
+                        span { class: "file-cta",
+                            span { class: "file-icon",
+                                i { class: "fa-solid fa-upload" }
+                            }
+                            span { class: "file-label", " Load a file… " }
+                        }
+                    }
+                }
+            }
+        }
+        div { class: "field",
+            label { "for": "holodelta_import_json", class: "label", "holoDelta .json" }
             div { class: "control",
                 textarea {
-                    placeholder: "e.g. Hello world",
+                    id: "holodelta_import_json",
                     class: "textarea",
-                    oninput: from_text
+                    autocomplete: "off",
+                    autocapitalize: "off",
+                    spellcheck: "false",
+                    oninput: from_text,
+                    value: "{json}"
                 }
             }
             p { class: "help is-danger", "{deck_error}" }
@@ -150,11 +204,46 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         None => "".into(),
     };
 
+    let download_file = move |_| {
+        let deck: Option<_> = common_deck.read().as_ref().map(|d| {
+            (
+                d.file_name(),
+                Deck::from_common_deck(d.clone(), &map.read()),
+            )
+        });
+        if let Some((file_name, deck)) = deck {
+            let file_name = format!("{}.json", file_name.unwrap_or("holoDelta_deck".into()));
+            match deck.to_file() {
+                Ok(file) => download_file(&file_name, &file[..]),
+                Err(e) => *deck_error.write() = e.to_string(),
+            }
+        }
+    };
+
     rsx! {
         div { class: "field",
-            label { class: "label", "Json" }
             div { class: "control",
-                textarea { class: "textarea", value: "{text}" }
+                button {
+                    class: "button",
+                    disabled: common_deck.read().is_none(),
+                    r#type: "button",
+                    onclick: download_file,
+                    span { class: "icon",
+                        i { class: "fa-solid fa-download" }
+                    }
+                    span { "Download deck file" }
+                }
+            }
+        }
+        div { class: "field",
+            label { "for": "holodelta_export_json", class: "label", "holoDelta .json" }
+            div { class: "control",
+                textarea {
+                    id: "holodelta_export_json",
+                    class: "textarea",
+                    readonly: true,
+                    value: "{text}"
+                }
             }
             p { class: "help is-danger", "{deck_error}" }
         }

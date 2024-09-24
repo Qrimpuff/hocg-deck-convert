@@ -2,11 +2,14 @@
 
 pub mod sources;
 
-use std::collections::BTreeMap;
-
 use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
+use gloo::{
+    file::{Blob, BlobContents},
+    utils::document,
+};
 use sources::*;
+use web_sys::{wasm_bindgen::JsCast, Url};
 
 fn main() {
     // Init logger
@@ -50,91 +53,68 @@ static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::d
 fn Form() -> Element {
     rsx! {
         form { class: "box",
-            div { class: "field",
-                label { class: "label", "Deck Source" }
-                div { class: "control",
-                    div { class: "select",
-                        select {
-                            // option { "Deck Log" }
-                            // option { "HoloDuel" }
-                            // option { "Tabletop Simulator (by Noodlebrain)" }
-                            // option { "I don't know..." }
-                            option { "holoDelta" }
+            fieldset {
+                legend { class: "is-sr-only", "Import" }
+                div { class: "field",
+                    label { "for": "deck_source", class: "label", "Deck source" }
+                    div { class: "control",
+                        div { class: "select",
+                            select { id: "deck_source",
+                                // option { "Deck Log" }
+                                // option { "HoloDuel" }
+                                // option { "Tabletop Simulator (by Noodlebrain)" }
+                                // option { "I don't know..." }
+                                option { "holoDelta" }
+                            }
                         }
                     }
                 }
+
+                holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }
 
-            holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            hr {}
 
-            // div { class: "field",
-            //     div { class: "control",
-            //         div { class: "file",
-            //             label { class: "file-label",
-            //                 input {
-            //                     r#type: "file",
-            //                     name: "resume",
-            //                     class: "file-input"
-            //                 }
-            //                 span { class: "file-cta",
-            //                     span { class: "file-icon",
-            //                         i { class: "fa-solid fa-upload" }
-            //                     }
-            //                     span { class: "file-label", " Choose a file… " }
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
-
-            // div { class: "field",
-            //     label { class: "label", "Url" }
-            //     div { class: "control",
-            //         input {
-            //             placeholder: "Text input",
-            //             r#type: "text",
-            //             class: "input"
-            //         }
-            //     }
-            // }
-
-            div { class: "field",
-                label { class: "label", "Export format" }
-                div { class: "control",
-                    div { class: "select",
-                        select {
-                            // option { "Deck Log" }
-                            // option { "HoloDuel" }
-                            // option { "Tabletop Simulator (by Noodlebrain)" }
-                            option { "holoDelta" }
+            fieldset {
+                legend { class: "is-sr-only", "Export" }
+                div { class: "field",
+                    label { "for": "export_format", class: "label", "Export format" }
+                    div { class: "control",
+                        div { class: "select",
+                            select { id: "export_format",
+                                // option { "Deck Log" }
+                                // option { "HoloDuel" }
+                                // option { "Tabletop Simulator (by Noodlebrain)" }
+                                option { "holoDelta" }
+                            }
                         }
                     }
                 }
+
+                // div { class: "field",
+                //     div { class: "control",
+                //         button { class: "button",
+                //             span { class: "icon",
+                //                 i { class: "fa-solid fa-download" }
+                //             }
+                //             span { "Download deck file" }
+                //         }
+                //     }
+                // }
+
+                // div { class: "field",
+                //     div { class: "control",
+                //         button { class: "button",
+                //             span { class: "icon",
+                //                 i { class: "fa-solid fa-upload" }
+                //             }
+                //             span { "Upload to Deck Log" }
+                //         }
+                //     }
+                // }
+
+                holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }
-
-            // div { class: "field",
-            //     div { class: "control",
-            //         button { class: "button",
-            //             span { class: "icon",
-            //                 i { class: "fa-solid fa-download" }
-            //             }
-            //             span { "Download deck file" }
-            //         }
-            //     }
-            // }
-
-            // div { class: "field",
-            //     div { class: "control",
-            //         button { class: "button",
-            //             span { class: "icon",
-            //                 i { class: "fa-solid fa-upload" }
-            //             }
-            //             span { "Upload to Deck Log" }
-            //         }
-            //     }
-            // }
-
-            holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
         }
     }
 }
@@ -168,20 +148,25 @@ fn DeckPreview() -> Element {
     });
 
     rsx! {
-        h2 { class: "title is-4 is-spaced", "Deck content" }
+        h2 { class: "title is-4", "Deck preview" }
+        p { class: "subtitle is-6 is-spaced",
+            if !deck.name.trim().is_empty() {
+                span { "Name: {deck.name}" }
+            }
+        }
         div { class: "block is-flex is-flex-wrap-wrap",
-            div { class: "block",
+            div { class: "block mx-1",
                 h3 { class: "subtitle mb-0", "Oshi" }
                 div { class: "block is-flex is-flex-wrap-wrap", {oshi} }
             }
-            div { class: "block",
+            div { class: "block mx-1",
                 h3 { class: "subtitle mb-0", "Cheer deck" }
                 div { class: "block is-flex is-flex-wrap-wrap", {cheer_deck} }
             }
-            div { class: "block",
-                h3 { class: "subtitle mb-0", "Main deck" }
-                div { class: "block is-flex is-flex-wrap-wrap", {main_deck} }
-            }
+        }
+        div { class: "block mx-1",
+            h3 { class: "subtitle mb-0", "Main deck" }
+            div { class: "block is-flex is-flex-wrap-wrap", {main_deck} }
         }
     }
 }
@@ -228,4 +213,21 @@ fn Cards(cards: CommonCards, card_type: CardType) -> Element {
             }
         }
     }
+}
+
+pub fn download_file(file_name: &str, content: impl BlobContents) {
+    let a = document()
+        .create_element("a")
+        .unwrap()
+        .dyn_into::<web_sys::HtmlElement>()
+        .unwrap();
+    document().body().unwrap().append_child(&a).unwrap();
+    a.set_class_name("is-hidden");
+    let blob = Blob::new_with_options(content, Some("octet/stream"));
+    let url = Url::create_object_url_with_blob(&blob.into()).unwrap();
+    a.set_attribute("href", &url).unwrap();
+    a.set_attribute("download", file_name).unwrap();
+    a.click();
+    Url::revoke_object_url(&url).unwrap();
+    document().body().unwrap().remove_child(&a).unwrap();
 }
