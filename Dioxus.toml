@@ -18,6 +18,9 @@ asset_dir = "assets"
 # HTML title tag content
 title = "hocg-deck-convert"
 
+# for GitHub Pages
+base_path = "hocg-deck-convert"
+
 [web.watcher]
 
 # when watcher trigger, regenerate the `index.html`
