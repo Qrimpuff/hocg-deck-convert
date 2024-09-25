@@ -51,104 +51,179 @@ static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::d
 
 #[component]
 fn Form() -> Element {
-    let mut deck_source = use_signal(|| None);
+    let mut import_format = use_signal(|| None);
     let mut export_format = use_signal(|| None);
 
     rsx! {
         form { class: "box",
-            fieldset {
-                legend { class: "is-sr-only", "Import" }
-                div { class: "field",
-                    label { "for": "deck_source", class: "label", "Deck source" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "deck_source",
-                                oninput: move |ev| {
-                                    *COMMON_DECK.write() = None;
-                                    *deck_source
-                                        .write() = match ev.value().as_str() {
-                                        "holo_delta" => Some(DeckType::HoloDelta),
-                                        "holo_duel" => Some(DeckType::HoloDuel),
-                                        _ => None,
-                                    };
-                                },
-                                // option { "Deck Log" }
-                                // option { "Tabletop Simulator (by Noodlebrain)" }
-                                // option { "I don't know..." }
-                                option { value: "none", "Select" }
-                                option { value: "holo_delta", "holoDelta" }
-                                option { value: "holo_duel", "HoloDuel" }
-                            }
+            div { class: "field",
+                label { "for": "import_format", class: "label", "Import format" }
+                div { class: "control",
+                    div { class: "select",
+                        select {
+                            id: "import_format",
+                            oninput: move |ev| {
+                                *COMMON_DECK.write() = None;
+                                *import_format
+                                    .write() = match ev.value().as_str() {
+                                    "holo_delta" => Some(DeckType::HoloDelta),
+                                    "holo_duel" => Some(DeckType::HoloDuel),
+                                    "unknown" => Some(DeckType::Unknown),
+                                    _ => None,
+                                };
+                            },
+                            // option { "Deck Log" }
+                            // option { "Tabletop Simulator (by Noodlebrain)" }
+                            option { value: "none", "Select" }
+                            option { value: "holo_delta", "holoDelta" }
+                            option { value: "holo_duel", "HoloDuel" }
+                            option { value: "unknown", "I don't know..." }
                         }
                     }
                 }
+            }
 
-                if deck_source.read().as_ref() == Some(&DeckType::HoloDelta) {
-                    holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-                }
-                if deck_source.read().as_ref() == Some(&DeckType::HoloDuel) {
-                    holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-                }
+            if import_format.read().as_ref() == Some(&DeckType::HoloDelta) {
+                holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
+            if import_format.read().as_ref() == Some(&DeckType::HoloDuel) {
+                holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
+            if import_format.read().as_ref() == Some(&DeckType::Unknown) {
+                UnknownImport { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }
 
             hr {}
 
-            fieldset {
-                legend { class: "is-sr-only", "Export" }
-                div { class: "field",
-                    label { "for": "export_format", class: "label", "Export format" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "export_format",
-                                oninput: move |ev| {
-                                    *export_format
-                                        .write() = match ev.value().as_str() {
-                                        "holo_delta" => Some(DeckType::HoloDelta),
-                                        "holo_duel" => Some(DeckType::HoloDuel),
-                                        _ => None,
-                                    }
-                                },
-                                // option { "Deck Log" }
-                                // option { "Tabletop Simulator (by Noodlebrain)" }
-                                option { value: "none", "Select" }
-                                option { value: "holo_delta", "holoDelta" }
-                                option { value: "holo_duel", "HoloDuel" }
-                            }
+            div { class: "field",
+                label { "for": "export_format", class: "label", "Export format" }
+                div { class: "control",
+                    div { class: "select",
+                        select {
+                            id: "export_format",
+                            oninput: move |ev| {
+                                *export_format
+                                    .write() = match ev.value().as_str() {
+                                    "holo_delta" => Some(DeckType::HoloDelta),
+                                    "holo_duel" => Some(DeckType::HoloDuel),
+                                    _ => None,
+                                }
+                            },
+                            // option { "Deck Log" }
+                            // option { "Tabletop Simulator (by Noodlebrain)" }
+                            option { value: "none", "Select" }
+                            option { value: "holo_delta", "holoDelta" }
+                            option { value: "holo_duel", "HoloDuel" }
                         }
                     }
                 }
+            }
 
-                // div { class: "field",
-                //     div { class: "control",
-                //         button { class: "button",
-                //             span { class: "icon",
-                //                 i { class: "fa-solid fa-download" }
-                //             }
-                //             span { "Download deck file" }
-                //         }
-                //     }
-                // }
+            // div { class: "field",
+            //     div { class: "control",
+            //         button { class: "button",
+            //             span { class: "icon",
+            //                 i { class: "fa-solid fa-download" }
+            //             }
+            //             span { "Download deck file" }
+            //         }
+            //     }
+            // }
 
-                // div { class: "field",
-                //     div { class: "control",
-                //         button { class: "button",
-                //             span { class: "icon",
-                //                 i { class: "fa-solid fa-upload" }
-                //             }
-                //             span { "Upload to Deck Log" }
-                //         }
-                //     }
-                // }
+            // div { class: "field",
+            //     div { class: "control",
+            //         button { class: "button",
+            //             span { class: "icon",
+            //                 i { class: "fa-solid fa-upload" }
+            //             }
+            //             span { "Upload to Deck Log" }
+            //         }
+            //     }
+            // }
 
-                if export_format.read().as_ref() == Some(&DeckType::HoloDelta) {
-                    holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-                }
-                if export_format.read().as_ref() == Some(&DeckType::HoloDuel) {
-                    holoduel::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            if export_format.read().as_ref() == Some(&DeckType::HoloDelta) {
+                holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
+            if export_format.read().as_ref() == Some(&DeckType::HoloDuel) {
+                holoduel::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn UnknownImport(
+    mut common_deck: Signal<Option<CommonDeck>>,
+    map: Signal<CardsInfoMap>,
+) -> Element {
+    let mut deck_error = use_signal(String::new);
+    let mut deck_success = use_signal(String::new);
+    let mut file_name = use_signal(String::new);
+
+    let from_file = move |event: Event<FormData>| async move {
+        *common_deck.write() = None;
+        *deck_error.write() = "".into();
+        *deck_success.write() = "".into();
+        *file_name.write() = "".into();
+        if let Some(file_engine) = event.files() {
+            let files = file_engine.files();
+            for file in &files {
+                *file_name.write() = file.clone();
+
+                if let Some(contents) = file_engine.read_file(file).await {
+                    // holoDelta
+                    let deck = holodelta::Deck::from_file(&contents);
+                    info!("{:?}", deck);
+                    if let Ok(deck) = deck {
+                        *common_deck.write() =
+                            Some(holodelta::Deck::to_common_deck(deck, &map.read()));
+                        *deck_success.write() = "Deck file format: holoDelta".into();
+                        return;
+                    }
+
+                    // HoloDuel
+                    let deck = holoduel::Deck::from_file(&contents);
+                    info!("{:?}", deck);
+                    if let Ok(deck) = deck {
+                        *common_deck.write() =
+                            Some(holoduel::Deck::to_common_deck(deck, &map.read()));
+                        *deck_success.write() = "Deck file format: HoloDuel".into();
+                        return;
+                    }
+
+                    *deck_error.write() = "Cannot parse deck file".into();
                 }
             }
+        }
+    };
+
+    rsx! {
+        div { class: "field",
+            div { class: "control",
+                div {
+                    class: "file",
+                    class: if !file_name.read().is_empty() { "has-name" },
+                    label { "for": "unknown_import_file", class: "file-label",
+                        input {
+                            id: "unknown_import_file",
+                            r#type: "file",
+                            class: "file-input",
+                            onchange: from_file
+                        }
+                        span { class: "file-cta",
+                            span { class: "file-icon",
+                                i { class: "fa-solid fa-upload" }
+                            }
+                            span { class: "file-label", " Load a file… " }
+                        }
+                        if !file_name.read().is_empty() {
+                            span { class: "file-name", "{file_name}" }
+                        }
+                    }
+                }
+            }
+            p { class: "help is-success", "{deck_success}" }
+            p { class: "help is-danger", "{deck_error}" }
         }
     }
 }
@@ -184,8 +259,8 @@ fn DeckPreview() -> Element {
     rsx! {
         h2 { class: "title is-4", "Deck preview" }
         p { class: "subtitle is-6 is-spaced",
-            if !deck.name.trim().is_empty() {
-                span { "Name: {deck.name}" }
+            if let Some(name) = &deck.name {
+                span { "Name: {name}" }
             }
         }
         div { class: "block is-flex is-flex-wrap-wrap",

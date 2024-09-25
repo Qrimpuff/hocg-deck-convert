@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, error::Error};
+use std::{collections::BTreeMap, error::Error, ops::Not};
 
 use dioxus::prelude::*;
 use dioxus_logger::tracing::info;
@@ -27,7 +27,8 @@ impl From<DeckCard> for (String, u32) {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Deck {
-    deck_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    deck_name: Option<String>,
     oshi: OshiCard,
     deck: BTreeMap<String, u32>,
     cheer_deck: BTreeMap<String, u32>,
@@ -91,7 +92,9 @@ impl CommonDeckConversion for Deck {
 
     fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck {
         CommonDeck {
-            name: value.deck_name,
+            name: value
+                .deck_name
+                .and_then(|n| n.trim().is_empty().not().then_some(n)),
             oshi: OshiCard::to_common_cards(value.oshi, map),
             main_deck: value
                 .deck
@@ -111,11 +114,13 @@ impl CommonDeckConversion for Deck {
 pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
     let mut deck_error = use_signal(String::new);
     let mut json = use_signal(String::new);
+    let mut file_name = use_signal(String::new);
 
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
         *common_deck.write() = None;
         *deck_error.write() = "".into();
+        *file_name.write() = "".into();
         if event.value().is_empty() {
             return;
         }
@@ -132,10 +137,13 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         *common_deck.write() = None;
         *deck_error.write() = "".into();
         *json.write() = "".into();
+        *file_name.write() = "".into();
         if let Some(file_engine) = event.files() {
             let files = file_engine.files();
-            for file_name in &files {
-                if let Some(contents) = file_engine.read_file(file_name).await {
+            for file in &files {
+                *file_name.write() = file.clone();
+
+                if let Some(contents) = file_engine.read_file(file).await {
                     let deck = Deck::from_file(&contents);
                     info!("{:?}", deck);
                     match deck {
@@ -156,7 +164,9 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
     rsx! {
         div { class: "field",
             div { class: "control",
-                div { class: "file",
+                div {
+                    class: "file",
+                    class: if !file_name.read().is_empty() { "has-name" },
                     label { "for": "holoduel_import_file", class: "file-label",
                         input {
                             id: "holoduel_import_file",
@@ -171,12 +181,15 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                             }
                             span { class: "file-label", " Load a file… " }
                         }
+                        if !file_name.read().is_empty() {
+                            span { class: "file-name", "{file_name}" }
+                        }
                     }
                 }
             }
         }
         div { class: "field",
-            label { "for": "holoduel_import_json", class: "label", "HoloDuel .json" }
+            label { "for": "holoduel_import_json", class: "label", "HoloDuel json" }
             div { class: "control",
                 textarea {
                     id: "holoduel_import_json",
@@ -245,7 +258,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             }
         }
         div { class: "field",
-            label { "for": "holoduel_export_json", class: "label", "HoloDuel .json" }
+            label { "for": "holoduel_export_json", class: "label", "HoloDuel json" }
             div { class: "control",
                 textarea {
                     id: "holoduel_export_json",

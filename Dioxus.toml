@@ -16,7 +16,7 @@ asset_dir = "assets"
 [web.app]
 
 # HTML title tag content
-title = "hocg-deck-convert"
+title = "hololive OCG Deck Converter"
 
 # for GitHub Pages
 base_path = "hocg-deck-convert"
@@ -36,7 +36,7 @@ watch_path = ["src", "assets"]
 
 style = [
    # Include from public_dir.
-   "./style.css",
+   "/{base_path}/style.css",
    # Or some asset from online cdn.
    "https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css",
    "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css",

@@ -13,14 +13,15 @@ pub enum DeckType {
     HoloDelta,
     HoloDuel,
     TabletopSim,
+    Unknown,
 }
 
-trait CommonCardsConversion {
+pub trait CommonCardsConversion {
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self;
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards;
 }
 
-trait CommonDeckConversion {
+pub trait CommonDeckConversion {
     fn from_common_deck(deck: CommonDeck, map: &CardsInfoMap) -> Self;
     fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck;
 }
@@ -74,7 +75,7 @@ impl CommonCards {
 
 #[derive(Debug, Clone)]
 pub struct CommonDeck {
-    pub name: String,
+    pub name: Option<String>,
     pub oshi: CommonCards,
     pub main_deck: Vec<CommonCards>,
     pub cheer_deck: Vec<CommonCards>,
@@ -82,24 +83,32 @@ pub struct CommonDeck {
 
 impl CommonDeck {
     pub fn file_name(&self) -> Option<String> {
-        if !self.name.is_ascii() {
+        let Some(name) = &self.name else {
+            return None;
+        };
+
+        if !name.is_ascii() {
             return None;
         }
 
-        if self.name.trim().is_empty() {
+        if name.trim().is_empty() {
             return None;
         }
 
         Some(
-            self.name
-                .trim()
+            name.trim()
                 .to_lowercase()
                 .chars()
                 .map(|c| match c {
                     'a'..='z' | '0'..='9' => c,
                     _ => '_',
                 })
-                .collect(),
+                .fold(String::new(), |mut acc, ch| {
+                    if ch != '_' || !acc.ends_with('_') {
+                        acc.push(ch);
+                    }
+                    acc
+                }),
         )
     }
 }
