@@ -82,34 +82,41 @@ pub struct CommonDeck {
 }
 
 impl CommonDeck {
-    pub fn file_name(&self) -> Option<String> {
-        let Some(name) = &self.name else {
-            return None;
-        };
+    pub fn required_deck_name(&self) -> String {
+        if let Some(name) = &self.name {
+            if name.trim().is_empty() {
+                self.default_deck_name()
+            } else {
+                name.clone()
+            }
+        } else {
+            self.default_deck_name()
+        }
+    }
 
+    pub fn default_deck_name(&self) -> String {
+        format!("Custom deck - {}", self.oshi.card_number)
+    }
+
+    pub fn file_name(&self) -> String {
+        let mut name = self.required_deck_name();
         if !name.is_ascii() {
-            return None;
+            name = self.default_deck_name();
         }
 
-        if name.trim().is_empty() {
-            return None;
-        }
-
-        Some(
-            name.trim()
-                .to_lowercase()
-                .chars()
-                .map(|c| match c {
-                    'a'..='z' | '0'..='9' => c,
-                    _ => '_',
-                })
-                .fold(String::new(), |mut acc, ch| {
-                    if ch != '_' || !acc.ends_with('_') {
-                        acc.push(ch);
-                    }
-                    acc
-                }),
-        )
+        name.trim()
+            .to_lowercase()
+            .chars()
+            .map(|c| match c {
+                'a'..='z' | '0'..='9' => c,
+                _ => '_',
+            })
+            .fold(String::new(), |mut acc, ch| {
+                if ch != '_' || !acc.ends_with('_') {
+                    acc.push(ch);
+                }
+                acc
+            })
     }
 }
 

@@ -12,7 +12,7 @@ use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, Common
 struct OshiCard(String, u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct DeckCard(String, u32, u32);
+struct DeckCards(String, u32, u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,8 +20,8 @@ pub struct Deck {
     #[serde(skip_serializing_if = "Option::is_none")]
     deck_name: Option<String>,
     oshi: OshiCard,
-    deck: Vec<DeckCard>,
-    cheer_deck: Vec<DeckCard>,
+    deck: Vec<DeckCards>,
+    cheer_deck: Vec<DeckCards>,
 }
 
 impl Deck {
@@ -52,9 +52,9 @@ impl CommonCardsConversion for OshiCard {
     }
 }
 
-impl CommonCardsConversion for DeckCard {
+impl CommonCardsConversion for DeckCards {
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self {
-        DeckCard(
+        DeckCards(
             cards.card_number.clone(),
             cards.amount,
             cards.art_order(map),
@@ -74,12 +74,12 @@ impl CommonDeckConversion for Deck {
             deck: deck
                 .main_deck
                 .into_iter()
-                .map(|c| DeckCard::from_common_cards(c, map))
+                .map(|c| DeckCards::from_common_cards(c, map))
                 .collect(),
             cheer_deck: deck
                 .cheer_deck
                 .into_iter()
-                .map(|c| DeckCard::from_common_cards(c, map))
+                .map(|c| DeckCards::from_common_cards(c, map))
                 .collect(),
         }
     }
@@ -93,12 +93,12 @@ impl CommonDeckConversion for Deck {
             main_deck: value
                 .deck
                 .into_iter()
-                .map(|c| DeckCard::to_common_cards(c, map))
+                .map(|c| DeckCards::to_common_cards(c, map))
                 .collect(),
             cheer_deck: value
                 .cheer_deck
                 .into_iter()
-                .map(|c| DeckCard::to_common_cards(c, map))
+                .map(|c| DeckCards::to_common_cards(c, map))
                 .collect(),
         }
     }
@@ -228,7 +228,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             )
         });
         if let Some((file_name, deck)) = deck {
-            let file_name = format!("{}.holodelta.json", file_name.unwrap_or("deck".into()));
+            let file_name = format!("{}.holodelta.json", file_name);
             match deck.to_file() {
                 Ok(file) => download_file(&file_name, &file[..]),
                 Err(e) => *deck_error.write() = e.to_string(),

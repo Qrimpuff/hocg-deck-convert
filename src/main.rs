@@ -20,7 +20,7 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let _p2_c: Coroutine<()> = use_coroutine(|_rx| async move {
+    let _card_info: Coroutine<()> = use_coroutine(|_rx| async move {
         *CARDS_INFO.write() =
             reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/cards_info.json")
                 .await
@@ -66,15 +66,16 @@ fn Form() -> Element {
                                 *COMMON_DECK.write() = None;
                                 *import_format
                                     .write() = match ev.value().as_str() {
+                                    "deck_log" => Some(DeckType::DeckLog),
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
                                     "unknown" => Some(DeckType::Unknown),
                                     _ => None,
                                 };
                             },
-                            // option { "Deck Log" }
                             // option { "Tabletop Simulator (by Noodlebrain)" }
                             option { value: "none", "Select" }
+                            option { value: "deck_log", "Deck Log" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "unknown", "I don't know..." }
@@ -83,6 +84,9 @@ fn Form() -> Element {
                 }
             }
 
+            if import_format.read().as_ref() == Some(&DeckType::DeckLog) {
+                deck_log::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
             if import_format.read().as_ref() == Some(&DeckType::HoloDelta) {
                 holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }
