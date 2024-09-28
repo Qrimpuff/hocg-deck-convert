@@ -119,6 +119,53 @@ impl CommonDeck {
                 acc
             })
     }
+
+    pub fn validate(&self, map: &CardsInfoMap) -> Vec<String> {
+        let mut errors = vec![];
+
+        // check for unreleased or invalid cards
+        if self.oshi.manage_id.is_none()
+            || self.main_deck.iter().any(|c| c.manage_id.is_none())
+            || self.cheer_deck.iter().any(|c| c.manage_id.is_none())
+        {
+            errors.push("Contains unknown cards.".into());
+        }
+
+        // check for card amount
+        if self.oshi.manage_id.is_none() {
+            errors.push("Missing an Oshi card.".into());
+        }
+        if self.main_deck.iter().map(|c| c.amount).sum::<u32>() > 50 {
+            errors.push("Too many cards in main deck.".into());
+        }
+        if self.main_deck.iter().map(|c| c.amount).sum::<u32>() < 50 {
+            errors.push("Not enough cards in main deck.".into());
+        }
+        if self.cheer_deck.iter().map(|c| c.amount).sum::<u32>() > 20 {
+            errors.push("Too many cards in cheer deck.".into());
+        }
+        if self.cheer_deck.iter().map(|c| c.amount).sum::<u32>() < 20 {
+            errors.push("Not enough cards in cheer deck.".into());
+        }
+
+        // check for unlimited cards
+        for card in &self.main_deck {
+            if card.amount
+                > card
+                    .manage_id
+                    .as_ref()
+                    .and_then(|m| {
+                        map.get(&m.parse().expect("should be a number"))
+                            .map(|i| i.max)
+                    })
+                    .unwrap_or(50)
+            {
+                errors.push(format!("Too many {} in main deck.", card.card_number));
+            }
+        }
+
+        errors
+    }
 }
 
 pub type CardsInfoMap = BTreeMap<u32, CardInfoEntry>;

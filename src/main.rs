@@ -261,6 +261,8 @@ pub enum CardType {
 #[component]
 fn DeckPreview() -> Element {
     let deck = COMMON_DECK.read();
+    let map = CARDS_INFO.read();
+
     let Some(deck) = deck.as_ref() else {
         return rsx! {};
     };
@@ -279,7 +281,23 @@ fn DeckPreview() -> Element {
         }
     });
 
+    let warnings = deck.validate(&map);
+
     rsx! {
+        if !warnings.is_empty() {
+            article { class: "message is-warning",
+                div { class: "message-header",
+                    p { "Warning" }
+                }
+                div { class: "message-body content",
+                    ul {
+                        for warn in warnings {
+                            li { "{warn}" }
+                        }
+                    }
+                }
+            }
+        }
         h2 { class: "title is-4", "Deck preview" }
         p { class: "subtitle is-6 is-spaced",
             if let Some(name) = &deck.name {
