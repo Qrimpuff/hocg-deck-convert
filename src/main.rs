@@ -69,15 +69,16 @@ fn Form() -> Element {
                                     "deck_log" => Some(DeckType::DeckLog),
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
+                                    "hocg_tts" => Some(DeckType::TabletopSim),
                                     "unknown" => Some(DeckType::Unknown),
                                     _ => None,
                                 };
                             },
-                            // option { "Tabletop Simulator (by Noodlebrain)" }
                             option { value: "none", "Select" }
                             option { value: "deck_log", "Deck Log" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
+                            option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
                             option { value: "unknown", "I don't know..." }
                         }
                     }
@@ -92,6 +93,9 @@ fn Form() -> Element {
             }
             if import_format.read().as_ref() == Some(&DeckType::HoloDuel) {
                 holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
+            if import_format.read().as_ref() == Some(&DeckType::TabletopSim) {
+                tabletop_sim::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }
             if import_format.read().as_ref() == Some(&DeckType::Unknown) {
                 UnknownImport { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
@@ -110,14 +114,15 @@ fn Form() -> Element {
                                     .write() = match ev.value().as_str() {
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
+                                    "hocg_tts" => Some(DeckType::TabletopSim),
                                     _ => None,
                                 }
                             },
                             // option { "Deck Log" }
-                            // option { "Tabletop Simulator (by Noodlebrain)" }
                             option { value: "none", "Select" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
+                            option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
                         }
                     }
                 }
@@ -150,6 +155,9 @@ fn Form() -> Element {
             }
             if export_format.read().as_ref() == Some(&DeckType::HoloDuel) {
                 holoduel::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
+            if export_format.read().as_ref() == Some(&DeckType::TabletopSim) {
+                tabletop_sim::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }
         }
     }
@@ -192,6 +200,17 @@ pub fn UnknownImport(
                         *common_deck.write() =
                             Some(holoduel::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() = "Deck file format: HoloDuel".into();
+                        return;
+                    }
+
+                    // Tabletop Sim
+                    let deck = tabletop_sim::Deck::from_file(&contents);
+                    info!("{:?}", deck);
+                    if let Ok(deck) = deck {
+                        *common_deck.write() =
+                            Some(tabletop_sim::Deck::to_common_deck(deck, &map.read()));
+                        *deck_success.write() =
+                            "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
                         return;
                     }
 
@@ -243,7 +262,7 @@ pub enum CardType {
 fn DeckPreview() -> Element {
     let deck = COMMON_DECK.read();
     let Some(deck) = deck.as_ref() else {
-        return rsx! {  };
+        return rsx! {};
     };
 
     let oshi = rsx! {

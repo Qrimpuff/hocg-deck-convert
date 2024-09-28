@@ -1,15 +1,10 @@
-use std::{collections::BTreeMap, fs, path::Path, sync::OnceLock};
-use std::{error::Error, ops::Not};
+use std::error::Error;
+use std::sync::OnceLock;
 
 use dioxus::prelude::*;
 use dioxus_logger::tracing::info;
-use gloo::net::http::Request;
-use reqwest::header::CONTENT_TYPE;
-use reqwest::{header::REFERER, Client, ClientBuilder};
+use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
-use web_sys::RequestMode;
-
-use crate::download_file;
 
 use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
 
@@ -234,8 +229,10 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                 }
             }
             p { class: "help is-danger", "{deck_error}" }
-            if !*is_url.read() && !deck_log_url.read().is_empty() {
-                p { class: "help", a { href: "{deck_log_url}", target:"_blank", "{deck_log_url}" }}
+            if !deck_log_url.read().is_empty() {
+                p { class: "help",
+                    a { href: "{deck_log_url}", target: "_blank", "{deck_log_url}" }
+                }
             }
         }
 
@@ -245,7 +242,8 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                     r#type: "button",
                     class: "button",
                     class: if *loading.read() { "is-loading" },
-                    disabled: import_url_code.read().is_empty() || !deck_error.read().is_empty() || *loading.read(),
+                    disabled: import_url_code.read().is_empty() || !deck_error.read().is_empty()
+                        || *loading.read(),
                     onclick: import_deck,
                     span { class: "icon",
                         i { class: "fa-solid fa-download" }

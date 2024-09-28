@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub mod deck_log;
 pub mod holodelta;
 pub mod holoduel;
+pub mod json;
 pub mod tabletop_sim;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
