@@ -135,17 +135,27 @@ impl CommonDeck {
         if self.oshi.manage_id.is_none() {
             errors.push("Missing an Oshi card.".into());
         }
-        if self.main_deck.iter().map(|c| c.amount).sum::<u32>() > 50 {
-            errors.push("Too many cards in main deck.".into());
+        let main_deck_amount = self.main_deck.iter().map(|c| c.amount).sum::<u32>();
+        if main_deck_amount > 50 {
+            errors.push(format!(
+                "Too many cards in main deck. ({main_deck_amount} cards)"
+            ));
         }
-        if self.main_deck.iter().map(|c| c.amount).sum::<u32>() < 50 {
-            errors.push("Not enough cards in main deck.".into());
+        if main_deck_amount < 50 {
+            errors.push(format!(
+                "Not enough cards in main deck. ({main_deck_amount} cards)"
+            ));
         }
-        if self.cheer_deck.iter().map(|c| c.amount).sum::<u32>() > 20 {
-            errors.push("Too many cards in cheer deck.".into());
+        let cheer_deck_amount = self.cheer_deck.iter().map(|c| c.amount).sum::<u32>();
+        if cheer_deck_amount > 20 {
+            errors.push(format!(
+                "Too many cards in cheer deck. ({cheer_deck_amount} cards)"
+            ));
         }
-        if self.cheer_deck.iter().map(|c| c.amount).sum::<u32>() < 20 {
-            errors.push("Not enough cards in cheer deck.".into());
+        if cheer_deck_amount < 20 {
+            errors.push(format!(
+                "Not enough cards in cheer deck. ({cheer_deck_amount} cards)"
+            ));
         }
 
         // check for unlimited cards
@@ -160,7 +170,10 @@ impl CommonDeck {
                     })
                     .unwrap_or(50)
             {
-                errors.push(format!("Too many {} in main deck.", card.card_number));
+                errors.push(format!(
+                    "Too many {} in main deck.  ({} cards)",
+                    card.card_number, card.amount
+                ));
             }
         }
 

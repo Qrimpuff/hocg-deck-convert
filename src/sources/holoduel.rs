@@ -1,6 +1,7 @@
-use std::{collections::BTreeMap, error::Error, ops::Not};
+use std::{error::Error, ops::Not};
 
 use dioxus::prelude::*;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::json::{JsonExport, JsonImport};
@@ -30,8 +31,8 @@ pub struct Deck {
     #[serde(skip_serializing_if = "Option::is_none")]
     deck_name: Option<String>,
     oshi: OshiCard,
-    deck: BTreeMap<String, u32>,
-    cheer_deck: BTreeMap<String, u32>,
+    deck: IndexMap<String, u32>,
+    cheer_deck: IndexMap<String, u32>,
 }
 
 impl Deck {
