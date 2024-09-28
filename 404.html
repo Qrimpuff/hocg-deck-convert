@@ -1,26 +1,29 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>hololive OCG Deck Converter</title>
   <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="/hocg-deck-convert/style.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css">
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="eaaa2375-48a2-47cc-8d62-88a633825515"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-badge@1.0.1/dist/bulma-badge.min.css">
 
 </head>
+
 <body>
   <div id="main"></div>
-  <script type="module">
+<script type="module">
     import init from "/hocg-deck-convert/assets/dioxus/hocg-deck-convert.js";
     init("/hocg-deck-convert/assets/dioxus/hocg-deck-convert_bg.wasm").then(wasm => {
       if (wasm.__wbindgen_start == undefined) {
         wasm.main();
       }
     });
-  </script>
-  
-</body>
+    </script>
+    </body>
+
 </html>
