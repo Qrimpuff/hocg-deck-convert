@@ -1,5 +1,5 @@
-use std::error::Error;
 use std::sync::OnceLock;
+use std::{collections::HashMap, error::Error};
 
 use dioxus::prelude::*;
 use dioxus_logger::tracing::info;
@@ -16,7 +16,7 @@ pub struct Cards {
     manage_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct Deck {
     game_title_id: u32,
@@ -45,6 +45,16 @@ impl Deck {
 struct ViewDeckRequest {
     game_title_id: Option<u32>,
     code: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+struct PublishDeckRequest(Deck);
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct ViewDeckResult {
+    deck_id: String,
 }
 
 impl Deck {
@@ -89,8 +99,29 @@ impl Deck {
         Ok(serde_json::from_str(&content).map_err(|_| content)?)
     }
 
-    pub async fn publish(&self) -> Result<String, Box<dyn Error>> {
-        todo!()
+    pub async fn publish(&self, game_title_id: u32) -> Result<String, Box<dyn Error>> {
+        let mut req = PublishDeckRequest(self.clone());
+        req.0.game_title_id = game_title_id;
+
+        let resp = http_client()
+            .post("https://hocg-deck-log-proxy.shuttleapp.rs/publish-deck")
+            .json(&req)
+            .send()
+            .await
+            .unwrap();
+
+        let content = resp.text().await.unwrap();
+        info!("{:?}", content);
+
+        let res: ViewDeckResult = serde_json::from_str(&content).map_err(|_| content)?;
+
+        let deck = Deck {
+            game_title_id,
+            deck_id: res.deck_id,
+            ..Deck::default()
+        };
+
+        Ok(deck.view_url())
     }
 }
 
@@ -115,8 +146,8 @@ impl CommonCardsConversion for Cards {
 impl CommonDeckConversion for Deck {
     fn from_common_deck(deck: CommonDeck, map: &CardsInfoMap) -> Self {
         Deck {
-            game_title_id: 9,       // 9 for hOCG on JP deck log // TODO adjust for EN
-            deck_id: "TODO".into(), // TODO not sure what to put here?
+            game_title_id: 0,   // is set before publishing
+            deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name(),
             p_list: vec![Cards::from_common_cards(deck.oshi, map)],
             list: deck
@@ -197,6 +228,7 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
     let import_deck = move |_| async move {
         *loading.write() = true;
         *deck_log_url.write() = String::new();
+
         let deck = if *is_url.read() {
             Deck::from_url(&import_url_code.read()).await
         } else {
@@ -211,6 +243,7 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             }
             Err(e) => *deck_error.write() = e.to_string(),
         }
+
         *loading.write() = false;
     };
 
@@ -255,68 +288,98 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
     }
 }
 
-// #[component]
-// pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
-//     let mut deck_error = use_signal(String::new);
+static PUBLISH_CACHE: GlobalSignal<HashMap<(u32, u64), String>> = Signal::global(Default::default);
 
-//     let deck: Option<Deck> = common_deck
-//         .read()
-//         .as_ref()
-//         .map(|d| Deck::from_common_deck(d.clone(), &map.read()));
-//     info!("{:?}", deck);
-//     let text = match deck {
-//         Some(deck) => match deck.to_text() {
-//             Ok(text) => text,
-//             Err(e) => {
-//                 *deck_error.write() = e.to_string();
-//                 "".into()
-//             }
-//         },
-//         None => "".into(),
-//     };
+#[component]
+pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+    let mut deck_error = use_signal(String::new);
+    let mut game_title_id = use_signal(|| 9); // default to Deck Log JP
+    let mut deck_log_url = use_signal(String::new);
+    let mut loading = use_signal(|| false);
 
-//     let download_file = move |_| {
-//         let deck: Option<_> = common_deck.read().as_ref().map(|d| {
-//             (
-//                 d.file_name(),
-//                 Deck::from_common_deck(d.clone(), &map.read()),
-//             )
-//         });
-//         if let Some((file_name, deck)) = deck {
-//             let file_name = format!("{}.holodelta.json", file_name.unwrap_or("deck".into()));
-//             match deck.to_file() {
-//                 Ok(file) => download_file(&file_name, &file[..]),
-//                 Err(e) => *deck_error.write() = e.to_string(),
-//             }
-//         }
-//     };
+    let warnings = common_deck
+        .read()
+        .as_ref()
+        .map(|d| d.validate(&map.read()))
+        .unwrap_or_default();
 
-//     rsx! {
-//         div { class: "field",
-//             div { class: "control",
-//                 button {
-//                     class: "button",
-//                     disabled: common_deck.read().is_none(),
-//                     r#type: "button",
-//                     onclick: download_file,
-//                     span { class: "icon",
-//                         i { class: "fa-solid fa-download" }
-//                     }
-//                     span { "Download deck file" }
-//                 }
-//             }
-//         }
-//         div { class: "field",
-//             label { "for": "holodelta_export_json", class: "label", "holoDelta json" }
-//             div { class: "control",
-//                 textarea {
-//                     id: "holodelta_export_json",
-//                     class: "textarea",
-//                     readonly: true,
-//                     value: "{text}"
-//                 }
-//             }
-//             p { class: "help is-danger", "{deck_error}" }
-//         }
-//     }
-// }
+    let publish_deck = move |_| async move {
+        let common_deck = common_deck.read();
+        let Some(common_deck) = common_deck.as_ref() else {
+            return;
+        };
+
+        *loading.write() = true;
+        *deck_log_url.write() = String::new();
+        *deck_error.write() = String::new();
+
+        if let Some(url) = PUBLISH_CACHE
+            .read()
+            .get(&(*game_title_id.read(), common_deck.calculate_hash()))
+        {
+            *deck_log_url.write() = url.clone();
+            *loading.write() = false;
+            return;
+        }
+
+        let deck = Deck::from_common_deck(common_deck.clone(), &map.read());
+        match deck.publish(*game_title_id.read()).await {
+            Ok(url) => {
+                *deck_log_url.write() = url.clone();
+                PUBLISH_CACHE
+                    .write()
+                    .insert((*game_title_id.read(), common_deck.calculate_hash()), url);
+            }
+            Err(e) => *deck_error.write() = e.to_string(),
+        }
+
+        *loading.write() = false;
+    };
+
+    rsx! {
+        div { class: "field",
+            label { "for": "game_title_id", class: "label", "Deck Log language" }
+            div { class: "control",
+                div { class: "select",
+                    select {
+                        id: "game_title_id",
+                        oninput: move |ev| {
+                            *deck_log_url.write() = String::new();
+                            *deck_error.write() = String::new();
+                            *game_title_id
+                                .write() = match ev.value().as_str() {
+                                "9" => 9,
+                                "108" => 108,
+                                _ => unreachable!(),
+                            };
+                        },
+                        option { value: "9", "Deck Log JP" }
+                        option { value: "108", "Deck Log EN (JP version)" }
+                    }
+                }
+            }
+            p { class: "help is-danger", "{deck_error}" }
+            if !deck_log_url.read().is_empty() {
+                p { class: "help",
+                    a { href: "{deck_log_url}", target: "_blank", "{deck_log_url}" }
+                }
+            }
+        }
+
+        div { class: "field",
+            div { class: "control",
+                button {
+                    r#type: "button",
+                    class: "button",
+                    class: if *loading.read() { "is-loading" },
+                    disabled: common_deck.read().is_none() || !warnings.is_empty() || *loading.read(),
+                    onclick: publish_deck,
+                    span { class: "icon",
+                        i { class: "fa-solid fa-upload" }
+                    }
+                    span { "Publish deck" }
+                }
+            }
+        }
+    }
+}

@@ -75,7 +75,7 @@ fn Form() -> Element {
                                 };
                             },
                             option { value: "none", "Select" }
-                            option { value: "deck_log", "Deck Log" }
+                            option { value: "deck_log", "Deck Log (Bushiroad)" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
@@ -112,6 +112,7 @@ fn Form() -> Element {
                             oninput: move |ev| {
                                 *export_format
                                     .write() = match ev.value().as_str() {
+                                    "deck_log" => Some(DeckType::DeckLog),
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
                                     "hocg_tts" => Some(DeckType::TabletopSim),
@@ -120,6 +121,7 @@ fn Form() -> Element {
                             },
                             // option { "Deck Log" }
                             option { value: "none", "Select" }
+                            option { value: "deck_log", "Deck Log (Bushiroad)" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
@@ -128,28 +130,9 @@ fn Form() -> Element {
                 }
             }
 
-            // div { class: "field",
-            //     div { class: "control",
-            //         button { class: "button",
-            //             span { class: "icon",
-            //                 i { class: "fa-solid fa-download" }
-            //             }
-            //             span { "Download deck file" }
-            //         }
-            //     }
-            // }
-
-            // div { class: "field",
-            //     div { class: "control",
-            //         button { class: "button",
-            //             span { class: "icon",
-            //                 i { class: "fa-solid fa-upload" }
-            //             }
-            //             span { "Upload to Deck Log" }
-            //         }
-            //     }
-            // }
-
+            if export_format.read().as_ref() == Some(&DeckType::DeckLog) {
+                deck_log::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            }
             if export_format.read().as_ref() == Some(&DeckType::HoloDelta) {
                 holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
             }

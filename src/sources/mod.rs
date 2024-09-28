@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    hash::{DefaultHasher, Hash, Hasher},
+};
 
 use serde::Deserialize;
 
@@ -27,7 +30,7 @@ pub trait CommonDeckConversion {
     fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CommonCards {
     pub manage_id: Option<String>,
     pub card_number: String,
@@ -74,7 +77,7 @@ impl CommonCards {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct CommonDeck {
     pub name: Option<String>,
     pub oshi: CommonCards,
@@ -178,6 +181,12 @@ impl CommonDeck {
         }
 
         errors
+    }
+
+    pub fn calculate_hash(&self) -> u64 {
+        let mut s = DefaultHasher::new();
+        self.hash(&mut s);
+        s.finish()
     }
 }
 
