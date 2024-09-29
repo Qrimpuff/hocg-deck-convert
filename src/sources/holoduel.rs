@@ -54,6 +54,8 @@ impl Deck {
 }
 
 impl CommonCardsConversion for OshiCard {
+    type CardDeck = OshiCard;
+
     fn from_common_cards(cards: CommonCards, _map: &CardsInfoMap) -> Self {
         OshiCard(cards.card_number.clone())
     }
@@ -61,15 +63,42 @@ impl CommonCardsConversion for OshiCard {
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
         CommonCards::from_card_number_and_art_order(value.0, 0, 1, map)
     }
+
+    fn build_custom_deck(_cards: Vec<CommonCards>, _map: &CardsInfoMap) -> Self::CardDeck {
+        unimplemented!("not needed for single card")
+    }
+
+    fn build_common_deck(_cards: Self::CardDeck, _map: &CardsInfoMap) -> Vec<CommonCards> {
+        unimplemented!("not needed for single card")
+    }
 }
 
 impl CommonCardsConversion for DeckCards {
+    type CardDeck = IndexMap<String, u32>;
+
     fn from_common_cards(cards: CommonCards, _map: &CardsInfoMap) -> Self {
         DeckCards(cards.card_number.clone(), cards.amount)
     }
 
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
         CommonCards::from_card_number_and_art_order(value.0, 0, value.1, map)
+    }
+
+    fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
+        cards
+            .into_iter()
+            .map(|c| DeckCards::from_common_cards(c, map))
+            .fold(Default::default(), |mut acc, c| {
+                *acc.entry(c.0).or_default() += c.1;
+                acc
+            })
+    }
+
+    fn build_common_deck(cards: Self::CardDeck, map: &CardsInfoMap) -> Vec<CommonCards> {
+        cards
+            .into_iter()
+            .map(|c| DeckCards::to_common_cards(c.into(), map))
+            .collect()
     }
 }
 
@@ -78,16 +107,8 @@ impl CommonDeckConversion for Deck {
         Deck {
             deck_name: deck.name,
             oshi: OshiCard::from_common_cards(deck.oshi, map),
-            deck: deck
-                .main_deck
-                .into_iter()
-                .map(|c| DeckCards::from_common_cards(c, map).into())
-                .collect(),
-            cheer_deck: deck
-                .cheer_deck
-                .into_iter()
-                .map(|c| DeckCards::from_common_cards(c, map).into())
-                .collect(),
+            deck: DeckCards::build_custom_deck(deck.main_deck, map),
+            cheer_deck: DeckCards::build_custom_deck(deck.cheer_deck, map),
         }
     }
 
@@ -97,16 +118,8 @@ impl CommonDeckConversion for Deck {
                 .deck_name
                 .and_then(|n| n.trim().is_empty().not().then_some(n)),
             oshi: OshiCard::to_common_cards(value.oshi, map),
-            main_deck: value
-                .deck
-                .into_iter()
-                .map(|c| DeckCards::to_common_cards(c.into(), map))
-                .collect(),
-            cheer_deck: value
-                .cheer_deck
-                .into_iter()
-                .map(|c| DeckCards::to_common_cards(c.into(), map))
-                .collect(),
+            main_deck: DeckCards::build_common_deck(value.deck, map),
+            cheer_deck: DeckCards::build_common_deck(value.cheer_deck, map),
         }
     }
 }

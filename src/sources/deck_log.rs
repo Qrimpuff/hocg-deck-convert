@@ -126,6 +126,8 @@ impl Deck {
 }
 
 impl CommonCardsConversion for Cards {
+    type CardDeck = Vec<Cards>;
+
     fn from_common_cards(cards: CommonCards, _map: &CardsInfoMap) -> Self {
         Cards {
             card_number: cards.card_number,
@@ -141,6 +143,20 @@ impl CommonCardsConversion for Cards {
             amount: value.num,
         }
     }
+
+    fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
+        cards
+            .into_iter()
+            .map(|c| Cards::from_common_cards(c, map))
+            .collect()
+    }
+
+    fn build_common_deck(cards: Self::CardDeck, map: &CardsInfoMap) -> Vec<CommonCards> {
+        cards
+            .into_iter()
+            .map(|c| Cards::to_common_cards(c, map))
+            .collect()
+    }
 }
 
 impl CommonDeckConversion for Deck {
@@ -149,34 +165,18 @@ impl CommonDeckConversion for Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name(),
-            p_list: vec![Cards::from_common_cards(deck.oshi, map)],
-            list: deck
-                .main_deck
-                .into_iter()
-                .map(|c| Cards::from_common_cards(c, map))
-                .collect(),
-            sub_list: deck
-                .cheer_deck
-                .into_iter()
-                .map(|c| Cards::from_common_cards(c, map))
-                .collect(),
+            p_list: Cards::build_custom_deck(vec![deck.oshi], map),
+            list: Cards::build_custom_deck(deck.main_deck, map),
+            sub_list: Cards::build_custom_deck(deck.cheer_deck, map),
         }
     }
 
-    fn to_common_deck(mut value: Self, map: &CardsInfoMap) -> CommonDeck {
+    fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck {
         CommonDeck {
             name: Some(value.title),
-            oshi: Cards::to_common_cards(value.p_list.swap_remove(0), map),
-            main_deck: value
-                .list
-                .into_iter()
-                .map(|c| Cards::to_common_cards(c, map))
-                .collect(),
-            cheer_deck: value
-                .sub_list
-                .into_iter()
-                .map(|c| Cards::to_common_cards(c, map))
-                .collect(),
+            oshi: Cards::build_common_deck(value.p_list, map).swap_remove(0),
+            main_deck: Cards::build_common_deck(value.list, map),
+            cheer_deck: Cards::build_common_deck(value.sub_list, map),
         }
     }
 }

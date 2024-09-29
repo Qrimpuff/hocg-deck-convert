@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     hash::{DefaultHasher, Hash, Hasher},
 };
 
@@ -20,9 +20,14 @@ pub enum DeckType {
     Unknown,
 }
 
-pub trait CommonCardsConversion {
+pub trait CommonCardsConversion: Sized {
+    type CardDeck;
+
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self;
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards;
+
+    fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck;
+    fn build_common_deck(cards: Self::CardDeck, map: &CardsInfoMap) -> Vec<CommonCards>;
 }
 
 pub trait CommonDeckConversion {
@@ -162,11 +167,18 @@ impl CommonDeck {
         }
 
         // check for unlimited cards
-        for card in &self.main_deck {
+        // group cards by card number, to avoid miscalculation with different images
+        let main_deck = self.main_deck.iter().fold(HashMap::new(), |mut acc, c| {
+            *acc.entry(&c.card_number).or_default() += c.amount;
+            acc
+        });
+        for card in main_deck
+            .into_iter()
+            .map(|(k, v)| CommonCards::from_card_number(k.clone(), v, map))
+        {
             if card.amount
                 > card
                     .manage_id
-                    .as_ref()
                     .and_then(|m| {
                         map.get(&m.parse().expect("should be a number"))
                             .map(|i| i.max)
@@ -174,7 +186,7 @@ impl CommonDeck {
                     .unwrap_or(50)
             {
                 errors.push(format!(
-                    "Too many {} in main deck.  ({} cards)",
+                    "Too many {} in main deck. ({} cards)",
                     card.card_number, card.amount
                 ));
             }
@@ -190,6 +202,8 @@ impl CommonDeck {
     }
 }
 
+// need to keep the order to know which card image to use
+// (holoDelta is using a zero-based index)
 pub type CardsInfoMap = BTreeMap<u32, CardInfoEntry>;
 
 #[derive(Debug, Clone, Deserialize)]
