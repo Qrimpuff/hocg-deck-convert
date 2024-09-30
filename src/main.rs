@@ -43,6 +43,29 @@ fn App() -> Element {
                 }
             }
         }
+        footer { class: "footer",
+            div { class: "content has-text-centered has-text-grey",
+                p {
+                    "Made by "
+                    a { href: "https://github.com/Qrimpuff", "Qrimpuff" }
+                    ". The source code is licensed under "
+                    a { href: "https://github.com/Qrimpuff/hocg-deck-convert",
+                        span { class: "icon",
+                            i { class: "fa-brands fa-github" }
+                        }
+                        "MIT"
+                    }
+                    "."
+                }
+                p {
+                    "This is a fan website for the hololive Official Card Game and not affiliated with COVER Corp. "
+                    "This project was made while following all guidelines under the "
+                    a { href: "https://en.hololive.tv/terms", "Hololive Derivative Works guidelines" }
+                    ". © 2016 COVER Corp."
+                }
+                p { "Please support the official card game." }
+            }
+        }
     }
 }
 
@@ -78,7 +101,6 @@ fn Form() -> Element {
                                     _ => None,
                                 };
                             },
-                            option { value: "none", "Select" }
                             option { initial_selected: true, value: "deck_log", "Deck Log (Bushiroad)" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
@@ -125,8 +147,6 @@ fn Form() -> Element {
                                     _ => None,
                                 }
                             },
-                            // option { "Deck Log" }
-                            option { value: "none", "Select" }
                             option { value: "deck_log", "Deck Log (Bushiroad)" }
                             option { initial_selected: true, value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
