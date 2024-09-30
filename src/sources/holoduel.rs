@@ -4,7 +4,10 @@ use dioxus::prelude::*;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use super::json::{JsonExport, JsonImport};
+use super::{
+    json::{JsonExport, JsonImport},
+    MergeCommonCards,
+};
 use crate::DeckType;
 
 use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
@@ -61,7 +64,7 @@ impl CommonCardsConversion for OshiCard {
     }
 
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
-        CommonCards::from_card_number_and_art_order(value.0, 0, 1, map)
+        CommonCards::from_card_number_and_rarity_order(value.0, 0, 1, map)
     }
 
     fn build_custom_deck(_cards: Vec<CommonCards>, _map: &CardsInfoMap) -> Self::CardDeck {
@@ -81,24 +84,23 @@ impl CommonCardsConversion for DeckCards {
     }
 
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
-        CommonCards::from_card_number_and_art_order(value.0, 0, value.1, map)
+        CommonCards::from_card_number_and_rarity_order(value.0, 0, value.1, map)
     }
 
     fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
         cards
+            .merge_without_rarity()
             .into_iter()
-            .map(|c| DeckCards::from_common_cards(c, map))
-            .fold(Default::default(), |mut acc, c| {
-                *acc.entry(c.0).or_default() += c.1;
-                acc
-            })
+            .map(|c| DeckCards::from_common_cards(c, map).into())
+            .collect()
     }
 
     fn build_common_deck(cards: Self::CardDeck, map: &CardsInfoMap) -> Vec<CommonCards> {
         cards
             .into_iter()
             .map(|c| DeckCards::to_common_cards(c.into(), map))
-            .collect()
+            .collect::<Vec<_>>()
+            .merge()
     }
 }
 
@@ -127,13 +129,24 @@ impl CommonDeckConversion for Deck {
 #[component]
 pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
     rsx! {
-        JsonImport { deck_type: DeckType::HoloDuel, import_name: "HoloDuel",  common_deck, map }
+        JsonImport {
+            deck_type: DeckType::HoloDuel,
+            import_name: "HoloDuel",
+            common_deck,
+            map
+        }
     }
 }
 
 #[component]
 pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
     rsx! {
-        JsonExport { deck_type: DeckType::HoloDuel, export_name: "HoloDuel", export_id: "holoduel", common_deck, map }
+        JsonExport {
+            deck_type: DeckType::HoloDuel,
+            export_name: "HoloDuel",
+            export_id: "holoduel",
+            common_deck,
+            map
+        }
     }
 }

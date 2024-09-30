@@ -3,6 +3,7 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
 };
 
+use indexmap::IndexMap;
 use serde::Deserialize;
 
 pub mod deck_log;
@@ -54,24 +55,29 @@ impl CommonCards {
         }
     }
 
-    pub fn from_card_number_and_art_order(
+    pub fn from_card_number_and_rarity_order(
         card_number: String,
-        art_order: u32,
+        rarity_order: u32,
         amount: u32,
         map: &CardsInfoMap,
     ) -> Self {
         let card = map
             .values()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
-            .nth(art_order as usize);
-        CommonCards {
-            manage_id: card.map(|c| c.manage_id.clone()),
-            card_number: card.map(|c| c.card_number.clone()).unwrap_or(card_number),
-            amount,
+            .nth(rarity_order as usize);
+        if let Some(card) = card {
+            CommonCards {
+                manage_id: Some(card.manage_id.clone()),
+                card_number: card.card_number.clone(),
+                amount,
+            }
+        } else {
+            // default to basic rarity if not found
+            CommonCards::from_card_number(card_number, amount, map)
         }
     }
 
-    pub fn art_order(&self, map: &CardsInfoMap) -> u32 {
+    pub fn rarity_order(&self, map: &CardsInfoMap) -> u32 {
         map.values()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
             .enumerate()
@@ -79,6 +85,36 @@ impl CommonCards {
             .map(|(i, _)| i)
             .next()
             .unwrap_or_default() as u32
+    }
+}
+
+trait MergeCommonCards {
+    fn merge(self) -> Self;
+    fn merge_without_rarity(self) -> Self;
+}
+impl MergeCommonCards for Vec<CommonCards> {
+    fn merge(self) -> Self {
+        let mut map = IndexMap::with_capacity(self.len());
+
+        for card in self {
+            map.entry((card.card_number.clone(), card.manage_id.clone()))
+                .and_modify(|c: &mut CommonCards| c.amount += card.amount)
+                .or_insert(card);
+        }
+
+        map.into_values().collect()
+    }
+
+    fn merge_without_rarity(self) -> Self {
+        let mut map = IndexMap::with_capacity(self.len());
+
+        for card in self {
+            map.entry(card.card_number.clone())
+                .and_modify(|c: &mut CommonCards| c.amount += card.amount)
+                .or_insert(card);
+        }
+
+        map.into_values().collect()
     }
 }
 

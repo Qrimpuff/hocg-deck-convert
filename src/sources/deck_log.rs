@@ -6,7 +6,10 @@ use dioxus_logger::tracing::info;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
+use super::{
+    CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
+    MergeCommonCards,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -146,6 +149,7 @@ impl CommonCardsConversion for Cards {
 
     fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
         cards
+            .merge()
             .into_iter()
             .map(|c| Cards::from_common_cards(c, map))
             .collect()
@@ -155,7 +159,8 @@ impl CommonCardsConversion for Cards {
         cards
             .into_iter()
             .map(|c| Cards::to_common_cards(c, map))
-            .collect()
+            .collect::<Vec<_>>()
+            .merge()
     }
 }
 

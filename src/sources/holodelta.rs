@@ -1,13 +1,15 @@
 use std::{error::Error, ops::Not};
 
 use dioxus::prelude::*;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::DeckType;
 
 use super::json::{JsonExport, JsonImport};
-use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
+use super::{
+    CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
+    MergeCommonCards,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OshiCard(String, u32);
@@ -47,11 +49,11 @@ impl CommonCardsConversion for OshiCard {
     type CardDeck = OshiCard;
 
     fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self {
-        OshiCard(cards.card_number.clone(), cards.art_order(map))
+        OshiCard(cards.card_number.clone(), cards.rarity_order(map))
     }
 
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
-        CommonCards::from_card_number_and_art_order(value.0, value.1, 1, map)
+        CommonCards::from_card_number_and_rarity_order(value.0, value.1, 1, map)
     }
 
     fn build_custom_deck(_cards: Vec<CommonCards>, _map: &CardsInfoMap) -> Self::CardDeck {
@@ -70,24 +72,19 @@ impl CommonCardsConversion for DeckCards {
         DeckCards(
             cards.card_number.clone(),
             cards.amount,
-            cards.art_order(map),
+            cards.rarity_order(map),
         )
     }
 
     fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards {
-        CommonCards::from_card_number_and_art_order(value.0, value.2, value.1, map)
+        CommonCards::from_card_number_and_rarity_order(value.0, value.2, value.1, map)
     }
 
     fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
         cards
+            .merge()
             .into_iter()
             .map(|c| DeckCards::from_common_cards(c, map))
-            .fold(IndexMap::<(String, u32), u32>::new(), |mut acc, c| {
-                *acc.entry((c.0, c.2)).or_default() += c.1;
-                acc
-            })
-            .into_iter()
-            .map(|(k, v)| DeckCards(k.0, v, k.1))
             .collect()
     }
 
@@ -95,7 +92,8 @@ impl CommonCardsConversion for DeckCards {
         cards
             .into_iter()
             .map(|c| DeckCards::to_common_cards(c, map))
-            .collect()
+            .collect::<Vec<_>>()
+            .merge()
     }
 }
 

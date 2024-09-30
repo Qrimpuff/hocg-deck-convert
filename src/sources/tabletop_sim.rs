@@ -1,12 +1,14 @@
 use std::{error::Error, ops::Not};
 
 use dioxus::prelude::*;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::json::{JsonExport, JsonImport};
 
-use super::{CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion};
+use super::{
+    CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
+    MergeCommonCards,
+};
 use crate::DeckType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,14 +78,9 @@ impl CommonCardsConversion for DeckCards {
 
     fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
         cards
+            .merge_without_rarity()
             .into_iter()
             .map(|c| DeckCards::from_common_cards(c, map))
-            .fold(IndexMap::<String, u32>::new(), |mut acc, c| {
-                *acc.entry(c.0).or_default() += c.1;
-                acc
-            })
-            .into_iter()
-            .map(|(k, v)| DeckCards(k, v))
             .collect()
     }
 
@@ -91,7 +88,8 @@ impl CommonCardsConversion for DeckCards {
         cards
             .into_iter()
             .map(|c| DeckCards::to_common_cards(c, map))
-            .collect()
+            .collect::<Vec<_>>()
+            .merge()
     }
 }
 
