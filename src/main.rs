@@ -53,6 +53,10 @@ static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::d
 fn Form() -> Element {
     let mut import_format = use_signal(|| None);
     let mut export_format = use_signal(|| None);
+    use_effect(move || {
+        import_format.set(Some(DeckType::DeckLog));
+        export_format.set(Some(DeckType::HoloDelta));
+    });
 
     rsx! {
         form { class: "box",
@@ -75,7 +79,7 @@ fn Form() -> Element {
                                 };
                             },
                             option { value: "none", "Select" }
-                            option { value: "deck_log", "Deck Log (Bushiroad)" }
+                            option { initial_selected: true, value: "deck_log", "Deck Log (Bushiroad)" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
@@ -85,20 +89,22 @@ fn Form() -> Element {
                 }
             }
 
-            if import_format.read().as_ref() == Some(&DeckType::DeckLog) {
-                deck_log::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if import_format.read().as_ref() == Some(&DeckType::HoloDelta) {
-                holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if import_format.read().as_ref() == Some(&DeckType::HoloDuel) {
-                holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if import_format.read().as_ref() == Some(&DeckType::TabletopSim) {
-                tabletop_sim::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if import_format.read().as_ref() == Some(&DeckType::Unknown) {
-                UnknownImport { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            div {
+                if *import_format.read() == Some(DeckType::DeckLog) {
+                    deck_log::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *import_format.read() == Some(DeckType::HoloDelta) {
+                    holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *import_format.read() == Some(DeckType::HoloDuel) {
+                    holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *import_format.read() == Some(DeckType::TabletopSim) {
+                    tabletop_sim::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *import_format.read() == Some(DeckType::Unknown) {
+                    UnknownImport { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
             }
 
             hr {}
@@ -122,7 +128,7 @@ fn Form() -> Element {
                             // option { "Deck Log" }
                             option { value: "none", "Select" }
                             option { value: "deck_log", "Deck Log (Bushiroad)" }
-                            option { value: "holo_delta", "holoDelta" }
+                            option { initial_selected: true, value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
                         }
@@ -130,17 +136,19 @@ fn Form() -> Element {
                 }
             }
 
-            if export_format.read().as_ref() == Some(&DeckType::DeckLog) {
-                deck_log::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if export_format.read().as_ref() == Some(&DeckType::HoloDelta) {
-                holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if export_format.read().as_ref() == Some(&DeckType::HoloDuel) {
-                holoduel::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
-            }
-            if export_format.read().as_ref() == Some(&DeckType::TabletopSim) {
-                tabletop_sim::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+            div {
+                if *export_format.read() == Some(DeckType::DeckLog) {
+                    deck_log::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *export_format.read() == Some(DeckType::HoloDelta) {
+                    holodelta::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *export_format.read() == Some(DeckType::HoloDuel) {
+                    holoduel::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *export_format.read() == Some(DeckType::TabletopSim) {
+                    tabletop_sim::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
             }
         }
     }
@@ -247,7 +255,7 @@ fn DeckPreview() -> Element {
     let map = CARDS_INFO.read();
 
     let Some(deck) = deck.as_ref() else {
-        return rsx! {};
+        return rsx! {  };
     };
 
     let oshi = rsx! {
