@@ -20,6 +20,8 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    done_loading();
+
     let _card_info: Coroutine<()> = use_coroutine(|_rx| async move {
         *CARDS_INFO.write() =
             reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/cards_info.json")
@@ -144,6 +146,7 @@ fn Form() -> Element {
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
                                     "hocg_tts" => Some(DeckType::TabletopSim),
+                                    "proxy_sheet" => Some(DeckType::ProxySheet),
                                     _ => None,
                                 }
                             },
@@ -151,6 +154,7 @@ fn Form() -> Element {
                             option { initial_selected: true, value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
+                            option { value: "proxy_sheet", "Proxy sheet (PDF)" }
                         }
                     }
                 }
@@ -168,6 +172,9 @@ fn Form() -> Element {
                 }
                 if *export_format.read() == Some(DeckType::TabletopSim) {
                     tabletop_sim::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                }
+                if *export_format.read() == Some(DeckType::ProxySheet) {
+                    proxy_sheet::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
                 }
             }
         }
@@ -391,4 +398,10 @@ pub fn download_file(file_name: &str, content: impl BlobContents) {
     a.click();
     Url::revoke_object_url(&url).unwrap();
     document().body().unwrap().remove_child(&a).unwrap();
+}
+
+pub fn done_loading() {
+    if let Some(loading) = document().get_element_by_id("loading") {
+        loading.remove();
+    }
 }

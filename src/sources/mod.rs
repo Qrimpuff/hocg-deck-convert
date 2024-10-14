@@ -10,6 +10,7 @@ pub mod deck_log;
 pub mod holodelta;
 pub mod holoduel;
 pub mod json;
+pub mod proxy_sheet;
 pub mod tabletop_sim;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +19,7 @@ pub enum DeckType {
     HoloDelta,
     HoloDuel,
     TabletopSim,
+    ProxySheet,
     Unknown,
 }
 
@@ -127,6 +129,12 @@ pub struct CommonDeck {
 }
 
 impl CommonDeck {
+    pub fn all_cards(&self) -> impl Iterator<Item = &CommonCards> {
+        std::iter::once(&self.oshi)
+            .chain(self.main_deck.iter())
+            .chain(self.cheer_deck.iter())
+    }
+
     pub fn required_deck_name(&self) -> String {
         if let Some(name) = &self.name {
             if name.trim().is_empty() {

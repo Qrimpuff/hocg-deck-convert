@@ -17,3 +17,8 @@ dioxus-logger = "0.5.1"
 gloo = "0.11.0"
 web-sys = "0.3.70"
 indexmap = { version = "2.5.0", features = ["serde"] }
+# printpdf: the version on cargo is broken for wasm, and doesn't support reusing images
+printpdf = { git = "https://github.com/Qrimpuff/printpdf", branch = "reuse_image", features = [
+    "embedded_images",
+] }
+image = { version = "0.25.2", features = ["png", "webp"] }
