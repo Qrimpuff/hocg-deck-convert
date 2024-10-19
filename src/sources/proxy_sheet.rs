@@ -1,10 +1,12 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::iter;
+use std::{collections::HashMap, sync::Arc};
 
 use ::image::imageops::FilterType;
 use ::image::ImageFormat;
 use dioxus::prelude::*;
+use futures::future::join_all;
+use futures::lock::Mutex;
 use printpdf::*;
 
 use super::{CardsInfoMap, CommonDeck};
@@ -34,16 +36,21 @@ async fn generate_pdf(
         PaperSize::Letter => (Mm(215.9), Mm(279.4)),
     };
     // TODO maybe custom margin and gap
-    let margin = Mm(5.0);
+    let mut margin_width = Mm(5.0);
+    let mut margin_height = Mm(5.0);
     let gap = Mm(0.1);
 
-    let fit_width = (page_width - margin - margin) / (CARD_WIDTH + gap);
-    let fit_height = (page_height - margin - margin) / (CARD_HEIGHT + gap);
+    let fit_width = ((page_width - margin_width - margin_width) / (CARD_WIDTH + gap)).floor();
+    let fit_height = ((page_height - margin_height - margin_height) / (CARD_HEIGHT + gap)).floor();
     // TODO maybe auto rotate
     // let fit_width_side = (page_width - margin - margin) / CARD_HEIGHT;
     // let fit_height_side = (page_height - margin - margin) / CARD_WIDTH;
 
-    let cards_per_page = (fit_width.floor() * fit_height.floor()) as usize;
+    // center the cards
+    margin_width = (page_width - (CARD_WIDTH + gap) * fit_width) / 2.0;
+    margin_height = (page_height - (CARD_HEIGHT + gap) * fit_height) / 2.0;
+
+    let cards_per_page = (fit_width * fit_height) as usize;
     let cards: Box<dyn Iterator<Item = &crate::CommonCards>> = if include_cheers {
         Box::new(deck.all_cards())
     } else {
@@ -58,31 +65,37 @@ async fn generate_pdf(
     let doc = PdfDocument::empty(&title);
 
     // download the images (the browser should have them cached)
-    let mut img_cache = HashMap::new();
-    for card in deck.all_cards() {
-        let img_path = {
-            if let Some(manage_id) = &card.manage_id {
-                if let Some(card) = map.get(&manage_id.parse::<u32>().unwrap()) {
-                    card.img.clone()
+    let img_cache = Arc::new(Mutex::new(HashMap::with_capacity(cards.len())));
+    let download_images = deck.all_cards().map(|card| {
+        let img_cache = img_cache.clone();
+        async move {
+            let img_path = {
+                if let Some(manage_id) = &card.manage_id {
+                    if let Some(card) = map.get(&manage_id.parse::<u32>().unwrap()) {
+                        card.img.clone()
+                    } else {
+                        // skip missing card
+                        return;
+                    }
                 } else {
                     // skip missing card
-                    continue;
+                    return;
                 }
-            } else {
-                // skip missing card
-                continue;
-            }
-        };
+            };
 
-        let url = format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{img_path}");
-        let image_bytes = reqwest::get(&url).await.unwrap().bytes().await.unwrap();
+            let url = format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{img_path}");
+            let image_bytes = reqwest::get(&url).await.unwrap().bytes().await.unwrap();
 
-        let image = ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP)?;
-        let image = image.resize_exact(CARD_WIDTH_PX, CARD_HEIGHT_PX, FilterType::CatmullRom);
-        let image = Image::from_dynamic_image(&image);
-        img_cache.insert(card.manage_id.clone(), image);
-    }
+            let image =
+                ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP).unwrap();
+            let image = image.resize_exact(CARD_WIDTH_PX, CARD_HEIGHT_PX, FilterType::CatmullRom);
+            let image = Image::from_dynamic_image(&image);
+            img_cache.lock().await.insert(card.manage_id.clone(), image);
+        }
+    });
+    join_all(download_images).await;
 
+    let img_cache = img_cache.lock().await;
     for page_idx in 0..pages_count {
         let (page, layer) = doc.add_page(page_width, page_height, "layer");
         let page = doc.get_page(page);
@@ -116,13 +129,12 @@ async fn generate_pdf(
             image_transforms.push(ImageTransform {
                 dpi: Some(DPI),
                 translate_x: Some(
-                    margin + (CARD_WIDTH + gap) * (card_idx % fit_width.floor() as usize) as f32,
+                    margin_width + (CARD_WIDTH + gap) * (card_idx % fit_width as usize) as f32,
                 ),
                 translate_y: Some(
                     page_height
-                        - margin
-                        - (CARD_HEIGHT + gap)
-                            * (1.0 + (card_idx / fit_width.floor() as usize) as f32),
+                        - margin_height
+                        - (CARD_HEIGHT + gap) * (1.0 + (card_idx / fit_width as usize) as f32),
                 ),
                 ..Default::default()
             });
@@ -159,8 +171,12 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         *loading.write() = true;
         *deck_error.write() = String::new();
 
+        let ps = match *paper_size.read() {
+            PaperSize::A4 => "a4",
+            PaperSize::Letter => "letter",
+        };
         let file_name = common_deck.file_name();
-        let file_name = format!("{file_name}.proxy_sheet.pdf");
+        let file_name = format!("{file_name}.proxy_sheet.{ps}.pdf");
         match generate_pdf(
             common_deck,
             &map.read(),

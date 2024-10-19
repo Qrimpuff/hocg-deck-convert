@@ -1613,6 +1613,7 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-logger",
+ "futures",
  "gloo 0.11.0",
  "image",
  "indexmap",

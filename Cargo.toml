@@ -22,3 +22,4 @@ printpdf = { git = "https://github.com/Qrimpuff/printpdf", branch = "reuse_image
     "embedded_images",
 ] }
 image = { version = "0.25.2", features = ["png", "webp"] }
+futures = "0.3.31"
