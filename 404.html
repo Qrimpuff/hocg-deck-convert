@@ -25,7 +25,13 @@
 </head>
 
 <body>
-  <div id="main"></div>
+  <div id="main">
+    <div id="loading">
+      <div class="section">
+        <div class="container ">Loading...</div>
+      </div>
+    </div>
+  </div>
 <script type="module">
     import init from "/hocg-deck-convert/assets/dioxus/hocg-deck-convert.js";
     init("/hocg-deck-convert/assets/dioxus/hocg-deck-convert_bg.wasm").then(wasm => {
