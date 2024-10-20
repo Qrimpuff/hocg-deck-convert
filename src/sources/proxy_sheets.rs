@@ -11,7 +11,7 @@ use printpdf::*;
 use serde::Serialize;
 
 use super::{CardsInfoMap, CommonDeck};
-use crate::{download_file, track_convert_event, EventType};
+use crate::{download_file, track_convert_event, CardLanguage, EventType};
 
 #[derive(Clone, Copy, Serialize)]
 enum PaperSize {
@@ -22,6 +22,7 @@ enum PaperSize {
 async fn generate_pdf(
     deck: &CommonDeck,
     map: &CardsInfoMap,
+    card_lang: CardLanguage,
     paper_size: PaperSize,
     include_cheers: bool,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
@@ -58,11 +59,12 @@ async fn generate_pdf(
         Box::new(std::iter::once(&deck.oshi).chain(deck.main_deck.iter()))
     };
     let cards: Vec<_> = cards
+        .filter(|c| c.image_path(map, card_lang).is_some())
         .flat_map(|c| iter::repeat(c.clone()).take(c.amount as usize))
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
 
-    let title = format!("Proxy sheet for {}", deck.required_deck_name());
+    let title = format!("Proxy sheets for {}", deck.required_deck_name());
     let doc = PdfDocument::empty(&title);
 
     // download the images (the browser should have them cached)
@@ -70,22 +72,17 @@ async fn generate_pdf(
     let download_images = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
-            let img_path = {
-                if let Some(manage_id) = &card.manage_id {
-                    if let Some(card) = map.get(&manage_id.parse::<u32>().unwrap()) {
-                        card.img.clone()
-                    } else {
-                        // skip missing card
-                        return;
-                    }
-                } else {
-                    // skip missing card
-                    return;
-                }
+            let Some(img_path) = card.image_path(map, card_lang) else {
+                // skip missing card
+                return;
             };
 
-            let url = format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{img_path}");
-            let image_bytes = reqwest::get(&url).await.unwrap().bytes().await.unwrap();
+            let image_bytes = reqwest::get(&img_path)
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
 
             let image =
                 ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP).unwrap();
@@ -157,7 +154,11 @@ async fn generate_pdf(
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+pub fn Export(
+    mut common_deck: Signal<Option<CommonDeck>>,
+    map: Signal<CardsInfoMap>,
+    card_lang: Signal<CardLanguage>,
+) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -181,15 +182,20 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         *loading.write() = true;
         *deck_error.write() = String::new();
 
+        let lang = match *card_lang.read() {
+            CardLanguage::Japanese => "jp",
+            CardLanguage::English => "en",
+        };
         let ps = match *paper_size.read() {
             PaperSize::A4 => "a4",
             PaperSize::Letter => "letter",
         };
         let file_name = common_deck.file_name();
-        let file_name = format!("{file_name}.proxy_sheet.{ps}.pdf");
+        let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
         match generate_pdf(
             common_deck,
             &map.read(),
+            *card_lang.read(),
             *paper_size.read(),
             *include_cheers.read(),
         )
@@ -200,7 +206,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                 track_convert_event(
                     EventType::Export,
                     EventData {
-                        format: "Proxy sheet",
+                        format: "Proxy sheets",
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
                         error: None,
@@ -212,7 +218,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                 track_convert_event(
                     EventType::Export,
                     EventData {
-                        format: "Proxy sheet",
+                        format: "Proxy sheets",
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
                         error: Some(e.to_string()),
@@ -225,6 +231,28 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
     };
 
     rsx! {
+
+        div { class: "field",
+            label { "for": "card_language", class: "label", "Card language" }
+            div { class: "control",
+                div { class: "select",
+                    select {
+                        id: "card_language",
+                        oninput: move |ev| {
+                            *card_lang
+                                .write() = match ev.value().as_str() {
+                                "jp" => CardLanguage::Japanese,
+                                "en" => CardLanguage::English,
+                                _ => unreachable!(),
+                            };
+                        },
+                        option { value: "jp", "Japanese" }
+                        option { value: "en", "English" }
+                    }
+                }
+            }
+        }
+
         div { class: "field",
             label { "for": "paper_size", class: "label", "Paper size" }
             div { class: "control",

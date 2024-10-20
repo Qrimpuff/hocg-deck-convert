@@ -34,16 +34,22 @@ fn App() -> Element {
                 .unwrap()
     });
 
+    let card_lang = use_signal(|| CardLanguage::Japanese);
+
     rsx! {
         section { class: "section",
             div { class: "container",
                 h1 { class: "title", "hololive OCG Deck Converter" }
                 div { class: "block",
-                    "Convert your hOCG deck between many formats, e.g., Deck Log, holoDelta, HoloDuel, and Tabletop Simulator."
+                    "Convert your hOCG deck into various formats, such as Deck Log, holoDelta, HoloDuel, or even proxy sheets."
                 }
                 div { class: "columns is-tablet",
-                    div { class: "column is-two-fifths", Form {} }
-                    div { class: "column is-three-fifths", DeckPreview {} }
+                    div { class: "column is-two-fifths",
+                        Form { card_lang }
+                    }
+                    div { class: "column is-three-fifths",
+                        DeckPreview { card_lang }
+                    }
                 }
             }
         }
@@ -51,12 +57,18 @@ fn App() -> Element {
             div { class: "content has-text-centered has-text-grey",
                 p {
                     "Made by "
-                    a { href: "https://github.com/Qrimpuff", "Qrimpuff" }
-                    ". The source code is licensed under "
-                    a { href: "https://github.com/Qrimpuff/hocg-deck-convert",
+                    a {
+                        href: "https://github.com/Qrimpuff/hocg-deck-convert",
+                        target: "_blank",
                         span { class: "icon",
                             i { class: "fa-brands fa-github" }
                         }
+                        "Qrimpuff"
+                    }
+                    ". The source code is licensed under "
+                    a {
+                        href: "https://github.com/Qrimpuff/hocg-deck-convert/blob/main/LICENSE",
+                        target: "_blank",
                         "MIT"
                     }
                     "."
@@ -64,8 +76,24 @@ fn App() -> Element {
                 p {
                     "This is a fan website for the hololive Official Card Game and not affiliated with COVER Corp. "
                     "This project was made while following all guidelines under the "
-                    a { href: "https://en.hololive.tv/terms", "Hololive Derivative Works guidelines" }
+                    a {
+                        href: "https://en.hololive.tv/terms",
+                        target: "_blank",
+                        "hololive Derivative Works guidelines"
+                    }
                     ". © 2016 COVER Corp."
+                }
+                p {
+                    "English card translations and proxies are provided by the "
+                    a {
+                        href: "https://discord.com/invite/GJ9RhA22nP",
+                        target: "_blank",
+                        span { class: "icon",
+                            i { class: "fa-brands fa-discord" }
+                        }
+                        "Hololive OCG Fan Server"
+                    }
+                    "."
                 }
                 p { "Please support the official card game." }
             }
@@ -77,7 +105,7 @@ static CARDS_INFO: GlobalSignal<CardsInfoMap> = Signal::global(Default::default)
 static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::default);
 
 #[component]
-fn Form() -> Element {
+fn Form(card_lang: Signal<CardLanguage>) -> Element {
     let mut import_format = use_signal(|| None);
     let mut export_format = use_signal(|| None);
     use_effect(move || {
@@ -142,21 +170,22 @@ fn Form() -> Element {
                         select {
                             id: "export_format",
                             oninput: move |ev| {
+                                *card_lang.write() = CardLanguage::Japanese;
                                 *export_format
                                     .write() = match ev.value().as_str() {
                                     "deck_log" => Some(DeckType::DeckLog),
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
                                     "hocg_tts" => Some(DeckType::TabletopSim),
-                                    "proxy_sheet" => Some(DeckType::ProxySheet),
+                                    "proxy_sheets" => Some(DeckType::ProxySheets),
                                     _ => None,
-                                }
+                                };
                             },
                             option { value: "deck_log", "Deck Log (Bushiroad)" }
                             option { initial_selected: true, value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
-                            option { value: "proxy_sheet", "Proxy sheet (PDF)" }
+                            option { value: "proxy_sheets", "Proxy sheets (PDF)" }
                         }
                     }
                 }
@@ -175,8 +204,8 @@ fn Form() -> Element {
                 if *export_format.read() == Some(DeckType::TabletopSim) {
                     tabletop_sim::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
                 }
-                if *export_format.read() == Some(DeckType::ProxySheet) {
-                    proxy_sheet::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                if *export_format.read() == Some(DeckType::ProxySheets) {
+                    proxy_sheets::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal(), card_lang }
                 }
             }
         }
@@ -319,30 +348,45 @@ pub enum CardType {
     Main,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardLanguage {
+    Japanese,
+    English,
+}
+
 #[component]
-fn DeckPreview() -> Element {
+fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
     let deck = COMMON_DECK.read();
     let map = CARDS_INFO.read();
 
     let Some(deck) = deck.as_ref() else {
-        return rsx! {};
+        return rsx! {  };
     };
 
     let oshi = rsx! {
-        Cards { cards: deck.oshi.clone(), card_type: CardType::Oshi }
+        Cards { cards: deck.oshi.clone(), card_type: CardType::Oshi, card_lang }
     };
     let main_deck = deck.main_deck.iter().map(move |cards| {
         rsx! {
-            Cards { cards: cards.clone(), card_type: CardType::Main }
+            Cards { cards: cards.clone(), card_type: CardType::Main, card_lang }
         }
     });
     let cheer_deck = deck.cheer_deck.iter().map(move |cards| {
         rsx! {
-            Cards { cards: cards.clone(), card_type: CardType::Cheer }
+            Cards { cards: cards.clone(), card_type: CardType::Cheer, card_lang }
         }
     });
 
-    let warnings = deck.validate(&map);
+    let mut warnings = deck.validate(&map);
+
+    // warn on missing english proxy
+    if *card_lang.read() == CardLanguage::English
+        && deck
+            .all_cards()
+            .any(|c| c.image_path(&map, *card_lang.read()).is_none())
+    {
+        warnings.push("Missing english proxy.".into());
+    }
 
     rsx! {
         if !warnings.is_empty() {
@@ -383,40 +427,32 @@ fn DeckPreview() -> Element {
 }
 
 #[component]
-fn Cards(cards: CommonCards, card_type: CardType) -> Element {
-    let card_number = cards.card_number;
-
+fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage>) -> Element {
     let img_class = if card_type == CardType::Oshi {
         "card-img-oshi"
     } else {
         "card-img"
     };
 
-    let error_img_path = match card_type {
+    let error_img_path: &str = match card_type {
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
         CardType::Main => "card-back.webp",
     };
+    let error_img_path =
+        format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
 
-    let img_path = {
-        if let Some(manage_id) = &cards.manage_id {
-            if let Some(card) = CARDS_INFO.read().get(&manage_id.parse::<u32>().unwrap()) {
-                card.img.clone()
-            } else {
-                error_img_path.into()
-            }
-        } else {
-            error_img_path.into()
-        }
-    };
+    let img_path = cards
+        .image_path(&CARDS_INFO.read(), *card_lang.read())
+        .unwrap_or_else(|| error_img_path.clone());
 
     rsx! {
         div {
             figure { class: "image m-2 {img_class}",
                 img {
-                    title: "{card_number}",
+                    title: "{cards.card_number}",
                     border_radius: "3.7%",
-                    src: "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{img_path}",
-                    "onerror": "this.src='https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}'"
+                    src: "{img_path}",
+                    "onerror": "this.src='{error_img_path}'"
                 }
                 if card_type != CardType::Oshi {
                     span { class: "badge is-bottom is-dark", "{cards.amount}" }

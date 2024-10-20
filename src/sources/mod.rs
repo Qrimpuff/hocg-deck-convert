@@ -6,11 +6,13 @@ use std::{
 use indexmap::IndexMap;
 use serde::Deserialize;
 
+use crate::CardLanguage;
+
 pub mod deck_log;
 pub mod holodelta;
 pub mod holoduel;
 pub mod json;
-pub mod proxy_sheet;
+pub mod proxy_sheets;
 pub mod tabletop_sim;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +21,7 @@ pub enum DeckType {
     HoloDelta,
     HoloDuel,
     TabletopSim,
-    ProxySheet,
+    ProxySheets,
     Unknown,
 }
 
@@ -87,6 +89,34 @@ impl CommonCards {
             .map(|(i, _)| i)
             .next()
             .unwrap_or_default() as u32
+    }
+
+    pub fn to_lower_rarity(&self, map: &CardsInfoMap) -> Self {
+        CommonCards::from_card_number(self.card_number.clone(), self.amount, map)
+    }
+
+    pub fn image_path(&self, map: &CardsInfoMap, lang: CardLanguage) -> Option<String> {
+        let card = map.get(&self.manage_id.as_ref()?.parse::<u32>().ok()?)?;
+        if lang == CardLanguage::English {
+            if let Some(img_proxy_en) = &card.img_proxy_en {
+                Some(format!(
+                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_proxy_en/{img_proxy_en}",
+                ))
+            } else {
+                // fallback to lower rarity
+                let lower = self.to_lower_rarity(map);
+                let card = map.get(&lower.manage_id.as_ref()?.parse::<u32>().ok()?)?;
+                Some(format!(
+                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_proxy_en/{}",
+                    card.img_proxy_en.as_ref()?
+                ))
+            }
+        } else {
+            Some(format!(
+                "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{}",
+                card.img
+            ))
+        }
     }
 }
 
@@ -257,6 +287,7 @@ pub struct CardInfoEntry {
     pub manage_id: String,
     pub card_number: String,
     pub img: String,
+    pub img_proxy_en: Option<String>,
     pub max: u32,
     pub deck_type: String,
 }
