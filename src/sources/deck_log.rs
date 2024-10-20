@@ -6,6 +6,8 @@ use dioxus_logger::tracing::info;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
+use crate::{track_convert_event, EventType};
+
 use super::{
     CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
     MergeCommonCards,
@@ -102,7 +104,7 @@ impl Deck {
         Ok(serde_json::from_str(&content).map_err(|_| content)?)
     }
 
-    pub async fn publish(&self, game_title_id: u32) -> Result<String, Box<dyn Error>> {
+    pub async fn publish(&mut self, game_title_id: u32) -> Result<String, Box<dyn Error>> {
         let mut req = PublishDeckRequest(self.clone());
         req.0.game_title_id = game_title_id;
 
@@ -118,13 +120,10 @@ impl Deck {
 
         let res: ViewDeckResult = serde_json::from_str(&content).map_err(|_| content)?;
 
-        let deck = Deck {
-            game_title_id,
-            deck_id: res.deck_id,
-            ..Deck::default()
-        };
+        self.game_title_id = game_title_id;
+        self.deck_id = res.deck_id;
 
-        Ok(deck.view_url())
+        Ok(self.view_url())
     }
 }
 
@@ -193,6 +192,17 @@ fn http_client() -> &'static Client {
 
 #[component]
 pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        format: &'static str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        game_title_id: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        deck_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    }
+
     let mut deck_error = use_signal(String::new);
     let mut import_url_code = use_signal(String::new);
     let mut is_url = use_signal(|| false);
@@ -244,9 +254,29 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         match deck {
             Ok(deck) => {
                 *deck_log_url.write() = deck.view_url();
+                track_convert_event(
+                    EventType::Import,
+                    EventData {
+                        format: "Deck Log",
+                        game_title_id: Some(deck.game_title_id),
+                        deck_id: Some(deck.deck_id.clone()),
+                        error: None,
+                    },
+                );
                 *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
             }
-            Err(e) => *deck_error.write() = e.to_string(),
+            Err(e) => {
+                *deck_error.write() = e.to_string();
+                track_convert_event(
+                    EventType::Import,
+                    EventData {
+                        format: "Deck Log",
+                        game_title_id: None,
+                        deck_id: None,
+                        error: Some(e.to_string()),
+                    },
+                );
+            }
         }
 
         *loading.write() = false;
@@ -297,6 +327,16 @@ static PUBLISH_CACHE: GlobalSignal<HashMap<(u32, u64), String>> = Signal::global
 
 #[component]
 pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        format: &'static str,
+        game_title_id: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        deck_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    }
+
     let mut deck_error = use_signal(String::new);
     let mut game_title_id = use_signal(|| 9); // default to Deck Log JP
     let mut deck_log_url = use_signal(String::new);
@@ -327,15 +367,35 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             return;
         }
 
-        let deck = Deck::from_common_deck(common_deck.clone(), &map.read());
+        let mut deck = Deck::from_common_deck(common_deck.clone(), &map.read());
         match deck.publish(*game_title_id.read()).await {
             Ok(url) => {
                 *deck_log_url.write() = url.clone();
                 PUBLISH_CACHE
                     .write()
                     .insert((*game_title_id.read(), common_deck.calculate_hash()), url);
+                track_convert_event(
+                    EventType::Export,
+                    EventData {
+                        format: "Deck Log",
+                        game_title_id: *game_title_id.read(),
+                        deck_id: Some(deck.deck_id.clone()),
+                        error: None,
+                    },
+                );
             }
-            Err(e) => *deck_error.write() = e.to_string(),
+            Err(e) => {
+                *deck_error.write() = e.to_string();
+                track_convert_event(
+                    EventType::Export,
+                    EventData {
+                        format: "Deck Log",
+                        game_title_id: *game_title_id.read(),
+                        deck_id: None,
+                        error: Some(e.to_string()),
+                    },
+                );
+            }
         }
 
         *loading.write() = false;

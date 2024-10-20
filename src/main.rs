@@ -6,10 +6,12 @@ use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 use gloo::{
     file::{Blob, BlobContents},
-    utils::document,
+    utils::{document, format::JsValueSerdeExt},
 };
+use serde::Serialize;
 use sources::*;
-use web_sys::{wasm_bindgen::JsCast, Url};
+use wasm_bindgen::prelude::*;
+use web_sys::Url;
 
 fn main() {
     // Init logger
@@ -186,6 +188,15 @@ pub fn UnknownImport(
     mut common_deck: Signal<Option<CommonDeck>>,
     map: Signal<CardsInfoMap>,
 ) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        format: &'static str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        file_format: Option<&'static str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    }
+
     let mut deck_error = use_signal(String::new);
     let mut deck_success = use_signal(String::new);
     let mut file_name = use_signal(String::new);
@@ -208,6 +219,14 @@ pub fn UnknownImport(
                         *common_deck.write() =
                             Some(holodelta::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() = "Deck file format: holoDelta".into();
+                        track_convert_event(
+                            EventType::Import,
+                            EventData {
+                                format: "Unknown",
+                                file_format: Some("holoDelta"),
+                                error: None,
+                            },
+                        );
                         return;
                     }
 
@@ -218,6 +237,14 @@ pub fn UnknownImport(
                         *common_deck.write() =
                             Some(holoduel::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() = "Deck file format: HoloDuel".into();
+                        track_convert_event(
+                            EventType::Import,
+                            EventData {
+                                format: "Unknown",
+                                file_format: Some("HoloDuel"),
+                                error: None,
+                            },
+                        );
                         return;
                     }
 
@@ -229,10 +256,26 @@ pub fn UnknownImport(
                             Some(tabletop_sim::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() =
                             "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
+                        track_convert_event(
+                            EventType::Import,
+                            EventData {
+                                format: "Unknown",
+                                file_format: Some("Tabletop Sim"),
+                                error: None,
+                            },
+                        );
                         return;
                     }
 
                     *deck_error.write() = "Cannot parse deck file".into();
+                    track_convert_event(
+                        EventType::Import,
+                        EventData {
+                            format: "Unknown",
+                            file_format: None,
+                            error: Some("Cannot parse deck file".into()),
+                        },
+                    );
                 }
             }
         }
@@ -282,7 +325,7 @@ fn DeckPreview() -> Element {
     let map = CARDS_INFO.read();
 
     let Some(deck) = deck.as_ref() else {
-        return rsx! {  };
+        return rsx! {};
     };
 
     let oshi = rsx! {
@@ -404,4 +447,28 @@ pub fn done_loading() {
     if let Some(loading) = document().get_element_by_id("loading") {
         loading.remove();
     }
+}
+
+#[wasm_bindgen(module = "/assets/utils.js")]
+extern "C" {
+    fn track_event(event: &str, data: JsValue);
+}
+
+pub enum EventType {
+    Import,
+    Export,
+}
+
+pub fn track_convert_event<T>(event: EventType, data: T)
+where
+    T: serde::ser::Serialize,
+{
+    let event = match event {
+        EventType::Import => "import",
+        EventType::Export => "export",
+    };
+
+    let data = JsValue::from_serde(&data).unwrap();
+
+    track_event(event, data);
 }

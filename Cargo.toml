@@ -23,3 +23,4 @@ printpdf = { git = "https://github.com/Qrimpuff/printpdf", branch = "reuse_image
 ] }
 image = { version = "0.25.2", features = ["png", "webp"] }
 futures = "0.3.31"
+wasm-bindgen = { version = "0.2.95", features = ["serde"] }

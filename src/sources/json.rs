@@ -1,9 +1,13 @@
-use std::error::Error;
+use std::{
+    error::Error,
+    time::{Duration, Instant},
+};
 
 use dioxus::prelude::*;
 use dioxus_logger::tracing::info;
+use serde::Serialize;
 
-use crate::download_file;
+use crate::{download_file, track_convert_event, EventType};
 
 use super::{
     holodelta, holoduel, tabletop_sim, CardsInfoMap, CommonDeck, CommonDeckConversion, DeckType,
@@ -78,11 +82,20 @@ pub fn JsonImport(
     mut common_deck: Signal<Option<CommonDeck>>,
     map: Signal<CardsInfoMap>,
 ) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        format: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    }
+
     let import_id = import_name.to_lowercase();
 
+    let import_name = use_signal(|| import_name);
     let mut deck_error = use_signal(String::new);
     let mut json = use_signal(String::new);
     let mut file_name = use_signal(String::new);
+    let mut tracking_sent: Signal<Option<Instant>> = use_signal(|| None);
 
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
@@ -96,8 +109,42 @@ pub fn JsonImport(
         let deck = Deck::from_text(deck_type, &event.value());
         info!("{:?}", deck);
         match deck {
-            Ok(deck) => *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read())),
-            Err(e) => *deck_error.write() = e.to_string(),
+            Ok(deck) => {
+                *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                if tracking_sent
+                    .read()
+                    .as_ref()
+                    .map(|t| t.elapsed() >= Duration::from_secs(5))
+                    .unwrap_or(true)
+                {
+                    track_convert_event(
+                        EventType::Import,
+                        EventData {
+                            format: import_name.read().clone(),
+                            error: None,
+                        },
+                    );
+                    *tracking_sent.write() = Some(Instant::now());
+                }
+            }
+            Err(e) => {
+                *deck_error.write() = e.to_string();
+                if tracking_sent
+                    .read()
+                    .as_ref()
+                    .map(|t| t.elapsed() >= Duration::from_secs(5))
+                    .unwrap_or(true)
+                {
+                    track_convert_event(
+                        EventType::Import,
+                        EventData {
+                            format: import_name.read().clone(),
+                            error: Some(e.to_string()),
+                        },
+                    );
+                    *tracking_sent.write() = Some(Instant::now());
+                }
+            }
         }
     };
 
@@ -118,11 +165,39 @@ pub fn JsonImport(
                         Ok(deck) => {
                             *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
                             match String::from_utf8(contents) {
-                                Ok(contents) => *json.write() = contents,
-                                Err(e) => *deck_error.write() = e.to_string(),
+                                Ok(contents) => {
+                                    *json.write() = contents;
+                                    track_convert_event(
+                                        EventType::Import,
+                                        EventData {
+                                            format: import_name.read().clone(),
+                                            error: None,
+                                        },
+                                    );
+                                }
+                                Err(e) => {
+                                    *deck_error.write() = e.to_string();
+
+                                    track_convert_event(
+                                        EventType::Import,
+                                        EventData {
+                                            format: import_name.read().clone(),
+                                            error: Some(e.to_string()),
+                                        },
+                                    );
+                                }
                             }
                         }
-                        Err(e) => *deck_error.write() = e.to_string(),
+                        Err(e) => {
+                            *deck_error.write() = e.to_string();
+                            track_convert_event(
+                                EventType::Import,
+                                EventData {
+                                    format: import_name.read().clone(),
+                                    error: Some(e.to_string()),
+                                },
+                            );
+                        }
                     }
                 }
             }
@@ -182,8 +257,16 @@ pub fn JsonExport(
     mut common_deck: Signal<Option<CommonDeck>>,
     map: Signal<CardsInfoMap>,
 ) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        format: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    }
+
     let export_extension = format!("{export_id}.json");
 
+    let export_name = use_signal(|| export_name);
     let mut deck_error = use_signal(String::new);
 
     let deck: Option<Deck> = common_deck
@@ -212,8 +295,26 @@ pub fn JsonExport(
         if let Some((file_name, deck)) = deck {
             let file_name = format!("{file_name}.{export_extension}");
             match deck.to_file() {
-                Ok(file) => download_file(&file_name, &file[..]),
-                Err(e) => *deck_error.write() = e.to_string(),
+                Ok(file) => {
+                    download_file(&file_name, &file[..]);
+                    track_convert_event(
+                        EventType::Export,
+                        EventData {
+                            format: export_name.read().clone(),
+                            error: None,
+                        },
+                    );
+                }
+                Err(e) => {
+                    *deck_error.write() = e.to_string();
+                    track_convert_event(
+                        EventType::Export,
+                        EventData {
+                            format: export_name.read().clone(),
+                            error: Some(e.to_string()),
+                        },
+                    );
+                }
             }
         }
     };

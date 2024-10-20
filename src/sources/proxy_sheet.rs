@@ -8,11 +8,12 @@ use dioxus::prelude::*;
 use futures::future::join_all;
 use futures::lock::Mutex;
 use printpdf::*;
+use serde::Serialize;
 
 use super::{CardsInfoMap, CommonDeck};
-use crate::download_file;
+use crate::{download_file, track_convert_event, EventType};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 enum PaperSize {
     A4,
     Letter,
@@ -157,6 +158,15 @@ async fn generate_pdf(
 
 #[component]
 pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        format: &'static str,
+        paper_size: PaperSize,
+        include_cheers: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    }
+
     let mut deck_error = use_signal(String::new);
     let mut paper_size = use_signal(|| PaperSize::A4);
     let mut include_cheers = use_signal(|| false);
@@ -185,8 +195,30 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
         )
         .await
         {
-            Ok(file) => download_file(&file_name, &file[..]),
-            Err(e) => *deck_error.write() = e.to_string(),
+            Ok(file) => {
+                download_file(&file_name, &file[..]);
+                track_convert_event(
+                    EventType::Export,
+                    EventData {
+                        format: "Proxy sheet",
+                        paper_size: *paper_size.read(),
+                        include_cheers: *include_cheers.read(),
+                        error: None,
+                    },
+                );
+            }
+            Err(e) => {
+                *deck_error.write() = e.to_string();
+                track_convert_event(
+                    EventType::Export,
+                    EventData {
+                        format: "Proxy sheet",
+                        paper_size: *paper_size.read(),
+                        include_cheers: *include_cheers.read(),
+                        error: Some(e.to_string()),
+                    },
+                );
+            }
         }
 
         *loading.write() = false;
