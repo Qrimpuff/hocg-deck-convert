@@ -1,11 +1,9 @@
-use std::{
-    error::Error,
-    time::{Duration, Instant},
-};
+use std::error::Error;
 
 use dioxus::prelude::*;
 use dioxus_logger::tracing::info;
 use serde::Serialize;
+use web_time::{Duration, Instant};
 
 use crate::{download_file, track_convert_event, EventType};
 
