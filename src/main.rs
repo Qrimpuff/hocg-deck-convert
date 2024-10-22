@@ -348,7 +348,7 @@ pub enum CardType {
     Main,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum CardLanguage {
     Japanese,
     English,
