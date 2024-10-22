@@ -162,6 +162,7 @@ pub fn Export(
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
+        language: CardLanguage,
         paper_size: PaperSize,
         include_cheers: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -207,6 +208,7 @@ pub fn Export(
                     EventType::Export,
                     EventData {
                         format: "Proxy sheets",
+                        language: *card_lang.read(),
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
                         error: None,
@@ -219,6 +221,7 @@ pub fn Export(
                     EventType::Export,
                     EventData {
                         format: "Proxy sheets",
+                        language: *card_lang.read(),
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
                         error: Some(e.to_string()),
