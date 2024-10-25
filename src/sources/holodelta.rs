@@ -124,6 +124,7 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
     rsx! {
         JsonImport {
             deck_type: DeckType::HoloDelta,
+            fallback_deck_type: DeckType::HoloDelta,
             import_name: "holoDelta",
             common_deck,
             map

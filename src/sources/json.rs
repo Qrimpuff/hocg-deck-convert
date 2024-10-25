@@ -76,6 +76,7 @@ impl Deck {
 #[component]
 pub fn JsonImport(
     deck_type: DeckType,
+    fallback_deck_type: DeckType,
     import_name: String,
     mut common_deck: Signal<Option<CommonDeck>>,
     map: Signal<CardsInfoMap>,
@@ -104,7 +105,13 @@ pub fn JsonImport(
             return;
         }
 
-        let deck = Deck::from_text(deck_type, &event.value());
+        let mut deck = Deck::from_text(deck_type, &event.value());
+        if deck.is_err() {
+            if let Ok(fallback) = Deck::from_text(fallback_deck_type, &event.value()) {
+                info!("fallback to {fallback_deck_type:?}");
+                deck = Ok(fallback);
+            }
+        }
         info!("{:?}", deck);
         match deck {
             Ok(deck) => {
@@ -157,7 +164,13 @@ pub fn JsonImport(
                 *file_name.write() = file.clone();
 
                 if let Some(contents) = file_engine.read_file(file).await {
-                    let deck = Deck::from_file(deck_type, &contents);
+                    let mut deck = Deck::from_file(deck_type, &contents);
+                    if deck.is_err() {
+                        if let Ok(fallback) = Deck::from_file(fallback_deck_type, &contents) {
+                            info!("fallback to {fallback_deck_type:?}");
+                            deck = Ok(fallback);
+                        }
+                    }
                     info!("{:?}", deck);
                     match deck {
                         Ok(deck) => {
