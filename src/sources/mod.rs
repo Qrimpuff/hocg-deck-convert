@@ -65,10 +65,15 @@ impl CommonCards {
         amount: u32,
         map: &CardsInfoMap,
     ) -> Self {
-        let card = map
+        // grouped by card image
+        let rarities: IndexMap<_, _> = map
             .values()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
-            .nth(rarity_order as usize);
+            .fold(Default::default(), |mut acc, c| {
+                acc.entry(&c.img).or_insert(c);
+                acc
+            });
+        let card = rarities.values().nth(rarity_order as usize);
         if let Some(card) = card {
             CommonCards {
                 manage_id: Some(card.manage_id.clone()),
@@ -82,13 +87,31 @@ impl CommonCards {
     }
 
     pub fn rarity_order(&self, map: &CardsInfoMap) -> u32 {
-        map.values()
-            .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
-            .enumerate()
-            .filter(|(_, c)| Some(&c.manage_id) == self.manage_id.as_ref())
-            .map(|(i, _)| i)
-            .next()
-            .unwrap_or_default() as u32
+        if let Some(c) = map.get(
+            &self
+                .manage_id
+                .as_ref()
+                .and_then(|m| m.parse().ok())
+                .unwrap_or(0),
+        ) {
+            // grouped by card image
+            let rarities: IndexMap<_, _> = map
+                .values()
+                .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
+                .fold(Default::default(), |mut acc, c| {
+                    acc.entry(&c.img).or_insert(c);
+                    acc
+                });
+            rarities
+                .keys()
+                .enumerate()
+                .filter(|(_, img)| ***img == c.img)
+                .map(|(i, _)| i)
+                .next()
+                .unwrap_or_default() as u32
+        } else {
+            0
+        }
     }
 
     pub fn to_lower_rarity(&self, map: &CardsInfoMap) -> Self {
