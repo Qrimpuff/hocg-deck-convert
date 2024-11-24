@@ -127,14 +127,19 @@ impl CommonDeckConversion for Deck {
 }
 
 #[component]
-pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+pub fn Import(
+    mut common_deck: Signal<Option<CommonDeck>>,
+    map: Signal<CardsInfoMap>,
+    show_price: Signal<bool>,
+) -> Element {
     rsx! {
         JsonImport {
             deck_type: DeckType::HoloDuel,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "HoloDuel",
             common_deck,
-            map
+            map,
+            show_price
         }
     }
 }

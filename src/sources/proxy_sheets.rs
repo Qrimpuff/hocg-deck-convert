@@ -312,6 +312,7 @@ pub fn Export(
                     span { "Print deck to PDF" }
                 }
             }
+            p { class: "help is-danger", "{deck_error}" }
         }
     }
 }

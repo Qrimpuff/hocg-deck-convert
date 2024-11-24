@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use dioxus::prelude::*;
-use dioxus_logger::tracing::info;
+use dioxus_logger::tracing::{debug, info};
 use serde::Serialize;
 use web_time::{Duration, Instant};
 
@@ -80,6 +80,7 @@ pub fn JsonImport(
     import_name: String,
     mut common_deck: Signal<Option<CommonDeck>>,
     map: Signal<CardsInfoMap>,
+    show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
@@ -99,6 +100,7 @@ pub fn JsonImport(
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
         *common_deck.write() = None;
+        *show_price.write() = false;
         *deck_error.write() = "".into();
         *file_name.write() = "".into();
         if event.value().is_empty() {
@@ -112,10 +114,11 @@ pub fn JsonImport(
                 deck = Ok(fallback);
             }
         }
-        info!("{:?}", deck);
+        debug!("{:?}", deck);
         match deck {
             Ok(deck) => {
                 *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                *show_price.write() = false;
                 if tracking_sent
                     .read()
                     .as_ref()
@@ -155,6 +158,7 @@ pub fn JsonImport(
 
     let from_file = move |event: Event<FormData>| async move {
         *common_deck.write() = None;
+        *show_price.write() = false;
         *deck_error.write() = "".into();
         *json.write() = "".into();
         *file_name.write() = "".into();
@@ -171,10 +175,11 @@ pub fn JsonImport(
                             deck = Ok(fallback);
                         }
                     }
-                    info!("{:?}", deck);
+                    debug!("{:?}", deck);
                     match deck {
                         Ok(deck) => {
                             *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                            *show_price.write() = false;
                             match String::from_utf8(contents) {
                                 Ok(contents) => {
                                     *json.write() = contents;
@@ -284,7 +289,7 @@ pub fn JsonExport(
         .read()
         .as_ref()
         .map(|d| Deck::from_common_deck(deck_type, d.clone(), &map.read()));
-    info!("{:?}", deck);
+    debug!("{:?}", deck);
     let text = match deck {
         Some(deck) => match deck.to_text() {
             Ok(text) => text,

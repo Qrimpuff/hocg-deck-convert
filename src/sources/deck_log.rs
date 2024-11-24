@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 use std::{collections::HashMap, error::Error};
 
 use dioxus::prelude::*;
-use dioxus_logger::tracing::info;
+use dioxus_logger::tracing::debug;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
@@ -92,14 +92,14 @@ impl Deck {
         };
 
         let resp = http_client()
-            .post("https://hocg-deck-log-proxy.shuttleapp.rs/view-deck")
+            .post("https://hocg-deck-convert-api-y7os.shuttle.app/view-deck")
             .json(&req)
             .send()
             .await
             .unwrap();
 
         let content = resp.text().await.unwrap();
-        info!("{:?}", content);
+        debug!("{:?}", content);
 
         Ok(serde_json::from_str(&content).map_err(|_| content)?)
     }
@@ -109,14 +109,14 @@ impl Deck {
         req.0.game_title_id = game_title_id;
 
         let resp = http_client()
-            .post("https://hocg-deck-log-proxy.shuttleapp.rs/publish-deck")
+            .post("https://hocg-deck-convert-api-y7os.shuttle.app/publish-deck")
             .json(&req)
             .send()
             .await
             .unwrap();
 
         let content = resp.text().await.unwrap();
-        info!("{:?}", content);
+        debug!("{:?}", content);
 
         let res: ViewDeckResult = serde_json::from_str(&content).map_err(|_| content)?;
 
@@ -191,7 +191,11 @@ fn http_client() -> &'static Client {
 }
 
 #[component]
-pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+pub fn Import(
+    mut common_deck: Signal<Option<CommonDeck>>,
+    map: Signal<CardsInfoMap>,
+    show_price: Signal<bool>,
+) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -250,7 +254,7 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             Deck::from_code(None, &import_url_code.read()).await
         };
 
-        info!("{:?}", deck);
+        debug!("{:?}", deck);
         match deck {
             Ok(deck) => {
                 *deck_log_url.write() = deck.view_url();
@@ -264,6 +268,7 @@ pub fn Import(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                     },
                 );
                 *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                *show_price.write() = false;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();

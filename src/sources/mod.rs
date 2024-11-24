@@ -4,7 +4,9 @@ use std::{
 };
 
 use indexmap::IndexMap;
+use itertools::Itertools;
 use serde::Deserialize;
+use web_time::Instant;
 
 use crate::CardLanguage;
 
@@ -12,6 +14,7 @@ pub mod deck_log;
 pub mod holodelta;
 pub mod holoduel;
 pub mod json;
+pub mod price_check;
 pub mod proxy_sheets;
 pub mod tabletop_sim;
 
@@ -22,6 +25,7 @@ pub enum DeckType {
     HoloDuel,
     TabletopSim,
     ProxySheets,
+    PriceCheck,
     Unknown,
 }
 
@@ -87,13 +91,7 @@ impl CommonCards {
     }
 
     pub fn rarity_order(&self, map: &CardsInfoMap) -> u32 {
-        if let Some(c) = map.get(
-            &self
-                .manage_id
-                .as_ref()
-                .and_then(|m| m.parse().ok())
-                .unwrap_or(0),
-        ) {
+        if let Some(c) = self.card_info(map) {
             // grouped by card image
             let rarities: IndexMap<_, _> = map
                 .values()
@@ -118,8 +116,28 @@ impl CommonCards {
         CommonCards::from_card_number(self.card_number.clone(), self.amount, map)
     }
 
+    pub fn card_info<'a>(&self, map: &'a CardsInfoMap) -> Option<&'a CardInfoEntry> {
+        map.get(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
+    }
+
+    pub fn card_info_mut<'a>(&self, map: &'a mut CardsInfoMap) -> Option<&'a mut CardInfoEntry> {
+        map.get_mut(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
+    }
+
+    pub fn alt_cards<'a>(&self, map: &'a CardsInfoMap) -> Vec<&'a CardInfoEntry> {
+        map.values()
+            .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
+            .collect_vec()
+    }
+
+    pub fn alt_cards_mut<'a>(&self, map: &'a mut CardsInfoMap) -> Vec<&'a mut CardInfoEntry> {
+        map.values_mut()
+            .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
+            .collect_vec()
+    }
+
     pub fn image_path(&self, map: &CardsInfoMap, lang: CardLanguage) -> Option<String> {
-        let card = map.get(&self.manage_id.as_ref()?.parse::<u32>().ok()?)?;
+        let card = self.card_info(map)?;
         if lang == CardLanguage::English {
             if let Some(img_proxy_en) = &card.img_proxy_en {
                 Some(format!(
@@ -128,7 +146,7 @@ impl CommonCards {
             } else {
                 // fallback to lower rarity
                 let lower = self.to_lower_rarity(map);
-                let card = map.get(&lower.manage_id.as_ref()?.parse::<u32>().ok()?)?;
+                let card = lower.card_info(map)?;
                 Some(format!(
                     "https://qrimpuff.github.io/hocg-fan-sim-assets/img_proxy_en/{}",
                     card.img_proxy_en.as_ref()?
@@ -188,6 +206,12 @@ impl CommonDeck {
             .chain(self.cheer_deck.iter())
     }
 
+    pub fn all_cards_mut(&mut self) -> impl Iterator<Item = &mut CommonCards> {
+        std::iter::once(&mut self.oshi)
+            .chain(self.main_deck.iter_mut())
+            .chain(self.cheer_deck.iter_mut())
+    }
+
     pub fn required_deck_name(&self) -> String {
         if let Some(name) = &self.name {
             if name.trim().is_empty() {
@@ -223,6 +247,15 @@ impl CommonDeck {
                 }
                 acc
             })
+    }
+
+    pub fn merge(self) -> Self {
+        CommonDeck {
+            name: self.name,
+            oshi: self.oshi,
+            main_deck: self.main_deck.merge(),
+            cheer_deck: self.cheer_deck.merge(),
+        }
     }
 
     pub fn validate(&self, map: &CardsInfoMap) -> Vec<String> {
@@ -273,15 +306,7 @@ impl CommonDeck {
             .into_iter()
             .map(|(k, v)| CommonCards::from_card_number(k.clone(), v, map))
         {
-            if card.amount
-                > card
-                    .manage_id
-                    .and_then(|m| {
-                        map.get(&m.parse().expect("should be a number"))
-                            .map(|i| i.max)
-                    })
-                    .unwrap_or(50)
-            {
+            if card.amount > card.card_info(map).map(|i| i.max).unwrap_or(50) {
                 errors.push(format!(
                     "Too many {} in main deck. ({} cards)",
                     card.card_number, card.amount
@@ -309,8 +334,13 @@ pub type CardsInfoMap = BTreeMap<u32, CardInfoEntry>;
 pub struct CardInfoEntry {
     pub manage_id: String,
     pub card_number: String,
+    pub rare: String,
     pub img: String,
     pub img_proxy_en: Option<String>,
     pub max: u32,
     pub deck_type: String,
+    pub yuyutei_sell_url: Option<String>,
+    #[serde(skip)]
+    // used to cache the price after lookup
+    pub price_yen: Option<(Instant, u32)>,
 }

@@ -3,11 +3,12 @@
 pub mod sources;
 
 use dioxus::prelude::*;
-use dioxus_logger::tracing::{info, Level};
+use dioxus_logger::tracing::{debug, info, Level};
 use gloo::{
     file::{Blob, BlobContents},
     utils::{document, format::JsValueSerdeExt},
 };
+use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 use sources::*;
 use wasm_bindgen::prelude::*;
@@ -103,6 +104,7 @@ fn App() -> Element {
 
 static CARDS_INFO: GlobalSignal<CardsInfoMap> = Signal::global(Default::default);
 static COMMON_DECK: GlobalSignal<Option<CommonDeck>> = Signal::global(Default::default);
+static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 fn Form(card_lang: Signal<CardLanguage>) -> Element {
@@ -123,6 +125,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                             id: "import_format",
                             oninput: move |ev| {
                                 *COMMON_DECK.write() = None;
+                                *SHOW_PRICE.write() = false;
                                 *import_format
                                     .write() = match ev.value().as_str() {
                                     "deck_log" => Some(DeckType::DeckLog),
@@ -145,19 +148,39 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
 
             div {
                 if *import_format.read() == Some(DeckType::DeckLog) {
-                    deck_log::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                    deck_log::Import {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal()
+                    }
                 }
                 if *import_format.read() == Some(DeckType::HoloDelta) {
-                    holodelta::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                    holodelta::Import {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal()
+                    }
                 }
                 if *import_format.read() == Some(DeckType::HoloDuel) {
-                    holoduel::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                    holoduel::Import {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal()
+                    }
                 }
                 if *import_format.read() == Some(DeckType::TabletopSim) {
-                    tabletop_sim::Import { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                    tabletop_sim::Import {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal()
+                    }
                 }
                 if *import_format.read() == Some(DeckType::Unknown) {
-                    UnknownImport { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal() }
+                    UnknownImport {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal()
+                    }
                 }
             }
 
@@ -171,6 +194,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                             id: "export_format",
                             oninput: move |ev| {
                                 *card_lang.write() = CardLanguage::Japanese;
+                                *SHOW_PRICE.write() = false;
                                 *export_format
                                     .write() = match ev.value().as_str() {
                                     "deck_log" => Some(DeckType::DeckLog),
@@ -178,6 +202,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                     "holo_duel" => Some(DeckType::HoloDuel),
                                     "hocg_tts" => Some(DeckType::TabletopSim),
                                     "proxy_sheets" => Some(DeckType::ProxySheets),
+                                    "price_check" => Some(DeckType::PriceCheck),
                                     _ => None,
                                 };
                             },
@@ -186,6 +211,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
                             option { value: "proxy_sheets", "Proxy sheets (PDF)" }
+                            option { value: "price_check", "Price check (JPY)" }
                         }
                     }
                 }
@@ -207,6 +233,14 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                 if *export_format.read() == Some(DeckType::ProxySheets) {
                     proxy_sheets::Export { common_deck: COMMON_DECK.signal(), map: CARDS_INFO.signal(), card_lang }
                 }
+                if *export_format.read() == Some(DeckType::PriceCheck) {
+                    price_check::Export {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        card_lang,
+                        show_price: SHOW_PRICE.signal()
+                    }
+                }
             }
         }
     }
@@ -216,6 +250,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
 pub fn UnknownImport(
     mut common_deck: Signal<Option<CommonDeck>>,
     map: Signal<CardsInfoMap>,
+    show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
@@ -232,6 +267,7 @@ pub fn UnknownImport(
 
     let from_file = move |event: Event<FormData>| async move {
         *common_deck.write() = None;
+        *show_price.write() = false;
         *deck_error.write() = "".into();
         *deck_success.write() = "".into();
         *file_name.write() = "".into();
@@ -243,11 +279,12 @@ pub fn UnknownImport(
                 if let Some(contents) = file_engine.read_file(file).await {
                     // holoDelta
                     let deck = holodelta::Deck::from_file(&contents);
-                    info!("{:?}", deck);
+                    debug!("{:?}", deck);
                     if let Ok(deck) = deck {
                         *common_deck.write() =
                             Some(holodelta::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() = "Deck file format: holoDelta".into();
+                        *show_price.write() = false;
                         track_convert_event(
                             EventType::Import,
                             EventData {
@@ -261,11 +298,12 @@ pub fn UnknownImport(
 
                     // HoloDuel
                     let deck = holoduel::Deck::from_file(&contents);
-                    info!("{:?}", deck);
+                    debug!("{:?}", deck);
                     if let Ok(deck) = deck {
                         *common_deck.write() =
                             Some(holoduel::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() = "Deck file format: HoloDuel".into();
+                        *show_price.write() = false;
                         track_convert_event(
                             EventType::Import,
                             EventData {
@@ -279,12 +317,13 @@ pub fn UnknownImport(
 
                     // Tabletop Sim
                     let deck = tabletop_sim::Deck::from_file(&contents);
-                    info!("{:?}", deck);
+                    debug!("{:?}", deck);
                     if let Ok(deck) = deck {
                         *common_deck.write() =
                             Some(tabletop_sim::Deck::to_common_deck(deck, &map.read()));
                         *deck_success.write() =
                             "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
+                        *show_price.write() = false;
                         track_convert_event(
                             EventType::Import,
                             EventData {
@@ -388,6 +427,23 @@ fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
         warnings.push("Missing english proxy.".into());
     }
 
+    let show_price = *SHOW_PRICE.read();
+    let approx_price = if deck
+        .all_cards()
+        .map(|c| c.card_info(&map))
+        .any(|i| i.and_then(|i| i.price_yen).is_none())
+    {
+        ">"
+    } else {
+        ""
+    };
+    let price = deck
+        .all_cards()
+        .filter_map(|c| c.card_info(&map).map(|i| (c, i)))
+        .filter_map(|(c, i)| i.price_yen.map(|p| p.1 * c.amount))
+        .sum::<u32>()
+        .to_formatted_string(&Locale::en);
+
     rsx! {
         if !warnings.is_empty() {
             article { class: "message is-warning",
@@ -406,7 +462,10 @@ fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
         h2 { class: "title is-4", "Deck preview" }
         p { class: "subtitle is-6 is-spaced",
             if let Some(name) = &deck.name {
-                span { "Name: {name}" }
+                div { "Name: {name}" }
+            }
+            if show_price {
+                div { "Price: {approx_price}¥{price}" }
             }
         }
         div { class: "block is-flex is-flex-wrap-wrap",
@@ -445,6 +504,17 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
         .image_path(&CARDS_INFO.read(), *card_lang.read())
         .unwrap_or_else(|| error_img_path.clone());
 
+    let show_price = *SHOW_PRICE.read();
+    let price = cards
+        .card_info(&CARDS_INFO.read())
+        .and_then(|c| c.price_yen)
+        .map(|p| p.1.to_formatted_string(&Locale::en))
+        .unwrap_or("?".into());
+    // TODO not only yuyutei
+    let price_url = cards
+        .card_info(&CARDS_INFO.read())
+        .and_then(|c| c.yuyutei_sell_url.clone());
+
     rsx! {
         div {
             figure { class: "image m-2 {img_class}",
@@ -454,7 +524,19 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
                     src: "{img_path}",
                     "onerror": "this.src='{error_img_path}'"
                 }
-                if card_type != CardType::Oshi {
+                if show_price {
+                    span { class: "badge is-bottom is-dark",
+                        " ¥{price} × {cards.amount} "
+                        if let Some(price_url) = price_url {
+                            a {
+                                title: "Go to Yuyutei for {cards.card_number}",
+                                href: "{price_url}",
+                                target: "_blank",
+                                i { class: "fa-solid fa-arrow-up-right-from-square" }
+                            }
+                        }
+                    }
+                } else if card_type != CardType::Oshi {
                     span { class: "badge is-bottom is-dark", "{cards.amount}" }
                 }
             }
