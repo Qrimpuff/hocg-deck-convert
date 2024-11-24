@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
 use super::{CardsInfoMap, CommonDeck};
-use crate::{track_convert_event, CardLanguage, EventType};
+use crate::{track_convert_event, CardLanguage, EventType, HOCG_DECK_CONVERT_API};
 
 #[derive(Clone, Copy, Serialize)]
 enum PriceCheckService {
@@ -66,7 +66,7 @@ async fn price_check(
     let req = PriceCheckRequest { urls };
 
     let resp = http_client()
-        .post("https://hocg-deck-convert-api-y7os.shuttle.app/price-check")
+        .post(format!("{HOCG_DECK_CONVERT_API}/price-check"))
         .json(&req)
         .send()
         .await
@@ -287,7 +287,6 @@ pub fn Export(
                     span { "Convert to highest price" }
                 }
             }
-            p { class: "help is-danger", "{deck_error}" }
         }
 
         div { class: "field",
@@ -303,7 +302,6 @@ pub fn Export(
                     span { "Convert to lowest price" }
                 }
             }
-            p { class: "help is-danger", "{deck_error}" }
         }
     }
 }

@@ -6,7 +6,7 @@ use dioxus_logger::tracing::debug;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use crate::{track_convert_event, EventType};
+use crate::{track_convert_event, EventType, HOCG_DECK_CONVERT_API};
 
 use super::{
     CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
@@ -92,7 +92,7 @@ impl Deck {
         };
 
         let resp = http_client()
-            .post("https://hocg-deck-convert-api-y7os.shuttle.app/view-deck")
+            .post(format!("{HOCG_DECK_CONVERT_API}/view-deck"))
             .json(&req)
             .send()
             .await
@@ -109,7 +109,7 @@ impl Deck {
         req.0.game_title_id = game_title_id;
 
         let resp = http_client()
-            .post("https://hocg-deck-convert-api-y7os.shuttle.app/publish-deck")
+            .post(format!("{HOCG_DECK_CONVERT_API}/publish-deck"))
             .json(&req)
             .send()
             .await

@@ -14,6 +14,8 @@ use sources::*;
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
+const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api-y7os.shuttle.app";
+
 fn main() {
     // Init logger
     dioxus_logger::init(Level::INFO).expect("failed to init logger");
