@@ -44,7 +44,42 @@ fn App() -> Element {
             div { class: "container",
                 h1 { class: "title", "hololive OCG Deck Converter" }
                 div { class: "block",
-                    "Convert your hOCG deck into various formats, such as Deck Log, holoDelta, HoloDuel, or even proxy sheets."
+                    p {
+                        "Convert your hOCG deck between various formats, such as "
+                        a {
+                            href: "https://decklog-en.bushiroad.com/ja/create?c=108",
+                            target: "_blank",
+                            "Deck Log"
+                        }
+                        ", "
+                        a {
+                            href: "https://github.com/GabeJWJ/holoDelta",
+                            target: "_blank",
+                            "holoDelta"
+                        }
+                        ", "
+                        a {
+                            href: "https://daktagames.itch.io/holoduel",
+                            target: "_blank",
+                            "HoloDuel"
+                        }
+                        ", or even print proxy sheets."
+                    }
+                    p { class: "is-hidden-mobile",
+                        "You can also choose one of the official starter decks to get you started."
+                    }
+                    p {
+                        "If you have any questions about the game, consider joining the "
+                        a {
+                            href: "https://discord.com/invite/GJ9RhA22nP",
+                            target: "_blank",
+                            span { class: "icon",
+                                i { class: "fa-brands fa-discord" }
+                            }
+                            "Hololive OCG Fan Server"
+                        }
+                        "."
+                    }
                 }
                 div { class: "columns is-tablet",
                     div { class: "column is-two-fifths",
@@ -130,6 +165,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                 *SHOW_PRICE.write() = false;
                                 *import_format
                                     .write() = match ev.value().as_str() {
+                                    "starter_decks" => Some(DeckType::StarterDecks),
                                     "deck_log" => Some(DeckType::DeckLog),
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
@@ -138,6 +174,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                     _ => None,
                                 };
                             },
+                            option { value: "starter_decks", "Starter decks" }
                             option { initial_selected: true, value: "deck_log", "Deck Log (Bushiroad)" }
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
@@ -149,6 +186,13 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
             }
 
             div {
+                if *import_format.read() == Some(DeckType::StarterDecks) {
+                    starter_decks::Import {
+                        common_deck: COMMON_DECK.signal(),
+                        map: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal()
+                    }
+                }
                 if *import_format.read() == Some(DeckType::DeckLog) {
                     deck_log::Import {
                         common_deck: COMMON_DECK.signal(),

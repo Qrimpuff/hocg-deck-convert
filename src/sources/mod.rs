@@ -16,10 +16,12 @@ pub mod holoduel;
 pub mod json;
 pub mod price_check;
 pub mod proxy_sheets;
+pub mod starter_decks;
 pub mod tabletop_sim;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeckType {
+    StarterDecks,
     DeckLog,
     HoloDelta,
     HoloDuel,

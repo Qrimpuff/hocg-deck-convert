@@ -1,6 +1,6 @@
 # hololive OCG Deck Converter
 
-Convert your hOCG deck into various formats.
+Convert your hOCG deck between various formats.
 
 https://qrimpuff.github.io/hocg-deck-convert/
 
@@ -24,4 +24,4 @@ Run the following command in the root of the project to start the Dioxus dev ser
 dx serve --hot-reload
 ```
 
-- Open the browser to http://localhost:8080
+- Open the browser to http://localhost:8080/hocg-deck-convert
