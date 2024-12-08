@@ -11,3 +11,6 @@ jobs:
     steps:
       - name: "Dioxus Deploy"
         uses: DioxusLabs/deploy-action@main
+        with:
+          buildMode: release
+          outDirectory: target/dx/hocg-deck-convert/release/web/public # dioxus-cli 0.6.0 doesn't respect out_dir

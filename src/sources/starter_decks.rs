@@ -1,7 +1,6 @@
 use std::sync::OnceLock;
 
-use dioxus::prelude::*;
-use dioxus_logger::tracing::debug;
+use dioxus::{logger::tracing::debug, prelude::*};
 use serde::Serialize;
 
 use crate::{track_convert_event, EventType};
@@ -117,7 +116,7 @@ pub fn Import(
         debug!("{:?}", deck);
         if let Some(deck) = deck {
             track_convert_event(
-                EventType::Import,
+                EventType::Import("Stater deck".into()),
                 EventData {
                     format: "Stater deck",
                     deck_id: deck.deck_id.clone(),

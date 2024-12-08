@@ -1,7 +1,9 @@
 use std::{collections::HashMap, error::Error, sync::OnceLock};
 
-use dioxus::prelude::*;
-use dioxus_logger::tracing::{debug, info};
+use dioxus::{
+    logger::tracing::{debug, info},
+    prelude::*,
+};
 use itertools::Itertools;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
@@ -134,7 +136,7 @@ pub fn Export(
             Ok(_) => {
                 *show_price.write() = true;
                 track_convert_event(
-                    EventType::Export,
+                    EventType::Export("Price check".into()),
                     EventData {
                         format: "Price check",
                         price_check_service: Some(*service.read()),
@@ -146,7 +148,7 @@ pub fn Export(
             Err(e) => {
                 *deck_error.write() = e.to_string();
                 track_convert_event(
-                    EventType::Export,
+                    EventType::Export("Price check".into()),
                     EventData {
                         format: "Price check",
                         price_check_service: Some(*service.read()),
@@ -185,7 +187,7 @@ pub fn Export(
         *common_deck = deck.merge();
 
         track_convert_event(
-            EventType::Export,
+            EventType::Export("Price check".into()),
             EventData {
                 format: "Price check",
                 price_check_service: None,
@@ -222,7 +224,7 @@ pub fn Export(
         *common_deck = deck.merge();
 
         track_convert_event(
-            EventType::Export,
+            EventType::Export("Price check".into()),
             EventData {
                 format: "Price check",
                 price_check_service: None,

@@ -2,8 +2,7 @@
 
 pub mod sources;
 
-use dioxus::prelude::*;
-use dioxus_logger::tracing::{debug, info, Level};
+use dioxus::{logger::tracing::debug, prelude::*};
 use gloo::{
     file::{Blob, BlobContents},
     utils::{document, format::JsValueSerdeExt},
@@ -11,15 +10,13 @@ use gloo::{
 use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 use sources::*;
+use stringcase::snake_case;
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api-y7os.shuttle.app";
 
 fn main() {
-    // Init logger
-    dioxus_logger::init(Level::INFO).expect("failed to init logger");
-    info!("starting app");
     launch(App);
 }
 
@@ -332,7 +329,7 @@ pub fn UnknownImport(
                         *deck_success.write() = "Deck file format: holoDelta".into();
                         *show_price.write() = false;
                         track_convert_event(
-                            EventType::Import,
+                            EventType::Import("Unknown".into()),
                             EventData {
                                 format: "Unknown",
                                 file_format: Some("holoDelta"),
@@ -351,7 +348,7 @@ pub fn UnknownImport(
                         *deck_success.write() = "Deck file format: HoloDuel".into();
                         *show_price.write() = false;
                         track_convert_event(
-                            EventType::Import,
+                            EventType::Import("Unknown".into()),
                             EventData {
                                 format: "Unknown",
                                 file_format: Some("HoloDuel"),
@@ -371,7 +368,7 @@ pub fn UnknownImport(
                             "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
                         *show_price.write() = false;
                         track_convert_event(
-                            EventType::Import,
+                            EventType::Import("Unknown".into()),
                             EventData {
                                 format: "Unknown",
                                 file_format: Some("Tabletop Sim"),
@@ -383,7 +380,7 @@ pub fn UnknownImport(
 
                     *deck_error.write() = "Cannot parse deck file".into();
                     track_convert_event(
-                        EventType::Import,
+                        EventType::Import("Unknown".into()),
                         EventData {
                             format: "Unknown",
                             file_format: None,
@@ -445,7 +442,7 @@ fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
     let map = CARDS_INFO.read();
 
     let Some(deck) = deck.as_ref() else {
-        return rsx! {  };
+        return rsx! {};
     };
 
     let oshi = rsx! {
@@ -619,8 +616,8 @@ extern "C" {
 }
 
 pub enum EventType {
-    Import,
-    Export,
+    Import(String),
+    Export(String),
 }
 
 pub fn track_convert_event<T>(event: EventType, data: T)
@@ -628,11 +625,11 @@ where
     T: serde::ser::Serialize,
 {
     let event = match event {
-        EventType::Import => "import",
-        EventType::Export => "export",
+        EventType::Import(fmt) => format!("import-{}", snake_case(&fmt)),
+        EventType::Export(fmt) => format!("export-{}", snake_case(&fmt)),
     };
 
     let data = JsValue::from_serde(&data).unwrap();
 
-    track_event(event, data);
+    track_event(&event, data);
 }

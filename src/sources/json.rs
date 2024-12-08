@@ -1,7 +1,9 @@
 use std::error::Error;
 
-use dioxus::prelude::*;
-use dioxus_logger::tracing::{debug, info};
+use dioxus::{
+    logger::tracing::{debug, info},
+    prelude::*,
+};
 use serde::Serialize;
 use web_time::{Duration, Instant};
 
@@ -126,7 +128,7 @@ pub fn JsonImport(
                     .unwrap_or(true)
                 {
                     track_convert_event(
-                        EventType::Import,
+                        EventType::Import(import_name.read().clone()),
                         EventData {
                             format: import_name.read().clone(),
                             error: None,
@@ -144,7 +146,7 @@ pub fn JsonImport(
                     .unwrap_or(true)
                 {
                     track_convert_event(
-                        EventType::Import,
+                        EventType::Import(import_name.read().clone()),
                         EventData {
                             format: import_name.read().clone(),
                             error: Some(e.to_string()),
@@ -184,7 +186,7 @@ pub fn JsonImport(
                                 Ok(contents) => {
                                     *json.write() = contents;
                                     track_convert_event(
-                                        EventType::Import,
+                                        EventType::Import(import_name.read().clone()),
                                         EventData {
                                             format: import_name.read().clone(),
                                             error: None,
@@ -195,7 +197,7 @@ pub fn JsonImport(
                                     *deck_error.write() = e.to_string();
 
                                     track_convert_event(
-                                        EventType::Import,
+                                        EventType::Import(import_name.read().clone()),
                                         EventData {
                                             format: import_name.read().clone(),
                                             error: Some(e.to_string()),
@@ -207,7 +209,7 @@ pub fn JsonImport(
                         Err(e) => {
                             *deck_error.write() = e.to_string();
                             track_convert_event(
-                                EventType::Import,
+                                EventType::Import(import_name.read().clone()),
                                 EventData {
                                     format: import_name.read().clone(),
                                     error: Some(e.to_string()),
@@ -314,7 +316,7 @@ pub fn JsonExport(
                 Ok(file) => {
                     download_file(&file_name, &file[..]);
                     track_convert_event(
-                        EventType::Export,
+                        EventType::Export(export_name.read().clone()),
                         EventData {
                             format: export_name.read().clone(),
                             error: None,
@@ -324,7 +326,7 @@ pub fn JsonExport(
                 Err(e) => {
                     *deck_error.write() = e.to_string();
                     track_convert_event(
-                        EventType::Export,
+                        EventType::Export(export_name.read().clone()),
                         EventData {
                             format: export_name.read().clone(),
                             error: Some(e.to_string()),

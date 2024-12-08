@@ -205,7 +205,7 @@ pub fn Export(
             Ok(file) => {
                 download_file(&file_name, &file[..]);
                 track_convert_event(
-                    EventType::Export,
+                    EventType::Export("Proxy sheets".into()),
                     EventData {
                         format: "Proxy sheets",
                         language: *card_lang.read(),
@@ -218,7 +218,7 @@ pub fn Export(
             Err(e) => {
                 *deck_error.write() = e.to_string();
                 track_convert_event(
-                    EventType::Export,
+                    EventType::Export("Proxy sheets".into()),
                     EventData {
                         format: "Proxy sheets",
                         language: *card_lang.read(),

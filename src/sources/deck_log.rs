@@ -1,8 +1,8 @@
 use std::sync::OnceLock;
 use std::{collections::HashMap, error::Error};
 
+use dioxus::logger::tracing::debug;
 use dioxus::prelude::*;
-use dioxus_logger::tracing::debug;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
@@ -259,7 +259,7 @@ pub fn Import(
             Ok(deck) => {
                 *deck_log_url.write() = deck.view_url();
                 track_convert_event(
-                    EventType::Import,
+                    EventType::Import("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
                         game_title_id: Some(deck.game_title_id),
@@ -273,7 +273,7 @@ pub fn Import(
             Err(e) => {
                 *deck_error.write() = e.to_string();
                 track_convert_event(
-                    EventType::Import,
+                    EventType::Import("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
                         game_title_id: None,
@@ -380,7 +380,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                     .write()
                     .insert((*game_title_id.read(), common_deck.calculate_hash()), url);
                 track_convert_event(
-                    EventType::Export,
+                    EventType::Export("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
                         game_title_id: *game_title_id.read(),
@@ -392,7 +392,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             Err(e) => {
                 *deck_error.write() = e.to_string();
                 track_convert_event(
-                    EventType::Export,
+                    EventType::Export("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
                         game_title_id: *game_title_id.read(),
