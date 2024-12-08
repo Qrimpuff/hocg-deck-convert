@@ -14,15 +14,17 @@
   <meta property="og:title" content="hololive OCG Deck Converter">
   <meta property="og:description"
     content='"hololive OCG Deck Converter" allows you to convert your hOCG deck between various formats, such as Deck Log, holoDelta, HoloDuel, or even print proxy sheets.'>
-  <meta property="og:image" content="https://qrimpuff.github.io/hocg-deck-convert/image.png">
+  <meta property="og:image" content="https://qrimpuff.github.io/hocg-deck-convert/assets/image.png">
   <meta charset="UTF-8" />
-  <link rel="stylesheet" href="/hocg-deck-convert/style.css">
+  <link rel="stylesheet" href="/hocg-deck-convert/assets/style.css">
   <script defer src="https://cloud.umami.is/script.js" data-website-id="eaaa2375-48a2-47cc-8d62-88a633825515"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-badge@1.0.1/dist/bulma-badge.min.css">
 
-</head>
+<link rel="preload" href="/hocg-deck-convert/wasm/hocg-deck-convert_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+            <link rel="preload" href="/hocg-deck-convert/wasm/hocg-deck-convert.js" as="script">
+            </head>
 
 <body>
   <div id="main">
@@ -32,14 +34,19 @@
       </div>
     </div>
   </div>
-<script type="module">
-    import init from "/hocg-deck-convert/assets/dioxus/hocg-deck-convert.js";
-    init("/hocg-deck-convert/assets/dioxus/hocg-deck-convert_bg.wasm").then(wasm => {
-      if (wasm.__wbindgen_start == undefined) {
-        wasm.main();
-      }
-    });
-    </script>
-    </body>
+<script>
+            // We can't use a module script here because we need to start the script immediately when streaming
+            import("/hocg-deck-convert/wasm/hocg-deck-convert.js").then(
+                ({ default: init }) => {
+                init("/hocg-deck-convert/wasm/hocg-deck-convert_bg.wasm").then((wasm) => {
+                    if (wasm.__wbindgen_start == undefined) {
+                    wasm.main();
+                    }
+                });
+                }
+            );
+            </script>
+            
+            </body>
 
 </html>

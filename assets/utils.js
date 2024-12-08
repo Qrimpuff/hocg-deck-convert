@@ -1,0 +1,1 @@
+export function track_event(i,n){window.umami&&window.umami.track(i,n)}

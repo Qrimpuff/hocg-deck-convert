@@ -1,0 +1,15 @@
+<html>
+
+<body></body>
+<script>
+    let disabled = localStorage.getItem("umami.disabled");
+    if (disabled) {
+        localStorage.removeItem("umami.disabled");
+    } else {
+        localStorage.setItem("umami.disabled", "1");
+    }
+    disabled = localStorage.getItem("umami.disabled");
+    document.body.append("umami.disabled: " + disabled);
+</script>
+
+</html>
