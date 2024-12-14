@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{track_convert_event, EventType, HOCG_DECK_CONVERT_API};
 
 use super::{
-    CardsInfoMap, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
+    CardsInfo, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
     MergeCommonCards,
 };
 
@@ -130,7 +130,7 @@ impl Deck {
 impl CommonCardsConversion for Cards {
     type CardDeck = Vec<Cards>;
 
-    fn from_common_cards(cards: CommonCards, _map: &CardsInfoMap) -> Self {
+    fn from_common_cards(cards: CommonCards, _info: &CardsInfo) -> Self {
         Cards {
             card_number: cards.card_number,
             num: cards.amount,
@@ -138,7 +138,7 @@ impl CommonCardsConversion for Cards {
         }
     }
 
-    fn to_common_cards(value: Self, _map: &CardsInfoMap) -> CommonCards {
+    fn to_common_cards(value: Self, _info: &CardsInfo) -> CommonCards {
         CommonCards {
             manage_id: Some(value.manage_id),
             card_number: value.card_number,
@@ -146,41 +146,41 @@ impl CommonCardsConversion for Cards {
         }
     }
 
-    fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck {
+    fn build_custom_deck(cards: Vec<CommonCards>, info: &CardsInfo) -> Self::CardDeck {
         cards
             .merge()
             .into_iter()
-            .map(|c| Cards::from_common_cards(c, map))
+            .map(|c| Cards::from_common_cards(c, info))
             .collect()
     }
 
-    fn build_common_deck(cards: Self::CardDeck, map: &CardsInfoMap) -> Vec<CommonCards> {
+    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCards> {
         cards
             .into_iter()
-            .map(|c| Cards::to_common_cards(c, map))
+            .map(|c| Cards::to_common_cards(c, info))
             .collect::<Vec<_>>()
             .merge()
     }
 }
 
 impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, map: &CardsInfoMap) -> Self {
+    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Self {
         Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name(),
-            p_list: Cards::build_custom_deck(vec![deck.oshi], map),
-            list: Cards::build_custom_deck(deck.main_deck, map),
-            sub_list: Cards::build_custom_deck(deck.cheer_deck, map),
+            p_list: Cards::build_custom_deck(vec![deck.oshi], info),
+            list: Cards::build_custom_deck(deck.main_deck, info),
+            sub_list: Cards::build_custom_deck(deck.cheer_deck, info),
         }
     }
 
-    fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck {
+    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
         CommonDeck {
             name: Some(value.title),
-            oshi: Cards::build_common_deck(value.p_list, map).swap_remove(0),
-            main_deck: Cards::build_common_deck(value.list, map),
-            cheer_deck: Cards::build_common_deck(value.sub_list, map),
+            oshi: Cards::build_common_deck(value.p_list, info).swap_remove(0),
+            main_deck: Cards::build_common_deck(value.list, info),
+            cheer_deck: Cards::build_common_deck(value.sub_list, info),
         }
     }
 }
@@ -193,7 +193,7 @@ fn http_client() -> &'static Client {
 #[component]
 pub fn Import(
     mut common_deck: Signal<Option<CommonDeck>>,
-    map: Signal<CardsInfoMap>,
+    info: Signal<CardsInfo>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -267,7 +267,7 @@ pub fn Import(
                         error: None,
                     },
                 );
-                *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
                 *show_price.write() = false;
             }
             Err(e) => {
@@ -298,7 +298,7 @@ pub fn Import(
                     r#type: "text",
                     placeholder: "https://decklog.bushiroad.com/view/....",
                     oninput: update_url_code,
-                    value: "{import_url_code}"
+                    value: "{import_url_code}",
                 }
             }
             p { class: "help is-danger", "{deck_error}" }
@@ -331,7 +331,7 @@ pub fn Import(
 static PUBLISH_CACHE: GlobalSignal<HashMap<(u32, u64), String>> = Signal::global(Default::default);
 
 #[component]
-pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfoMap>) -> Element {
+pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInfo>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -350,7 +350,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
     let warnings = common_deck
         .read()
         .as_ref()
-        .map(|d| d.validate(&map.read()))
+        .map(|d| d.validate(&info.read()))
         .unwrap_or_default();
 
     let publish_deck = move |_| async move {
@@ -372,7 +372,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
             return;
         }
 
-        let mut deck = Deck::from_common_deck(common_deck.clone(), &map.read());
+        let mut deck = Deck::from_common_deck(common_deck.clone(), &info.read());
         match deck.publish(*game_title_id.read()).await {
             Ok(url) => {
                 *deck_log_url.write() = url.clone();
@@ -416,8 +416,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, map: Signal<CardsInfo
                         oninput: move |ev| {
                             *deck_log_url.write() = String::new();
                             *deck_error.write() = String::new();
-                            *game_title_id
-                                .write() = match ev.value().as_str() {
+                            *game_title_id.write() = match ev.value().as_str() {
                                 "9" => 9,
                                 "108" => 108,
                                 _ => unreachable!(),

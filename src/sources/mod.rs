@@ -1,11 +1,12 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
 };
 
+use hocg_fan_sim_assets_model::{CardEntry, CardsInfo};
 use indexmap::IndexMap;
 use itertools::Itertools;
-use serde::Deserialize;
+use price_check::PriceCache;
 use web_time::Instant;
 
 use crate::CardLanguage;
@@ -34,16 +35,16 @@ pub enum DeckType {
 pub trait CommonCardsConversion: Sized {
     type CardDeck;
 
-    fn from_common_cards(cards: CommonCards, map: &CardsInfoMap) -> Self;
-    fn to_common_cards(value: Self, map: &CardsInfoMap) -> CommonCards;
+    fn from_common_cards(cards: CommonCards, info: &CardsInfo) -> Self;
+    fn to_common_cards(value: Self, info: &CardsInfo) -> CommonCards;
 
-    fn build_custom_deck(cards: Vec<CommonCards>, map: &CardsInfoMap) -> Self::CardDeck;
-    fn build_common_deck(cards: Self::CardDeck, map: &CardsInfoMap) -> Vec<CommonCards>;
+    fn build_custom_deck(cards: Vec<CommonCards>, info: &CardsInfo) -> Self::CardDeck;
+    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCards>;
 }
 
 pub trait CommonDeckConversion {
-    fn from_common_deck(deck: CommonDeck, map: &CardsInfoMap) -> Self;
-    fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck;
+    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Self;
+    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -54,8 +55,8 @@ pub struct CommonCards {
 }
 
 impl CommonCards {
-    pub fn from_card_number(card_number: String, amount: u32, map: &CardsInfoMap) -> Self {
-        let card = map
+    pub fn from_card_number(card_number: String, amount: u32, info: &CardsInfo) -> Self {
+        let card = info
             .values()
             .find(|c| c.card_number.eq_ignore_ascii_case(&card_number));
         CommonCards {
@@ -69,10 +70,10 @@ impl CommonCards {
         card_number: String,
         rarity_order: u32,
         amount: u32,
-        map: &CardsInfoMap,
+        info: &CardsInfo,
     ) -> Self {
         // grouped by card image
-        let rarities: IndexMap<_, _> = map
+        let rarities: IndexMap<_, _> = info
             .values()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
             .fold(Default::default(), |mut acc, c| {
@@ -88,14 +89,14 @@ impl CommonCards {
             }
         } else {
             // default to basic rarity if not found
-            CommonCards::from_card_number(card_number, amount, map)
+            CommonCards::from_card_number(card_number, amount, info)
         }
     }
 
-    pub fn rarity_order(&self, map: &CardsInfoMap) -> u32 {
-        if let Some(c) = self.card_info(map) {
+    pub fn rarity_order(&self, info: &CardsInfo) -> u32 {
+        if let Some(c) = self.card_info(info) {
             // grouped by card image
-            let rarities: IndexMap<_, _> = map
+            let rarities: IndexMap<_, _> = info
                 .values()
                 .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
                 .fold(Default::default(), |mut acc, c| {
@@ -114,32 +115,44 @@ impl CommonCards {
         }
     }
 
-    pub fn to_lower_rarity(&self, map: &CardsInfoMap) -> Self {
-        CommonCards::from_card_number(self.card_number.clone(), self.amount, map)
+    pub fn to_lower_rarity(&self, info: &CardsInfo) -> Self {
+        CommonCards::from_card_number(self.card_number.clone(), self.amount, info)
     }
 
-    pub fn card_info<'a>(&self, map: &'a CardsInfoMap) -> Option<&'a CardInfoEntry> {
-        map.get(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
+    pub fn card_info<'a>(&self, info: &'a CardsInfo) -> Option<&'a CardEntry> {
+        info.get(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
     }
 
-    pub fn card_info_mut<'a>(&self, map: &'a mut CardsInfoMap) -> Option<&'a mut CardInfoEntry> {
-        map.get_mut(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
+    pub fn card_info_mut<'a>(&self, info: &'a mut CardsInfo) -> Option<&'a mut CardEntry> {
+        info.get_mut(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
     }
 
-    pub fn alt_cards<'a>(&self, map: &'a CardsInfoMap) -> Vec<&'a CardInfoEntry> {
-        map.values()
+    pub fn price(&self, info: &CardsInfo, prices: &PriceCache) -> Option<u32> {
+        self.price_cache(info, prices).map(|p| p.1)
+    }
+    pub fn price_cache<'a>(
+        &self,
+        info: &CardsInfo,
+        prices: &'a PriceCache,
+    ) -> Option<&'a (Instant, u32)> {
+        self.card_info(info)
+            .and_then(|c| c.yuyutei_sell_url.as_ref())
+            .and_then(|y| prices.get(y))
+    }
+
+    pub fn alt_cards(&self, info: &CardsInfo) -> Vec<Self> {
+        info.values()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
+            .map(|c| Self {
+                manage_id: Some(c.manage_id.clone()),
+                card_number: c.card_number.clone(),
+                amount: self.amount,
+            })
             .collect_vec()
     }
 
-    pub fn alt_cards_mut<'a>(&self, map: &'a mut CardsInfoMap) -> Vec<&'a mut CardInfoEntry> {
-        map.values_mut()
-            .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
-            .collect_vec()
-    }
-
-    pub fn image_path(&self, map: &CardsInfoMap, lang: CardLanguage) -> Option<String> {
-        let card = self.card_info(map)?;
+    pub fn image_path(&self, info: &CardsInfo, lang: CardLanguage) -> Option<String> {
+        let card = self.card_info(info)?;
         if lang == CardLanguage::English {
             if let Some(img_proxy_en) = &card.img_proxy_en {
                 Some(format!(
@@ -147,8 +160,8 @@ impl CommonCards {
                 ))
             } else {
                 // fallback to lower rarity
-                let lower = self.to_lower_rarity(map);
-                let card = lower.card_info(map)?;
+                let lower = self.to_lower_rarity(info);
+                let card = lower.card_info(info)?;
                 Some(format!(
                     "https://qrimpuff.github.io/hocg-fan-sim-assets/img_proxy_en/{}",
                     card.img_proxy_en.as_ref()?
@@ -260,7 +273,7 @@ impl CommonDeck {
         }
     }
 
-    pub fn validate(&self, map: &CardsInfoMap) -> Vec<String> {
+    pub fn validate(&self, info: &CardsInfo) -> Vec<String> {
         let mut errors = vec![];
 
         // check for unreleased or invalid cards
@@ -306,9 +319,9 @@ impl CommonDeck {
         });
         for card in main_deck
             .into_iter()
-            .map(|(k, v)| CommonCards::from_card_number(k.clone(), v, map))
+            .map(|(k, v)| CommonCards::from_card_number(k.clone(), v, info))
         {
-            if card.amount > card.card_info(map).map(|i| i.max).unwrap_or(50) {
+            if card.amount > card.card_info(info).map(|i| i.max).unwrap_or(50) {
                 errors.push(format!(
                     "Too many {} in main deck. ({} cards)",
                     card.card_number, card.amount
@@ -326,23 +339,23 @@ impl CommonDeck {
     }
 }
 
-// need to keep the order to know which card image to use
-// (holoDelta is using a zero-based index)
-pub type CardsInfoMap = BTreeMap<u32, CardInfoEntry>;
+// // need to keep the order to know which card image to use
+// // (holoDelta is using a zero-based index)
+// pub type CardsInfo = BTreeMap<u32, CardEntry>;
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
-// from https://qrimpuff.github.io/hocg-fan-sim-assets/cards_info.json
-pub struct CardInfoEntry {
-    pub manage_id: String,
-    pub card_number: String,
-    pub rare: String,
-    pub img: String,
-    pub img_proxy_en: Option<String>,
-    pub max: u32,
-    pub deck_type: String,
-    pub yuyutei_sell_url: Option<String>,
-    #[serde(skip)]
-    // used to cache the price after lookup
-    pub price_yen: Option<(Instant, u32)>,
-}
+// #[derive(Debug, Clone, Deserialize)]
+// #[serde(rename_all = "snake_case")]
+// // from https://qrimpuff.github.io/hocg-fan-sim-assets/cards_info.json
+// pub struct CardEntry {
+//     pub manage_id: String,
+//     pub card_number: String,
+//     pub rare: String,
+//     pub img: String,
+//     pub img_proxy_en: Option<String>,
+//     pub max: u32,
+//     pub deck_type: String,
+//     pub yuyutei_sell_url: Option<String>,
+//     #[serde(skip)]
+//     // used to cache the price after lookup
+//     pub price_yen: Option<(Instant, u32)>,
+// }

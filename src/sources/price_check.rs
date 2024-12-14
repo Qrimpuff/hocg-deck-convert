@@ -9,8 +9,10 @@ use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
-use super::{CardsInfoMap, CommonDeck};
+use super::{CardsInfo, CommonDeck};
 use crate::{track_convert_event, CardLanguage, EventType, HOCG_DECK_CONVERT_API};
+
+pub type PriceCache = HashMap<String, (Instant, u32)>;
 
 #[derive(Clone, Copy, Serialize)]
 enum PriceCheckService {
@@ -38,7 +40,8 @@ fn http_client() -> &'static Client {
 
 async fn price_check(
     deck: &CommonDeck,
-    map: &mut CardsInfoMap,
+    info: &CardsInfo,
+    prices: &mut PriceCache,
     service: PriceCheckService,
 ) -> Result<(), Box<dyn Error>> {
     info!("price check");
@@ -47,15 +50,16 @@ async fn price_check(
     let urls: Vec<_> = deck
         .all_cards()
         // check price for all versions
-        .flat_map(|c| c.alt_cards(map).into_iter())
+        .flat_map(|c| c.alt_cards(info).into_iter())
         .filter(|c| {
-            c.price_yen
+            c.price_cache(info, prices)
                 .map(|(cache_time, _)| {
                     // more than an hour
-                    Instant::now().duration_since(cache_time) > Duration::from_secs(60 * 60)
+                    Instant::now().duration_since(*cache_time) > Duration::from_secs(60 * 60)
                 })
                 .unwrap_or(true)
         })
+        .filter_map(|c| c.card_info(info))
         .filter_map(|c| match service {
             PriceCheckService::Yuyutei => c.yuyutei_sell_url.clone(),
         })
@@ -78,22 +82,25 @@ async fn price_check(
     debug!("{:?}", content);
 
     let res: Vec<PriceCheckResult> = serde_json::from_str(&content).map_err(|_| content)?;
-    let prices: HashMap<_, _> = res
+    let lookup_prices: HashMap<_, _> = res
         .into_iter()
         .map(|r| (r.url, (r.card_number, r.price_yen)))
         .collect();
-    debug!("{:?}", prices);
+    debug!("{:?}", lookup_prices);
 
     // update the price
     for card in deck.all_cards() {
-        for card in card.alt_cards_mut(map) {
+        for card in card
+            .alt_cards(info)
+            .into_iter()
+            .filter_map(|c| c.card_info(info))
+        {
             if let Some(url) = match service {
                 PriceCheckService::Yuyutei => &card.yuyutei_sell_url,
             } {
-                card.price_yen = prices
+                lookup_prices
                     .get(url)
-                    .map(|p| (Instant::now(), p.1))
-                    .or(card.price_yen);
+                    .map(|p| prices.insert(url.into(), (Instant::now(), p.1)));
             }
         }
     }
@@ -104,7 +111,8 @@ async fn price_check(
 #[component]
 pub fn Export(
     mut common_deck: Signal<Option<CommonDeck>>,
-    map: Signal<CardsInfoMap>,
+    info: Signal<CardsInfo>,
+    prices: Signal<PriceCache>,
     card_lang: Signal<CardLanguage>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -132,7 +140,14 @@ pub fn Export(
         *loading.write() = true;
         *deck_error.write() = String::new();
 
-        match price_check(common_deck, &mut map.write(), *service.read()).await {
+        match price_check(
+            common_deck,
+            &info.read(),
+            &mut prices.write(),
+            *service.read(),
+        )
+        .await
+        {
             Ok(_) => {
                 *show_price.write() = true;
                 track_convert_event(
@@ -174,14 +189,16 @@ pub fn Export(
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
             if let Some(manage_id) = card
-                .alt_cards(&map.read())
+                .alt_cards(&info.read())
                 .into_iter()
-                .filter(|c| c.price_yen.is_some())
-                .sorted_by_key(|c| u32::MAX - c.price_yen.expect("it's some").1) // this is the highest price
+                .filter(|c| c.price(&info.read(), &prices.read()).is_some())
+                .sorted_by_key(|c| {
+                    u32::MAX - c.price(&info.read(), &prices.read()).expect("it's some")
+                }) // this is the highest price
                 .map(|c| c.manage_id.clone())
                 .next()
             {
-                card.manage_id = Some(manage_id);
+                card.manage_id = manage_id;
             }
         }
         *common_deck = deck.merge();
@@ -211,14 +228,14 @@ pub fn Export(
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
             if let Some(manage_id) = card
-                .alt_cards(&map.read())
+                .alt_cards(&info.read())
                 .into_iter()
-                .filter(|c| c.price_yen.is_some())
-                .sorted_by_key(|c| c.price_yen.expect("it's some").1) // this is the lowest price
+                .filter(|c| c.price(&info.read(), &prices.read()).is_some())
+                .sorted_by_key(|c| c.price(&info.read(), &prices.read()).expect("it's some")) // this is the lowest price
                 .map(|c| c.manage_id.clone())
                 .next()
             {
-                card.manage_id = Some(manage_id);
+                card.manage_id = manage_id;
             }
         }
         *common_deck = deck.merge();
@@ -245,8 +262,7 @@ pub fn Export(
                     select {
                         id: "service",
                         oninput: move |ev| {
-                            *service
-                                .write() = match ev.value().as_str() {
+                            *service.write() = match ev.value().as_str() {
                                 "yuyutei" => PriceCheckService::Yuyutei,
                                 _ => unreachable!(),
                             };

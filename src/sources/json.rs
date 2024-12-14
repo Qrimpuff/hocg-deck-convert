@@ -10,7 +10,7 @@ use web_time::{Duration, Instant};
 use crate::{download_file, track_convert_event, EventType};
 
 use super::{
-    holodelta, holoduel, tabletop_sim, CardsInfoMap, CommonDeck, CommonDeckConversion, DeckType,
+    holodelta, holoduel, tabletop_sim, CardsInfo, CommonDeck, CommonDeckConversion, DeckType,
 };
 
 #[derive(Debug, Clone)]
@@ -55,22 +55,22 @@ impl Deck {
         })
     }
 
-    fn from_common_deck(deck_type: DeckType, deck: CommonDeck, map: &CardsInfoMap) -> Self {
+    fn from_common_deck(deck_type: DeckType, deck: CommonDeck, info: &CardsInfo) -> Self {
         match deck_type {
-            DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_common_deck(deck, map)),
-            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_common_deck(deck, map)),
+            DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_common_deck(deck, info)),
+            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_common_deck(deck, info)),
             DeckType::TabletopSim => {
-                Deck::TabletopSim(tabletop_sim::Deck::from_common_deck(deck, map))
+                Deck::TabletopSim(tabletop_sim::Deck::from_common_deck(deck, info))
             }
             _ => unreachable!("this is not a json deck"),
         }
     }
 
-    fn to_common_deck(value: Self, map: &CardsInfoMap) -> CommonDeck {
+    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
         match value {
-            Deck::HoloDelta(deck) => holodelta::Deck::to_common_deck(deck, map),
-            Deck::HoloDuel(deck) => holoduel::Deck::to_common_deck(deck, map),
-            Deck::TabletopSim(deck) => tabletop_sim::Deck::to_common_deck(deck, map),
+            Deck::HoloDelta(deck) => holodelta::Deck::to_common_deck(deck, info),
+            Deck::HoloDuel(deck) => holoduel::Deck::to_common_deck(deck, info),
+            Deck::TabletopSim(deck) => tabletop_sim::Deck::to_common_deck(deck, info),
         }
     }
 }
@@ -81,7 +81,7 @@ pub fn JsonImport(
     fallback_deck_type: DeckType,
     import_name: String,
     mut common_deck: Signal<Option<CommonDeck>>,
-    map: Signal<CardsInfoMap>,
+    info: Signal<CardsInfo>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -119,7 +119,7 @@ pub fn JsonImport(
         debug!("{:?}", deck);
         match deck {
             Ok(deck) => {
-                *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
                 *show_price.write() = false;
                 if tracking_sent
                     .read()
@@ -180,7 +180,7 @@ pub fn JsonImport(
                     debug!("{:?}", deck);
                     match deck {
                         Ok(deck) => {
-                            *common_deck.write() = Some(Deck::to_common_deck(deck, &map.read()));
+                            *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
                             *show_price.write() = false;
                             match String::from_utf8(contents) {
                                 Ok(contents) => {
@@ -234,7 +234,7 @@ pub fn JsonImport(
                             r#type: "file",
                             class: "file-input",
                             accept: ".json",
-                            onchange: from_file
+                            onchange: from_file,
                         }
                         span { class: "file-cta",
                             span { class: "file-icon",
@@ -259,7 +259,7 @@ pub fn JsonImport(
                     autocapitalize: "off",
                     spellcheck: "false",
                     oninput: from_text,
-                    value: "{json}"
+                    value: "{json}",
                 }
             }
             p { class: "help is-danger", "{deck_error}" }
@@ -273,7 +273,7 @@ pub fn JsonExport(
     export_name: String,
     export_id: String,
     mut common_deck: Signal<Option<CommonDeck>>,
-    map: Signal<CardsInfoMap>,
+    info: Signal<CardsInfo>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
@@ -290,7 +290,7 @@ pub fn JsonExport(
     let deck: Option<Deck> = common_deck
         .read()
         .as_ref()
-        .map(|d| Deck::from_common_deck(deck_type, d.clone(), &map.read()));
+        .map(|d| Deck::from_common_deck(deck_type, d.clone(), &info.read()));
     debug!("{:?}", deck);
     let text = match deck {
         Some(deck) => match deck.to_text() {
@@ -307,7 +307,7 @@ pub fn JsonExport(
         let deck: Option<_> = common_deck.read().as_ref().map(|d| {
             (
                 d.file_name(),
-                Deck::from_common_deck(deck_type, d.clone(), &map.read()),
+                Deck::from_common_deck(deck_type, d.clone(), &info.read()),
             )
         });
         if let Some((file_name, deck)) = deck {
@@ -359,7 +359,7 @@ pub fn JsonExport(
                     id: "{export_id}_export_json",
                     class: "textarea",
                     readonly: true,
-                    value: "{text}"
+                    value: "{text}",
                 }
             }
             p { class: "help is-danger", "{deck_error}" }

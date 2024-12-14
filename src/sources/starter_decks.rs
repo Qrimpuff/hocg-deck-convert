@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{track_convert_event, EventType};
 
-use super::{CardsInfoMap, CommonCards, CommonDeck};
+use super::{CardsInfo, CommonCards, CommonDeck};
 
 #[derive(Debug, Clone)]
 struct DeckEntry {
@@ -14,7 +14,7 @@ struct DeckEntry {
     deck: CommonDeck,
 }
 
-fn starter_decks(map: &CardsInfoMap) -> &'static Vec<DeckEntry> {
+fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
     static DECKS: OnceLock<Vec<DeckEntry>> = OnceLock::new();
     DECKS.get_or_init(|| {
         vec![
@@ -24,31 +24,31 @@ fn starter_decks(map: &CardsInfoMap) -> &'static Vec<DeckEntry> {
                 display: "hSD01 - スタートデッキ「ときのそら&AZKi」 (Sora oshi)".into(),
                 deck: CommonDeck {
                     name: Some("スタートデッキ「ときのそら&AZKi」".into()),
-                    oshi: CommonCards::from_card_number("hSD01-001".into(), 1, map),
+                    oshi: CommonCards::from_card_number("hSD01-001".into(), 1, info),
                     main_deck: vec![
-                        CommonCards::from_card_number("hSD01-003".into(), 4, map),
-                        CommonCards::from_card_number("hSD01-004".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-005".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-006".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-007".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-008".into(), 4, map),
-                        CommonCards::from_card_number("hSD01-009".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-010".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-011".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-012".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-013".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-014".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-015".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-016".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-017".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-018".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-019".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-020".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-021".into(), 2, map),
+                        CommonCards::from_card_number("hSD01-003".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-004".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-005".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-006".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-007".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-008".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-009".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-010".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-011".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-012".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-013".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-014".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-015".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-016".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-017".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-018".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-019".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-020".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-021".into(), 2, info),
                     ],
                     cheer_deck: vec![
-                        CommonCards::from_card_number("hY01-001".into(), 10, map),
-                        CommonCards::from_card_number("hY02-001".into(), 10, map),
+                        CommonCards::from_card_number("hY01-001".into(), 10, info),
+                        CommonCards::from_card_number("hY02-001".into(), 10, info),
                     ],
                 },
             },
@@ -58,31 +58,31 @@ fn starter_decks(map: &CardsInfoMap) -> &'static Vec<DeckEntry> {
                 display: "hSD01 - スタートデッキ「ときのそら&AZKi」 (AZKi oshi)".into(),
                 deck: CommonDeck {
                     name: Some("スタートデッキ「ときのそら&AZKi」".into()),
-                    oshi: CommonCards::from_card_number("hSD01-002".into(), 1, map),
+                    oshi: CommonCards::from_card_number("hSD01-002".into(), 1, info),
                     main_deck: vec![
-                        CommonCards::from_card_number("hSD01-003".into(), 4, map),
-                        CommonCards::from_card_number("hSD01-004".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-005".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-006".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-007".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-008".into(), 4, map),
-                        CommonCards::from_card_number("hSD01-009".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-010".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-011".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-012".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-013".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-014".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-015".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-016".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-017".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-018".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-019".into(), 3, map),
-                        CommonCards::from_card_number("hSD01-020".into(), 2, map),
-                        CommonCards::from_card_number("hSD01-021".into(), 2, map),
+                        CommonCards::from_card_number("hSD01-003".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-004".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-005".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-006".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-007".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-008".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-009".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-010".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-011".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-012".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-013".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-014".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-015".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-016".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-017".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-018".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-019".into(), 3, info),
+                        CommonCards::from_card_number("hSD01-020".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-021".into(), 2, info),
                     ],
                     cheer_deck: vec![
-                        CommonCards::from_card_number("hY01-001".into(), 10, map),
-                        CommonCards::from_card_number("hY02-001".into(), 10, map),
+                        CommonCards::from_card_number("hY01-001".into(), 10, info),
+                        CommonCards::from_card_number("hY02-001".into(), 10, info),
                     ],
                 },
             },
@@ -93,7 +93,7 @@ fn starter_decks(map: &CardsInfoMap) -> &'static Vec<DeckEntry> {
 #[component]
 pub fn Import(
     mut common_deck: Signal<Option<CommonDeck>>,
-    map: Signal<CardsInfoMap>,
+    info: Signal<CardsInfo>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -111,7 +111,7 @@ pub fn Import(
         let deck = starter_deck_idx
             .read()
             .as_ref()
-            .and_then(|idx| starter_decks(&map.read()).get(*idx));
+            .and_then(|idx| starter_decks(&info.read()).get(*idx));
 
         debug!("{:?}", deck);
         if let Some(deck) = deck {
@@ -144,7 +144,7 @@ pub fn Import(
                             *starter_deck_idx.write() = ev.value().parse().ok();
                             load_deck();
                         },
-                        for (idx , deck) in starter_decks(&map.read()).iter().enumerate() {
+                        for (idx , deck) in starter_decks(&info.read()).iter().enumerate() {
                             option { value: "{idx}", "{deck.display}" }
                         }
                     }

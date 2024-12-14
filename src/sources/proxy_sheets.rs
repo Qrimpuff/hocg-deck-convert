@@ -10,7 +10,7 @@ use futures::lock::Mutex;
 use printpdf::*;
 use serde::Serialize;
 
-use super::{CardsInfoMap, CommonDeck};
+use super::{CardsInfo, CommonDeck};
 use crate::{download_file, track_convert_event, CardLanguage, EventType};
 
 #[derive(Clone, Copy, Serialize)]
@@ -21,7 +21,7 @@ enum PaperSize {
 
 async fn generate_pdf(
     deck: &CommonDeck,
-    map: &CardsInfoMap,
+    info: &CardsInfo,
     card_lang: CardLanguage,
     paper_size: PaperSize,
     include_cheers: bool,
@@ -59,7 +59,7 @@ async fn generate_pdf(
         Box::new(std::iter::once(&deck.oshi).chain(deck.main_deck.iter()))
     };
     let cards: Vec<_> = cards
-        .filter(|c| c.image_path(map, card_lang).is_some())
+        .filter(|c| c.image_path(info, card_lang).is_some())
         .flat_map(|c| iter::repeat(c.clone()).take(c.amount as usize))
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
@@ -72,7 +72,7 @@ async fn generate_pdf(
     let download_images = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
-            let Some(img_path) = card.image_path(map, card_lang) else {
+            let Some(img_path) = card.image_path(info, card_lang) else {
                 // skip missing card
                 return;
             };
@@ -156,7 +156,7 @@ async fn generate_pdf(
 #[component]
 pub fn Export(
     mut common_deck: Signal<Option<CommonDeck>>,
-    map: Signal<CardsInfoMap>,
+    info: Signal<CardsInfo>,
     card_lang: Signal<CardLanguage>,
 ) -> Element {
     #[derive(Serialize)]
@@ -195,7 +195,7 @@ pub fn Export(
         let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
         match generate_pdf(
             common_deck,
-            &map.read(),
+            &info.read(),
             *card_lang.read(),
             *paper_size.read(),
             *include_cheers.read(),
@@ -242,8 +242,7 @@ pub fn Export(
                     select {
                         id: "card_language",
                         oninput: move |ev| {
-                            *card_lang
-                                .write() = match ev.value().as_str() {
+                            *card_lang.write() = match ev.value().as_str() {
                                 "jp" => CardLanguage::Japanese,
                                 "en" => CardLanguage::English,
                                 _ => unreachable!(),
@@ -263,8 +262,7 @@ pub fn Export(
                     select {
                         id: "paper_size",
                         oninput: move |ev| {
-                            *paper_size
-                                .write() = match ev.value().as_str() {
+                            *paper_size.write() = match ev.value().as_str() {
                                 "a4" => PaperSize::A4,
                                 "letter" => PaperSize::Letter,
                                 _ => unreachable!(),
@@ -284,8 +282,7 @@ pub fn Export(
                     select {
                         id: "include_cheers",
                         oninput: move |ev| {
-                            *include_cheers
-                                .write() = match ev.value().as_str() {
+                            *include_cheers.write() = match ev.value().as_str() {
                                 "no" => false,
                                 "yes" => true,
                                 _ => unreachable!(),
