@@ -134,13 +134,16 @@ impl CommonCardsConversion for Cards {
         Cards {
             card_number: cards.card_number,
             num: cards.amount,
-            manage_id: cards.manage_id.expect("should be a valid card in deck log"),
+            manage_id: cards
+                .manage_id
+                .expect("should be a valid card in deck log")
+                .to_string(),
         }
     }
 
     fn to_common_cards(value: Self, _info: &CardsInfo) -> CommonCards {
         CommonCards {
-            manage_id: Some(value.manage_id),
+            manage_id: value.manage_id.parse().ok(),
             card_number: value.card_number,
             amount: value.num,
         }

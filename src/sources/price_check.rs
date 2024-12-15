@@ -195,7 +195,7 @@ pub fn Export(
                 .sorted_by_key(|c| {
                     u32::MAX - c.price(&info.read(), &prices.read()).expect("it's some")
                 }) // this is the highest price
-                .map(|c| c.manage_id.clone())
+                .map(|c| c.manage_id)
                 .next()
             {
                 card.manage_id = manage_id;
@@ -232,7 +232,7 @@ pub fn Export(
                 .into_iter()
                 .filter(|c| c.price(&info.read(), &prices.read()).is_some())
                 .sorted_by_key(|c| c.price(&info.read(), &prices.read()).expect("it's some")) // this is the lowest price
-                .map(|c| c.manage_id.clone())
+                .map(|c| c.manage_id)
                 .next()
             {
                 card.manage_id = manage_id;

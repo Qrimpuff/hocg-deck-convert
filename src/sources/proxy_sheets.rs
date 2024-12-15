@@ -88,7 +88,7 @@ async fn generate_pdf(
                 ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP).unwrap();
             let image = image.resize_exact(CARD_WIDTH_PX, CARD_HEIGHT_PX, FilterType::CatmullRom);
             let image = Image::from_dynamic_image(&image);
-            img_cache.lock().await.insert(card.manage_id.clone(), image);
+            img_cache.lock().await.insert(card.manage_id, image);
         }
     });
     join_all(download_images).await;
@@ -123,7 +123,7 @@ async fn generate_pdf(
             }
 
             // place the image on the page
-            manage_id = card.manage_id.clone();
+            manage_id = card.manage_id;
             image_transforms.push(ImageTransform {
                 dpi: Some(DPI),
                 translate_x: Some(

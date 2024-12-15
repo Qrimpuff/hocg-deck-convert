@@ -49,7 +49,7 @@ pub trait CommonDeckConversion {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CommonCards {
-    pub manage_id: Option<String>,
+    pub manage_id: Option<u32>,
     pub card_number: String,
     pub amount: u32,
 }
@@ -58,9 +58,10 @@ impl CommonCards {
     pub fn from_card_number(card_number: String, amount: u32, info: &CardsInfo) -> Self {
         let card = info
             .values()
+            .flatten()
             .find(|c| c.card_number.eq_ignore_ascii_case(&card_number));
         CommonCards {
-            manage_id: card.map(|c| c.manage_id.clone()),
+            manage_id: card.and_then(|c| c.manage_id),
             card_number: card.map(|c| c.card_number.clone()).unwrap_or(card_number),
             amount,
         }
@@ -75,6 +76,7 @@ impl CommonCards {
         // grouped by card image
         let rarities: IndexMap<_, _> = info
             .values()
+            .flatten()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
             .fold(Default::default(), |mut acc, c| {
                 acc.entry(&c.img).or_insert(c);
@@ -83,7 +85,7 @@ impl CommonCards {
         let card = rarities.values().nth(rarity_order as usize);
         if let Some(card) = card {
             CommonCards {
-                manage_id: Some(card.manage_id.clone()),
+                manage_id: card.manage_id,
                 card_number: card.card_number.clone(),
                 amount,
             }
@@ -98,6 +100,7 @@ impl CommonCards {
             // grouped by card image
             let rarities: IndexMap<_, _> = info
                 .values()
+                .flatten()
                 .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
                 .fold(Default::default(), |mut acc, c| {
                     acc.entry(&c.img).or_insert(c);
@@ -120,11 +123,17 @@ impl CommonCards {
     }
 
     pub fn card_info<'a>(&self, info: &'a CardsInfo) -> Option<&'a CardEntry> {
-        info.get(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
+        info.get(&self.card_number)
+            .into_iter()
+            .flatten()
+            .find(|c| c.manage_id == self.manage_id)
     }
 
     pub fn card_info_mut<'a>(&self, info: &'a mut CardsInfo) -> Option<&'a mut CardEntry> {
-        info.get_mut(&self.manage_id.as_ref()?.parse::<u32>().ok()?)
+        info.get_mut(&self.card_number)
+            .into_iter()
+            .flatten()
+            .find(|c| c.manage_id == self.manage_id)
     }
 
     pub fn price(&self, info: &CardsInfo, prices: &PriceCache) -> Option<u32> {
@@ -142,9 +151,10 @@ impl CommonCards {
 
     pub fn alt_cards(&self, info: &CardsInfo) -> Vec<Self> {
         info.values()
+            .flatten()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
             .map(|c| Self {
-                manage_id: Some(c.manage_id.clone()),
+                manage_id: c.manage_id,
                 card_number: c.card_number.clone(),
                 amount: self.amount,
             })
@@ -185,7 +195,7 @@ impl MergeCommonCards for Vec<CommonCards> {
         let mut map = IndexMap::with_capacity(self.len());
 
         for card in self {
-            map.entry((card.card_number.clone(), card.manage_id.clone()))
+            map.entry((card.card_number.clone(), card.manage_id))
                 .and_modify(|c: &mut CommonCards| c.amount += card.amount)
                 .or_insert(card);
         }
