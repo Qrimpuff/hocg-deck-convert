@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
 use super::{CardsInfo, CommonDeck};
-use crate::{track_convert_event, CardLanguage, EventType, HOCG_DECK_CONVERT_API};
+use crate::{track_event, CardLanguage, EventType, HOCG_DECK_CONVERT_API};
 
 pub type PriceCache = HashMap<String, (Instant, u32)>;
 
@@ -150,7 +150,7 @@ pub fn Export(
         {
             Ok(_) => {
                 *show_price.write() = true;
-                track_convert_event(
+                track_event(
                     EventType::Export("Price check".into()),
                     EventData {
                         format: "Price check",
@@ -158,11 +158,11 @@ pub fn Export(
                         price_check_convert: None,
                         error: None,
                     },
-                );
+                ).await;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
-                track_convert_event(
+                track_event(
                     EventType::Export("Price check".into()),
                     EventData {
                         format: "Price check",
@@ -170,7 +170,7 @@ pub fn Export(
                         price_check_convert: None,
                         error: Some(e.to_string()),
                     },
-                );
+                ).await;
             }
         }
 
@@ -203,7 +203,7 @@ pub fn Export(
         }
         *common_deck = deck.merge();
 
-        track_convert_event(
+        track_event(
             EventType::Export("Price check".into()),
             EventData {
                 format: "Price check",
@@ -211,7 +211,7 @@ pub fn Export(
                 price_check_convert: Some("highest price".into()),
                 error: None,
             },
-        );
+        ).await;
 
         *loading.write() = false;
     };
@@ -240,7 +240,7 @@ pub fn Export(
         }
         *common_deck = deck.merge();
 
-        track_convert_event(
+        track_event(
             EventType::Export("Price check".into()),
             EventData {
                 format: "Price check",
@@ -248,7 +248,7 @@ pub fn Export(
                 price_check_convert: Some("lowest price".into()),
                 error: None,
             },
-        );
+        ).await;
 
         *loading.write() = false;
     };

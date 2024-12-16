@@ -14,7 +14,7 @@ serde = "1.0"
 serde_json = "1.0"
 reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
 gloo = "0.11.0"
-web-sys = "0.3.70"
+web-sys = { version = "0.3.70", features = ["Navigator", "Screen"] }
 indexmap = { version = "2.5.0", features = ["serde"] }
 # printpdf: the version on cargo is broken for wasm, and doesn't support reusing images
 printpdf = { git = "https://github.com/Qrimpuff/printpdf", branch = "reuse_image", features = [
@@ -26,7 +26,6 @@ wasm-bindgen = { version = "0.2.95", features = ["serde"] }
 web-time = "1.1.0"
 itertools = "0.13.0"
 num-format = "0.4.4"
-stringcase = "0.3.0"
 
 [profile]
 

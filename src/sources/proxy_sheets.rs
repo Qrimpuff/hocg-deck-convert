@@ -11,7 +11,7 @@ use printpdf::*;
 use serde::Serialize;
 
 use super::{CardsInfo, CommonDeck};
-use crate::{download_file, track_convert_event, CardLanguage, EventType};
+use crate::{download_file, track_event, CardLanguage, EventType};
 
 #[derive(Clone, Copy, Serialize)]
 enum PaperSize {
@@ -204,7 +204,7 @@ pub fn Export(
         {
             Ok(file) => {
                 download_file(&file_name, &file[..]);
-                track_convert_event(
+                track_event(
                     EventType::Export("Proxy sheets".into()),
                     EventData {
                         format: "Proxy sheets",
@@ -213,11 +213,12 @@ pub fn Export(
                         include_cheers: *include_cheers.read(),
                         error: None,
                     },
-                );
+                )
+                .await;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
-                track_convert_event(
+                track_event(
                     EventType::Export("Proxy sheets".into()),
                     EventData {
                         format: "Proxy sheets",
@@ -226,7 +227,8 @@ pub fn Export(
                         include_cheers: *include_cheers.read(),
                         error: Some(e.to_string()),
                     },
-                );
+                )
+                .await;
             }
         }
 

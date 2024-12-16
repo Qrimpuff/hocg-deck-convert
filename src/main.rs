@@ -1,18 +1,19 @@
 #![allow(non_snake_case)]
 
-pub mod sources;
+mod sources;
+mod tracker;
 
 use dioxus::{logger::tracing::debug, prelude::*};
 use gloo::{
     file::{Blob, BlobContents},
-    utils::{document, format::JsValueSerdeExt},
+    utils::document,
 };
 use hocg_fan_sim_assets_model::CardsInfo;
 use num_format::{Locale, ToFormattedString};
 use price_check::PriceCache;
 use serde::Serialize;
 use sources::*;
-use stringcase::snake_case;
+use tracker::{track_event, track_url, EventType};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
@@ -24,7 +25,9 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    done_loading();
+    use_future(|| async {
+        done_loading().await;
+    });
 
     let _card_info: Coroutine<()> = use_coroutine(|_rx| async move {
         *CARDS_INFO.write() =
@@ -48,17 +51,20 @@ fn App() -> Element {
                         a {
                             href: "https://decklog-en.bushiroad.com/ja/create?c=108",
                             target: "_blank",
+                            onclick: |_| async { track_url("Deck Log").await },
                             "Deck Log"
                         }
                         ", "
                         a {
                             href: "https://github.com/GabeJWJ/holoDelta",
+                            onclick: |_| async { track_url("holoDelta").await },
                             target: "_blank",
                             "holoDelta"
                         }
                         ", "
                         a {
                             href: "https://daktagames.itch.io/holoduel",
+                            onclick: |_| async { track_url("HoloDuel").await },
                             target: "_blank",
                             "HoloDuel"
                         }
@@ -72,6 +78,7 @@ fn App() -> Element {
                         a {
                             href: "https://discord.com/invite/GJ9RhA22nP",
                             target: "_blank",
+                            onclick: |_| async { track_url("Discord - Hololive OCG Fan Server").await },
                             span { class: "icon",
                                 i { class: "fa-brands fa-discord" }
                             }
@@ -97,6 +104,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert",
                         target: "_blank",
+                        onclick: |_| async { track_url("GitHub - hocg-deck-convert").await },
                         span { class: "icon",
                             i { class: "fa-brands fa-github" }
                         }
@@ -106,6 +114,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert/blob/main/LICENSE",
                         target: "_blank",
+                        onclick: |_| async { track_url("GitHub - hocg-deck-convert - license").await },
                         "MIT"
                     }
                     "."
@@ -116,6 +125,7 @@ fn App() -> Element {
                     a {
                         href: "https://en.hololive.tv/terms",
                         target: "_blank",
+                        onclick: |_| async { track_url("hololive Derivative Works guidelines").await },
                         "hololive Derivative Works guidelines"
                     }
                     ". © 2016 COVER Corp."
@@ -125,6 +135,7 @@ fn App() -> Element {
                     a {
                         href: "https://discord.com/invite/GJ9RhA22nP",
                         target: "_blank",
+                        onclick: |_| async { track_url("Discord - Hololive OCG Fan Server").await },
                         span { class: "icon",
                             i { class: "fa-brands fa-discord" }
                         }
@@ -346,14 +357,15 @@ pub fn UnknownImport(
                             Some(holodelta::Deck::to_common_deck(deck, &info.read()));
                         *deck_success.write() = "Deck file format: holoDelta".into();
                         *show_price.write() = false;
-                        track_convert_event(
+                        track_event(
                             EventType::Import("Unknown".into()),
                             EventData {
                                 format: "Unknown",
                                 file_format: Some("holoDelta"),
                                 error: None,
                             },
-                        );
+                        )
+                        .await;
                         return;
                     }
 
@@ -365,14 +377,15 @@ pub fn UnknownImport(
                             Some(holoduel::Deck::to_common_deck(deck, &info.read()));
                         *deck_success.write() = "Deck file format: HoloDuel".into();
                         *show_price.write() = false;
-                        track_convert_event(
+                        track_event(
                             EventType::Import("Unknown".into()),
                             EventData {
                                 format: "Unknown",
                                 file_format: Some("HoloDuel"),
                                 error: None,
                             },
-                        );
+                        )
+                        .await;
                         return;
                     }
 
@@ -385,26 +398,28 @@ pub fn UnknownImport(
                         *deck_success.write() =
                             "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
                         *show_price.write() = false;
-                        track_convert_event(
+                        track_event(
                             EventType::Import("Unknown".into()),
                             EventData {
                                 format: "Unknown",
                                 file_format: Some("Tabletop Sim"),
                                 error: None,
                             },
-                        );
+                        )
+                        .await;
                         return;
                     }
 
                     *deck_error.write() = "Cannot parse deck file".into();
-                    track_convert_event(
+                    track_event(
                         EventType::Import("Unknown".into()),
                         EventData {
                             format: "Unknown",
                             file_format: None,
                             error: Some("Cannot parse deck file".into()),
                         },
-                    );
+                    )
+                    .await;
                 }
             }
         }
@@ -601,6 +616,7 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
                                 title: "Go to Yuyutei for {cards.card_number}",
                                 href: "{price_url}",
                                 target: "_blank",
+                                onclick: |_| async { track_url("Yuyutei").await },
                                 i { class: "fa-solid fa-arrow-up-right-from-square" }
                             }
                         }
@@ -630,32 +646,10 @@ pub fn download_file(file_name: &str, content: impl BlobContents) {
     document().body().unwrap().remove_child(&a).unwrap();
 }
 
-pub fn done_loading() {
+pub async fn done_loading() {
     if let Some(loading) = document().get_element_by_id("loading") {
         loading.remove();
+
+        track_event(EventType::Entry, Option::<()>::None).await;
     }
-}
-
-#[wasm_bindgen(module = "/assets/utils.js")]
-extern "C" {
-    fn track_event(event: &str, data: JsValue);
-}
-
-pub enum EventType {
-    Import(String),
-    Export(String),
-}
-
-pub fn track_convert_event<T>(event: EventType, data: T)
-where
-    T: serde::ser::Serialize,
-{
-    let event = match event {
-        EventType::Import(fmt) => format!("import-{}", snake_case(&fmt)),
-        EventType::Export(fmt) => format!("export-{}", snake_case(&fmt)),
-    };
-
-    let data = JsValue::from_serde(&data).unwrap();
-
-    track_event(&event, data);
 }

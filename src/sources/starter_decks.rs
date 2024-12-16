@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use dioxus::{logger::tracing::debug, prelude::*};
 use serde::Serialize;
 
-use crate::{track_convert_event, EventType};
+use crate::{track_event, EventType};
 
 use super::{CardsInfo, CommonCards, CommonDeck};
 
@@ -105,7 +105,7 @@ pub fn Import(
     let mut starter_deck_idx: Signal<Option<usize>> = use_signal(|| Some(0));
     let mut loading = use_signal(|| false);
 
-    let mut load_deck = move || {
+    let load_deck = move || async move {
         *loading.write() = true;
 
         let deck = starter_deck_idx
@@ -115,13 +115,14 @@ pub fn Import(
 
         debug!("{:?}", deck);
         if let Some(deck) = deck {
-            track_convert_event(
+            track_event(
                 EventType::Import("Stater deck".into()),
                 EventData {
                     format: "Stater deck",
                     deck_id: deck.deck_id.clone(),
                 },
-            );
+            )
+            .await;
         }
         *common_deck.write() = deck.map(|d| d.deck.clone());
 
@@ -129,9 +130,11 @@ pub fn Import(
         *loading.write() = false;
     };
 
-    if common_deck.read().is_none() {
-        load_deck();
-    }
+    use_future(move || async move {
+        if common_deck.read().is_none() {
+            load_deck().await;
+        }
+    });
 
     rsx! {
         div { class: "field",
@@ -140,9 +143,9 @@ pub fn Import(
                 div { class: "select",
                     select {
                         id: "starter_deck",
-                        oninput: move |ev| {
+                        oninput: move |ev| async move {
                             *starter_deck_idx.write() = ev.value().parse().ok();
-                            load_deck();
+                            load_deck().await;
                         },
                         for (idx , deck) in starter_decks(&info.read()).iter().enumerate() {
                             option { value: "{idx}", "{deck.display}" }

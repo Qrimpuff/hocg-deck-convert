@@ -6,7 +6,7 @@ use dioxus::prelude::*;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use crate::{track_convert_event, EventType, HOCG_DECK_CONVERT_API};
+use crate::{track_event, EventType, HOCG_DECK_CONVERT_API};
 
 use super::{
     CardsInfo, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
@@ -261,7 +261,7 @@ pub fn Import(
         match deck {
             Ok(deck) => {
                 *deck_log_url.write() = deck.view_url();
-                track_convert_event(
+                track_event(
                     EventType::Import("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
@@ -269,13 +269,14 @@ pub fn Import(
                         deck_id: Some(deck.deck_id.clone()),
                         error: None,
                     },
-                );
+                )
+                .await;
                 *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
                 *show_price.write() = false;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
-                track_convert_event(
+                track_event(
                     EventType::Import("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
@@ -283,7 +284,8 @@ pub fn Import(
                         deck_id: None,
                         error: Some(e.to_string()),
                     },
-                );
+                )
+                .await;
             }
         }
 
@@ -382,7 +384,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                 PUBLISH_CACHE
                     .write()
                     .insert((*game_title_id.read(), common_deck.calculate_hash()), url);
-                track_convert_event(
+                track_event(
                     EventType::Export("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
@@ -390,11 +392,12 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                         deck_id: Some(deck.deck_id.clone()),
                         error: None,
                     },
-                );
+                )
+                .await;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
-                track_convert_event(
+                track_event(
                     EventType::Export("Deck Log".into()),
                     EventData {
                         format: "Deck Log",
@@ -402,7 +405,8 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                         deck_id: None,
                         error: Some(e.to_string()),
                     },
-                );
+                )
+                .await;
             }
         }
 

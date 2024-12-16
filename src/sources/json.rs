@@ -7,7 +7,7 @@ use dioxus::{
 use serde::Serialize;
 use web_time::{Duration, Instant};
 
-use crate::{download_file, track_convert_event, EventType};
+use crate::{download_file, track_event, EventType};
 
 use super::{
     holodelta, holoduel, tabletop_sim, CardsInfo, CommonDeck, CommonDeckConversion, DeckType,
@@ -99,7 +99,7 @@ pub fn JsonImport(
     let mut file_name = use_signal(String::new);
     let mut tracking_sent: Signal<Option<Instant>> = use_signal(|| None);
 
-    let from_text = move |event: Event<FormData>| {
+    let from_text = move |event: Event<FormData>| async move {
         *json.write() = event.value().clone();
         *common_deck.write() = None;
         *show_price.write() = false;
@@ -127,13 +127,14 @@ pub fn JsonImport(
                     .map(|t| t.elapsed() >= Duration::from_secs(5))
                     .unwrap_or(true)
                 {
-                    track_convert_event(
+                    track_event(
                         EventType::Import(import_name.read().clone()),
                         EventData {
                             format: import_name.read().clone(),
                             error: None,
                         },
-                    );
+                    )
+                    .await;
                     *tracking_sent.write() = Some(Instant::now());
                 }
             }
@@ -145,13 +146,14 @@ pub fn JsonImport(
                     .map(|t| t.elapsed() >= Duration::from_secs(5))
                     .unwrap_or(true)
                 {
-                    track_convert_event(
+                    track_event(
                         EventType::Import(import_name.read().clone()),
                         EventData {
                             format: import_name.read().clone(),
                             error: Some(e.to_string()),
                         },
-                    );
+                    )
+                    .await;
                     *tracking_sent.write() = Some(Instant::now());
                 }
             }
@@ -185,36 +187,39 @@ pub fn JsonImport(
                             match String::from_utf8(contents) {
                                 Ok(contents) => {
                                     *json.write() = contents;
-                                    track_convert_event(
+                                    track_event(
                                         EventType::Import(import_name.read().clone()),
                                         EventData {
                                             format: import_name.read().clone(),
                                             error: None,
                                         },
-                                    );
+                                    )
+                                    .await;
                                 }
                                 Err(e) => {
                                     *deck_error.write() = e.to_string();
 
-                                    track_convert_event(
+                                    track_event(
                                         EventType::Import(import_name.read().clone()),
                                         EventData {
                                             format: import_name.read().clone(),
                                             error: Some(e.to_string()),
                                         },
-                                    );
+                                    )
+                                    .await;
                                 }
                             }
                         }
                         Err(e) => {
                             *deck_error.write() = e.to_string();
-                            track_convert_event(
+                            track_event(
                                 EventType::Import(import_name.read().clone()),
                                 EventData {
                                     format: import_name.read().clone(),
                                     error: Some(e.to_string()),
                                 },
-                            );
+                            )
+                            .await;
                         }
                     }
                 }
@@ -282,9 +287,8 @@ pub fn JsonExport(
         error: Option<String>,
     }
 
-    let export_extension = format!("{export_id}.json");
-
     let export_name = use_signal(|| export_name);
+    let export_id = use_signal(|| export_id);
     let mut deck_error = use_signal(String::new);
 
     let deck: Option<Deck> = common_deck
@@ -303,7 +307,7 @@ pub fn JsonExport(
         None => "".into(),
     };
 
-    let download_file = move |_| {
+    let download_file = move |_| async move {
         let deck: Option<_> = common_deck.read().as_ref().map(|d| {
             (
                 d.file_name(),
@@ -311,27 +315,29 @@ pub fn JsonExport(
             )
         });
         if let Some((file_name, deck)) = deck {
-            let file_name = format!("{file_name}.{export_extension}");
+            let file_name = format!("{file_name}.{export_id}.json");
             match deck.to_file() {
                 Ok(file) => {
                     download_file(&file_name, &file[..]);
-                    track_convert_event(
+                    track_event(
                         EventType::Export(export_name.read().clone()),
                         EventData {
                             format: export_name.read().clone(),
                             error: None,
                         },
-                    );
+                    )
+                    .await;
                 }
                 Err(e) => {
                     *deck_error.write() = e.to_string();
-                    track_convert_event(
+                    track_event(
                         EventType::Export(export_name.read().clone()),
                         EventData {
                             format: export_name.read().clone(),
                             error: Some(e.to_string()),
                         },
-                    );
+                    )
+                    .await;
                 }
             }
         }
