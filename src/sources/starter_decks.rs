@@ -116,9 +116,9 @@ pub fn Import(
         debug!("{:?}", deck);
         if let Some(deck) = deck {
             track_event(
-                EventType::Import("Stater deck".into()),
+                EventType::Import("Starter deck".into()),
                 EventData {
-                    format: "Stater deck",
+                    format: "Starter deck",
                     deck_id: deck.deck_id.clone(),
                 },
             )
