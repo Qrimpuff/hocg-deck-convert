@@ -281,8 +281,14 @@ pub fn JsonExport(
     info: Signal<CardsInfo>,
 ) -> Element {
     #[derive(Serialize)]
+    enum ExportKind {
+        Download,
+        Copy,
+    }
+    #[derive(Serialize)]
     struct EventData {
         format: String,
+        export_kind: ExportKind,
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
@@ -323,6 +329,7 @@ pub fn JsonExport(
                         EventType::Export(export_name.read().clone()),
                         EventData {
                             format: export_name.read().clone(),
+                            export_kind: ExportKind::Download,
                             error: None,
                         },
                     )
@@ -334,6 +341,7 @@ pub fn JsonExport(
                         EventType::Export(export_name.read().clone()),
                         EventData {
                             format: export_name.read().clone(),
+                            export_kind: ExportKind::Download,
                             error: Some(e.to_string()),
                         },
                     )
@@ -365,6 +373,17 @@ pub fn JsonExport(
                     id: "{export_id}_export_json",
                     class: "textarea",
                     readonly: true,
+                    oncopy: move |_| async move {
+                        track_event(
+                                EventType::Export(export_name.read().clone()),
+                                EventData {
+                                    format: export_name.read().clone(),
+                                    export_kind: ExportKind::Copy,
+                                    error: None,
+                                },
+                            )
+                            .await;
+                    },
                     value: "{text}",
                 }
             }

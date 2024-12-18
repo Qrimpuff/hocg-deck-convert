@@ -41,9 +41,9 @@ fn http_client() -> &'static Client {
 async fn price_check(
     deck: &CommonDeck,
     info: &CardsInfo,
-    prices: &mut PriceCache,
+    prices: &PriceCache,
     service: PriceCheckService,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<PriceCache, Box<dyn Error>> {
     info!("price check");
 
     // read price from cache
@@ -66,7 +66,7 @@ async fn price_check(
         .unique()
         .collect();
     if urls.is_empty() {
-        return Ok(());
+        return Ok(PriceCache::new());
     }
 
     let req = PriceCheckRequest { urls };
@@ -89,6 +89,7 @@ async fn price_check(
     debug!("{:?}", lookup_prices);
 
     // update the price
+    let mut prices = PriceCache::new();
     for card in deck.all_cards() {
         for card in card
             .alt_cards(info)
@@ -105,7 +106,7 @@ async fn price_check(
         }
     }
 
-    Ok(())
+    Ok(prices)
 }
 
 #[component]
@@ -140,15 +141,11 @@ pub fn Export(
         *loading.write() = true;
         *deck_error.write() = String::new();
 
-        match price_check(
-            common_deck,
-            &info.read(),
-            &mut prices.write(),
-            *service.read(),
-        )
-        .await
-        {
-            Ok(_) => {
+        let price_check =
+            price_check(common_deck, &info.read(), &prices.read(), *service.read()).await;
+        match price_check {
+            Ok(price_check) => {
+                prices.write().extend(price_check);
                 *show_price.write() = true;
                 track_event(
                     EventType::Export("Price check".into()),
@@ -158,7 +155,8 @@ pub fn Export(
                         price_check_convert: None,
                         error: None,
                     },
-                ).await;
+                )
+                .await;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -170,7 +168,8 @@ pub fn Export(
                         price_check_convert: None,
                         error: Some(e.to_string()),
                     },
-                ).await;
+                )
+                .await;
             }
         }
 
@@ -211,7 +210,8 @@ pub fn Export(
                 price_check_convert: Some("highest price".into()),
                 error: None,
             },
-        ).await;
+        )
+        .await;
 
         *loading.write() = false;
     };
@@ -248,7 +248,8 @@ pub fn Export(
                 price_check_convert: Some("lowest price".into()),
                 error: None,
             },
-        ).await;
+        )
+        .await;
 
         *loading.write() = false;
     };

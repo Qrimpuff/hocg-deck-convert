@@ -473,7 +473,6 @@ pub enum CardLanguage {
 fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
     let deck = COMMON_DECK.read();
     let info = CARDS_INFO.read();
-    let prices = CARDS_PRICES.read();
 
     let Some(deck) = deck.as_ref() else {
         return rsx! {};
@@ -517,17 +516,24 @@ fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
     }
 
     let show_price = *SHOW_PRICE.read();
-    let approx_price = if deck.all_cards().any(|c| c.price(&info, &prices).is_none()) {
+    let approx_price = if show_price
+        && deck
+            .all_cards()
+            .any(|c| c.price(&info, &CARDS_PRICES.read()).is_none())
+    {
         ">"
     } else {
         ""
     };
-    let price = deck
-        .all_cards()
-        .filter_map(|c| c.price(&info, &prices).map(|p| (c, p)))
-        .map(|(c, p)| p * c.amount)
-        .sum::<u32>()
-        .to_formatted_string(&Locale::en);
+    let price = if show_price {
+        deck.all_cards()
+            .filter_map(|c| c.price(&info, &CARDS_PRICES.read()).map(|p| (c, p)))
+            .map(|(c, p)| p * c.amount)
+            .sum::<u32>()
+            .to_formatted_string(&Locale::en)
+    } else {
+        String::new()
+    };
 
     rsx! {
         if !warnings.is_empty() {

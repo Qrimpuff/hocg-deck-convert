@@ -23,18 +23,6 @@ pub async fn track_event<T>(event: EventType, data: T)
 where
     T: serde::ser::Serialize,
 {
-    // skip tracking
-    let untrack = window()
-        .local_storage()
-        .ok()
-        .flatten()
-        .and_then(|ls| ls.get_item("umami.disabled").ok())
-        .flatten()
-        .is_some();
-    if untrack {
-        return;
-    }
-
     let event = match event {
         // entry event doesn't have a name
         EventType::Entry => None,
@@ -65,7 +53,19 @@ where
         }
     }
 
-    // debug!("{payload:?}");
+    // info!("{payload:?}");
+
+    // skip tracking
+    let untrack = window()
+        .local_storage()
+        .ok()
+        .flatten()
+        .and_then(|ls| ls.get_item("umami.disabled").ok())
+        .flatten()
+        .is_some();
+    if untrack {
+        return;
+    }
 
     let _resp = http_client()
         .post(format!("{HOCG_DECK_CONVERT_API}/umami"))
