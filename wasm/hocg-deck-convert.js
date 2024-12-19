@@ -229,15 +229,15 @@ function __wbg_adapter_50(arg0, arg1) {
 }
 
 function __wbg_adapter_53(arg0, arg1, arg2) {
-    wasm.closure1698_externref_shim(arg0, arg1, arg2);
+    wasm.closure1709_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_56(arg0, arg1, arg2) {
-    wasm.closure1702_externref_shim(arg0, arg1, arg2);
+    wasm.closure1713_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_59(arg0, arg1, arg2) {
-    wasm.closure1990_externref_shim(arg0, arg1, arg2);
+    wasm.closure2001_externref_shim(arg0, arg1, arg2);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
@@ -1555,20 +1555,20 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper3944 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 1699, __wbg_adapter_50);
+    imports.wbg.__wbindgen_closure_wrapper3991 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 1710, __wbg_adapter_50);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper3945 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 1699, __wbg_adapter_53);
+    imports.wbg.__wbindgen_closure_wrapper3992 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 1710, __wbg_adapter_53);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper3947 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 1699, __wbg_adapter_56);
+    imports.wbg.__wbindgen_closure_wrapper3994 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 1710, __wbg_adapter_56);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper4370 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 1991, __wbg_adapter_59);
+    imports.wbg.__wbindgen_closure_wrapper4417 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 2002, __wbg_adapter_59);
         return ret;
     };
     imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {
@@ -1711,7 +1711,9 @@ async function __wbg_init(module_or_path) {
         }
     }
 
-
+    if (typeof module_or_path === 'undefined') {
+        module_or_path = new URL('hocg-deck-convert_bg.wasm', import.meta.url);
+    }
     const imports = __wbg_get_imports();
 
     if (typeof module_or_path === 'string' || (typeof Request === 'function' && module_or_path instanceof Request) || (typeof URL === 'function' && module_or_path instanceof URL)) {
