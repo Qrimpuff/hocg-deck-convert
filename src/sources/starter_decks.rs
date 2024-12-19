@@ -21,9 +21,9 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
             // hSD01 - スタートデッキ「ときのそら&AZKi」(Sora oshi)
             DeckEntry {
                 deck_id: "hSD01-001".into(),
-                display: "hSD01 - スタートデッキ「ときのそら&AZKi」 (Sora oshi)".into(),
+                display: "hSD01 - Start Deck「Tokino Sora & AZKi」 (Sora oshi)".into(),
                 deck: CommonDeck {
-                    name: Some("スタートデッキ「ときのそら&AZKi」".into()),
+                    name: Some("Start Deck「Tokino Sora & AZKi」".into()),
                     oshi: CommonCards::from_card_number("hSD01-001".into(), 1, info),
                     main_deck: vec![
                         CommonCards::from_card_number("hSD01-003".into(), 4, info),
@@ -55,9 +55,9 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
             // hSD01 - スタートデッキ「ときのそら&AZKi」(AZKi oshi)
             DeckEntry {
                 deck_id: "hSD01-002".into(),
-                display: "hSD01 - スタートデッキ「ときのそら&AZKi」 (AZKi oshi)".into(),
+                display: "hSD01 - Start Deck「Tokino Sora & AZKi」 (AZKi oshi)".into(),
                 deck: CommonDeck {
-                    name: Some("スタートデッキ「ときのそら&AZKi」".into()),
+                    name: Some("Start Deck「Tokino Sora & AZKi」".into()),
                     oshi: CommonCards::from_card_number("hSD01-002".into(), 1, info),
                     main_deck: vec![
                         CommonCards::from_card_number("hSD01-003".into(), 4, info),
@@ -84,6 +84,96 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                         CommonCards::from_card_number("hY01-001".into(), 10, info),
                         CommonCards::from_card_number("hY02-001".into(), 10, info),
                     ],
+                },
+            },
+            // hSD02 - スタートデッキ 赤 百鬼あやめ
+            DeckEntry {
+                deck_id: "hSD02-001".into(),
+                display: "hSD02 - Start Deck (Red) Nakiri Ayame".into(),
+                deck: CommonDeck {
+                    name: Some("hSD02 - Start Deck (Red) Nakiri Ayame".into()),
+                    oshi: CommonCards::from_card_number("hSD02-001".into(), 1, info),
+                    main_deck: vec![
+                        CommonCards::from_card_number("hSD02-002".into(), 4, info),
+                        CommonCards::from_card_number("hSD02-003".into(), 4, info),
+                        CommonCards::from_card_number("hSD02-004".into(), 4, info),
+                        CommonCards::from_card_number("hSD02-005".into(), 4, info),
+                        CommonCards::from_card_number("hSD02-006".into(), 4, info),
+                        CommonCards::from_card_number("hSD02-007".into(), 4, info),
+                        CommonCards::from_card_number("hSD02-008".into(), 2, info),
+                        CommonCards::from_card_number("hSD02-009".into(), 2, info),
+                        CommonCards::from_card_number("hSD02-010".into(), 2, info),
+                        CommonCards::from_card_number("hSD02-011".into(), 2, info),
+                        CommonCards::from_card_number("hSD02-012".into(), 2, info),
+                        CommonCards::from_card_number("hSD02-013".into(), 2, info),
+                        CommonCards::from_card_number("hSD02-014".into(), 2, info),
+                        CommonCards::from_card_number("hBP01-104".into(), 1, info),
+                        CommonCards::from_card_number("hBP01-108".into(), 1, info),
+                        CommonCards::from_card_number("hSD01-016".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-017".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-018".into(), 4, info),
+                    ],
+                    cheer_deck: vec![CommonCards::from_card_number("hY03-001".into(), 20, info)],
+                },
+            },
+            // hSD03 - スタートデッキ 青 猫又おかゆ
+            DeckEntry {
+                deck_id: "hSD03-001".into(),
+                display: "hSD03 - Start Deck (Blue) Nekomata Okayu".into(),
+                deck: CommonDeck {
+                    name: Some("hSD03 - Start Deck (Blue) Nekomata Okayu".into()),
+                    oshi: CommonCards::from_card_number("hSD03-001".into(), 1, info),
+                    main_deck: vec![
+                        CommonCards::from_card_number("hSD03-002".into(), 4, info),
+                        CommonCards::from_card_number("hSD03-003".into(), 4, info),
+                        CommonCards::from_card_number("hSD03-004".into(), 4, info),
+                        CommonCards::from_card_number("hSD03-005".into(), 4, info),
+                        CommonCards::from_card_number("hSD03-006".into(), 4, info),
+                        CommonCards::from_card_number("hSD03-007".into(), 4, info),
+                        CommonCards::from_card_number("hSD03-008".into(), 2, info),
+                        CommonCards::from_card_number("hSD03-009".into(), 2, info),
+                        CommonCards::from_card_number("hSD03-010".into(), 2, info),
+                        CommonCards::from_card_number("hSD03-011".into(), 2, info),
+                        CommonCards::from_card_number("hSD03-012".into(), 2, info),
+                        CommonCards::from_card_number("hSD03-013".into(), 2, info),
+                        CommonCards::from_card_number("hSD03-014".into(), 2, info),
+                        CommonCards::from_card_number("hBP01-105".into(), 2, info),
+                        CommonCards::from_card_number("hBP01-108".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-016".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-017".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-019".into(), 2, info),
+                    ],
+                    cheer_deck: vec![CommonCards::from_card_number("hY04-001".into(), 20, info)],
+                },
+            },
+            // hSD04 - スタートデッキ 紫 癒月ちょこ
+            DeckEntry {
+                deck_id: "hSD04-001".into(),
+                display: "hSD04 - Start Deck (Purple) Yuzuki Choco".into(),
+                deck: CommonDeck {
+                    name: Some("hSD04 - Start Deck (Purple) Yuzuki Choco".into()),
+                    oshi: CommonCards::from_card_number("hSD04-001".into(), 1, info),
+                    main_deck: vec![
+                        CommonCards::from_card_number("hSD04-002".into(), 4, info),
+                        CommonCards::from_card_number("hSD04-003".into(), 4, info),
+                        CommonCards::from_card_number("hSD04-004".into(), 4, info),
+                        CommonCards::from_card_number("hSD04-005".into(), 4, info),
+                        CommonCards::from_card_number("hSD04-006".into(), 4, info),
+                        CommonCards::from_card_number("hSD04-007".into(), 4, info),
+                        CommonCards::from_card_number("hSD04-008".into(), 2, info),
+                        CommonCards::from_card_number("hSD04-009".into(), 2, info),
+                        CommonCards::from_card_number("hSD04-010".into(), 2, info),
+                        CommonCards::from_card_number("hSD04-011".into(), 2, info),
+                        CommonCards::from_card_number("hSD04-012".into(), 2, info),
+                        CommonCards::from_card_number("hSD04-013".into(), 2, info),
+                        CommonCards::from_card_number("hSD04-014".into(), 2, info),
+                        CommonCards::from_card_number("hBP01-104".into(), 2, info),
+                        CommonCards::from_card_number("hBP01-106".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-016".into(), 4, info),
+                        CommonCards::from_card_number("hSD01-017".into(), 2, info),
+                        CommonCards::from_card_number("hSD01-019".into(), 2, info),
+                    ],
+                    cheer_deck: vec![CommonCards::from_card_number("hY05-001".into(), 20, info)],
                 },
             },
         ]
