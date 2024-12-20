@@ -71,7 +71,7 @@ fn App() -> Element {
                         ", or even print proxy sheets."
                     }
                     p { class: "is-hidden-mobile",
-                        "You can also choose one of the official starter decks to get you started."
+                        "Consider using Deck Log to build your deck, or you can also choose one of the official starter decks to get you started."
                     }
                     p {
                         "If you have any questions about the game, consider joining the "
