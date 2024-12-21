@@ -74,7 +74,7 @@ fn App() -> Element {
                         "Consider using Deck Log to build your deck, or you can also choose one of the official starter decks to get you started."
                     }
                     p {
-                        "If you have any questions about the game, consider joining the "
+                        "If you have any questions about the game, the "
                         a {
                             href: "https://discord.com/invite/GJ9RhA22nP",
                             target: "_blank",
@@ -84,7 +84,7 @@ fn App() -> Element {
                             }
                             "Hololive OCG Fan Server"
                         }
-                        "."
+                        " is welcoming to beginners."
                     }
                 }
                 div { class: "columns is-tablet",
@@ -605,6 +605,23 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
         .card_info(&CARDS_INFO.read())
         .and_then(|c| c.yuyutei_sell_url.clone());
 
+    // verify card amount
+    let warning = COMMON_DECK
+        .read()
+        .as_ref()
+        .map(|d| {
+            d.all_cards()
+                .filter(|c| c.card_number == cards.card_number)
+                .map(|c| c.amount)
+                .sum::<u32>()
+        })
+        .unwrap_or(0)
+        > cards
+            .card_info(&CARDS_INFO.read())
+            .map(|i| i.max)
+            .unwrap_or(50);
+    let warning_class = if warning { "is-warning" } else { "is-dark" };
+
     rsx! {
         div {
             figure { class: "image m-2 {img_class}",
@@ -615,7 +632,7 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
                     "onerror": "this.src='{error_img_path}'",
                 }
                 if show_price {
-                    span { class: "badge is-bottom is-dark",
+                    span { class: "badge is-bottom {warning_class}",
                         " ¥{price} × {cards.amount} "
                         if let Some(price_url) = price_url {
                             a {
@@ -628,7 +645,7 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
                         }
                     }
                 } else if card_type != CardType::Oshi {
-                    span { class: "badge is-bottom is-dark", "{cards.amount}" }
+                    span { class: "badge is-bottom {warning_class}", "{cards.amount}" }
                 }
             }
         }

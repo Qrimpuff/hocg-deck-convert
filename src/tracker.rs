@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+use dioxus::logger::tracing::debug;
 use gloo::utils::{document, window};
 use reqwest::{Client, ClientBuilder};
 use serde::Serialize;
@@ -53,7 +54,7 @@ where
         }
     }
 
-    // info!("{payload:?}");
+    debug!("{payload:?}");
 
     // skip tracking
     let untrack = window()

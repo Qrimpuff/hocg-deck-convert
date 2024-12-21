@@ -331,9 +331,10 @@ impl CommonDeck {
             .into_iter()
             .map(|(k, v)| CommonCards::from_card_number(k.clone(), v, info))
         {
-            if card.amount > card.card_info(info).map(|i| i.max).unwrap_or(50) {
+            let max = card.card_info(info).map(|i| i.max).unwrap_or(50);
+            if card.amount > max {
                 errors.push(format!(
-                    "Too many {} in main deck. ({} cards)",
+                    "Too many {} in main deck. ({} cards; {max} max)",
                     card.card_number, card.amount
                 ));
             }

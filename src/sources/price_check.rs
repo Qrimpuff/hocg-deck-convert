@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error, sync::OnceLock};
 
 use dioxus::{
-    logger::tracing::{debug, info},
+    logger::tracing::debug,
     prelude::*,
 };
 use itertools::Itertools;
@@ -44,7 +44,7 @@ async fn price_check(
     prices: &PriceCache,
     service: PriceCheckService,
 ) -> Result<PriceCache, Box<dyn Error>> {
-    info!("price check");
+    debug!("price check");
 
     // read price from cache
     let urls: Vec<_> = deck
