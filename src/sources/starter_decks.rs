@@ -219,9 +219,12 @@ pub fn Import(
         *loading.write() = false;
     };
 
-    if common_deck.read().is_none() {
-        load_deck();
-    }
+    // display once
+    use_effect(move || {
+        if common_deck.peek().is_none() {
+            load_deck();
+        }
+    });
 
     rsx! {
         div { class: "field",
