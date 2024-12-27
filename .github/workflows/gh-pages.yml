@@ -19,7 +19,7 @@ jobs:
         run: cargo install dioxus-cli
       
       - name: Dioxus
-        run: dx build --release && cp ./target/dx/hocg-deck-convert/release/web/public ./dist && cp ./dist/index.html ./dist/404.html
+        run: dx build --release && cp -r ./target/dx/hocg-deck-convert/release/web/public ./dist && cp ./dist/index.html ./dist/404.html
         
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
