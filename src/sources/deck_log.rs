@@ -270,7 +270,7 @@ pub fn Import(
                         error: None,
                     },
                 )
-                .await;
+                ;
                 *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
                 *show_price.write() = false;
             }
@@ -285,7 +285,7 @@ pub fn Import(
                         error: Some(e.to_string()),
                     },
                 )
-                .await;
+                ;
             }
         }
 
@@ -393,7 +393,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                         error: None,
                     },
                 )
-                .await;
+                ;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -406,7 +406,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                         error: Some(e.to_string()),
                     },
                 )
-                .await;
+                ;
             }
         }
 

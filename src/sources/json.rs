@@ -99,7 +99,7 @@ pub fn JsonImport(
     let mut file_name = use_signal(String::new);
     let mut tracking_sent: Signal<Option<Instant>> = use_signal(|| None);
 
-    let from_text = move |event: Event<FormData>| async move {
+    let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
         *common_deck.write() = None;
         *show_price.write() = false;
@@ -134,7 +134,7 @@ pub fn JsonImport(
                             error: None,
                         },
                     )
-                    .await;
+                    ;
                     *tracking_sent.write() = Some(Instant::now());
                 }
             }
@@ -153,7 +153,7 @@ pub fn JsonImport(
                             error: Some(e.to_string()),
                         },
                     )
-                    .await;
+                    ;
                     *tracking_sent.write() = Some(Instant::now());
                 }
             }
@@ -194,7 +194,7 @@ pub fn JsonImport(
                                             error: None,
                                         },
                                     )
-                                    .await;
+                                    ;
                                 }
                                 Err(e) => {
                                     *deck_error.write() = e.to_string();
@@ -206,7 +206,7 @@ pub fn JsonImport(
                                             error: Some(e.to_string()),
                                         },
                                     )
-                                    .await;
+                                    ;
                                 }
                             }
                         }
@@ -219,7 +219,7 @@ pub fn JsonImport(
                                     error: Some(e.to_string()),
                                 },
                             )
-                            .await;
+                            ;
                         }
                     }
                 }
@@ -313,7 +313,7 @@ pub fn JsonExport(
         None => "".into(),
     };
 
-    let download_file = move |_| async move {
+    let download_file = move |_|  {
         let deck: Option<_> = common_deck.read().as_ref().map(|d| {
             (
                 d.file_name(),
@@ -333,7 +333,7 @@ pub fn JsonExport(
                             error: None,
                         },
                     )
-                    .await;
+                    ;
                 }
                 Err(e) => {
                     *deck_error.write() = e.to_string();
@@ -345,7 +345,7 @@ pub fn JsonExport(
                             error: Some(e.to_string()),
                         },
                     )
-                    .await;
+                    ;
                 }
             }
         }
@@ -373,16 +373,15 @@ pub fn JsonExport(
                     id: "{export_id}_export_json",
                     class: "textarea",
                     readonly: true,
-                    oncopy: move |_| async move {
+                    oncopy: move |_| {
                         track_event(
-                                EventType::Export(export_name.read().clone()),
-                                EventData {
-                                    format: export_name.read().clone(),
-                                    export_kind: ExportKind::Copy,
-                                    error: None,
-                                },
-                            )
-                            .await;
+                            EventType::Export(export_name.read().clone()),
+                            EventData {
+                                format: export_name.read().clone(),
+                                export_kind: ExportKind::Copy,
+                                error: None,
+                            },
+                        );
                     },
                     value: "{text}",
                 }

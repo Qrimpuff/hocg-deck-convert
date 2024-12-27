@@ -156,7 +156,7 @@ pub fn Export(
                         error: None,
                     },
                 )
-                .await;
+                ;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -169,14 +169,14 @@ pub fn Export(
                         error: Some(e.to_string()),
                     },
                 )
-                .await;
+                ;
             }
         }
 
         *loading.write() = false;
     };
 
-    let increase_price = move |_| async move {
+    let increase_price = move |_| {
         let mut common_deck = common_deck.write();
         let Some(common_deck) = common_deck.as_mut() else {
             return;
@@ -211,12 +211,12 @@ pub fn Export(
                 error: None,
             },
         )
-        .await;
+        ;
 
         *loading.write() = false;
     };
 
-    let decrease_price = move |_| async move {
+    let decrease_price = move |_|  {
         let mut common_deck = common_deck.write();
         let Some(common_deck) = common_deck.as_mut() else {
             return;
@@ -249,7 +249,7 @@ pub fn Export(
                 error: None,
             },
         )
-        .await;
+        ;
 
         *loading.write() = false;
     };

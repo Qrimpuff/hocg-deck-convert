@@ -25,9 +25,7 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    use_future(|| async {
-        done_loading().await;
-    });
+    done_loading();
 
     let _card_info: Coroutine<()> = use_coroutine(|_rx| async move {
         *CARDS_INFO.write() =
@@ -51,20 +49,20 @@ fn App() -> Element {
                         a {
                             href: "https://decklog-en.bushiroad.com/ja/create?c=108",
                             target: "_blank",
-                            onclick: |_| async { track_url("Deck Log").await },
+                            onclick: |_| { track_url("Deck Log") },
                             "Deck Log"
                         }
                         ", "
                         a {
                             href: "https://github.com/GabeJWJ/holoDelta",
-                            onclick: |_| async { track_url("holoDelta").await },
+                            onclick: |_| { track_url("holoDelta") },
                             target: "_blank",
                             "holoDelta"
                         }
                         ", "
                         a {
                             href: "https://daktagames.itch.io/holoduel",
-                            onclick: |_| async { track_url("HoloDuel").await },
+                            onclick: |_| { track_url("HoloDuel") },
                             target: "_blank",
                             "HoloDuel"
                         }
@@ -78,7 +76,7 @@ fn App() -> Element {
                         a {
                             href: "https://discord.com/invite/GJ9RhA22nP",
                             target: "_blank",
-                            onclick: |_| async { track_url("Discord - Hololive OCG Fan Server").await },
+                            onclick: |_| { track_url("Discord - Hololive OCG Fan Server") },
                             span { class: "icon",
                                 i { class: "fa-brands fa-discord" }
                             }
@@ -104,7 +102,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert",
                         target: "_blank",
-                        onclick: |_| async { track_url("GitHub - hocg-deck-convert").await },
+                        onclick: |_| { track_url("GitHub - hocg-deck-convert") },
                         span { class: "icon",
                             i { class: "fa-brands fa-github" }
                         }
@@ -114,7 +112,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert/blob/main/LICENSE",
                         target: "_blank",
-                        onclick: |_| async { track_url("GitHub - hocg-deck-convert - license").await },
+                        onclick: |_| { track_url("GitHub - hocg-deck-convert - license") },
                         "MIT"
                     }
                     "."
@@ -125,7 +123,7 @@ fn App() -> Element {
                     a {
                         href: "https://en.hololive.tv/terms",
                         target: "_blank",
-                        onclick: |_| async { track_url("hololive Derivative Works guidelines").await },
+                        onclick: |_| { track_url("hololive Derivative Works guidelines") },
                         "hololive Derivative Works guidelines"
                     }
                     ". © 2016 COVER Corp."
@@ -135,7 +133,7 @@ fn App() -> Element {
                     a {
                         href: "https://discord.com/invite/GJ9RhA22nP",
                         target: "_blank",
-                        onclick: |_| async { track_url("Discord - Hololive OCG Fan Server").await },
+                        onclick: |_| { track_url("Discord - Hololive OCG Fan Server") },
                         span { class: "icon",
                             i { class: "fa-brands fa-discord" }
                         }
@@ -364,8 +362,7 @@ pub fn UnknownImport(
                                 file_format: Some("holoDelta"),
                                 error: None,
                             },
-                        )
-                        .await;
+                        );
                         return;
                     }
 
@@ -384,8 +381,7 @@ pub fn UnknownImport(
                                 file_format: Some("HoloDuel"),
                                 error: None,
                             },
-                        )
-                        .await;
+                        );
                         return;
                     }
 
@@ -405,8 +401,7 @@ pub fn UnknownImport(
                                 file_format: Some("Tabletop Sim"),
                                 error: None,
                             },
-                        )
-                        .await;
+                        );
                         return;
                     }
 
@@ -418,8 +413,7 @@ pub fn UnknownImport(
                             file_format: None,
                             error: Some("Cannot parse deck file".into()),
                         },
-                    )
-                    .await;
+                    );
                 }
             }
         }
@@ -639,7 +633,7 @@ fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage
                                 title: "Go to Yuyutei for {cards.card_number}",
                                 href: "{price_url}",
                                 target: "_blank",
-                                onclick: |_| async { track_url("Yuyutei").await },
+                                onclick: |_| { track_url("Yuyutei") },
                                 i { class: "fa-solid fa-arrow-up-right-from-square" }
                             }
                         }
@@ -669,10 +663,10 @@ pub fn download_file(file_name: &str, content: impl BlobContents) {
     document().body().unwrap().remove_child(&a).unwrap();
 }
 
-pub async fn done_loading() {
+pub fn done_loading() {
     if let Some(loading) = document().get_element_by_id("loading") {
         loading.remove();
 
-        track_event(EventType::Entry, Option::<()>::None).await;
+        track_event(EventType::Entry, Option::<()>::None);
     }
 }

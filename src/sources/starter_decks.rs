@@ -195,7 +195,7 @@ pub fn Import(
     let mut starter_deck_idx: Signal<Option<usize>> = use_signal(|| Some(0));
     let mut loading = use_signal(|| false);
 
-    let load_deck = move || async move {
+    let mut load_deck = move || {
         *loading.write() = true;
 
         let deck = starter_deck_idx
@@ -211,8 +211,7 @@ pub fn Import(
                     format: "Starter deck",
                     deck_id: deck.deck_id.clone(),
                 },
-            )
-            .await;
+            );
         }
         *common_deck.write() = deck.map(|d| d.deck.clone());
 
@@ -220,11 +219,9 @@ pub fn Import(
         *loading.write() = false;
     };
 
-    use_future(move || async move {
-        if common_deck.read().is_none() {
-            load_deck().await;
-        }
-    });
+    if common_deck.read().is_none() {
+        load_deck();
+    }
 
     rsx! {
         div { class: "field",
@@ -233,9 +230,9 @@ pub fn Import(
                 div { class: "select",
                     select {
                         id: "starter_deck",
-                        oninput: move |ev| async move {
+                        oninput: move |ev| {
                             *starter_deck_idx.write() = ev.value().parse().ok();
-                            load_deck().await;
+                            load_deck();
                         },
                         for (idx , deck) in starter_decks(&info.read()).iter().enumerate() {
                             option { value: "{idx}", "{deck.display}" }

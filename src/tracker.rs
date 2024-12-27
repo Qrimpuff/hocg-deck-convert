@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use dioxus::logger::tracing::debug;
+use dioxus::{logger::tracing::debug, prelude::spawn};
 use gloo::utils::{document, window};
 use reqwest::{Client, ClientBuilder};
 use serde::Serialize;
@@ -20,7 +20,7 @@ pub enum EventType {
     Url(String),
 }
 
-pub async fn track_event<T>(event: EventType, data: T)
+pub fn track_event<T>(event: EventType, data: T)
 where
     T: serde::ser::Serialize,
 {
@@ -68,19 +68,22 @@ where
         return;
     }
 
-    let _resp = http_client()
-        .post(format!("{HOCG_DECK_CONVERT_API}/umami"))
-        .json(&payload)
-        .send()
-        .await
-        .unwrap();
+    // we as few await point as possible, so we are sending the request in a new task
+    spawn(async move {
+        let _resp = http_client()
+            .post(format!("{HOCG_DECK_CONVERT_API}/umami"))
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+    });
 }
 
-pub async fn track_url(title: &str) {
+pub fn track_url(title: &str) {
     #[derive(Serialize)]
     struct EventData<'a> {
         title: &'a str,
     }
 
-    track_event(EventType::Url(title.into()), EventData { title }).await;
+    track_event(EventType::Url(title.into()), EventData { title });
 }

@@ -214,7 +214,7 @@ pub fn Export(
                         error: None,
                     },
                 )
-                .await;
+                ;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -228,7 +228,7 @@ pub fn Export(
                         error: Some(e.to_string()),
                     },
                 )
-                .await;
+                ;
             }
         }
 
