@@ -9,8 +9,21 @@ jobs:
   build-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: "Dioxus Deploy"
-        uses: DioxusLabs/deploy-action@main
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          buildMode: release
-          outDirectory: target/dx/hocg-deck-convert/release/web/public # dioxus-cli 0.6.0 doesn't respect out_dir
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      
+      - name: Install Dioxus-CLI
+        run: cargo install dioxus-cli
+      
+      - name: Dioxus
+        run: dx build --release && cp ./target/dx/hocg-deck-convert/release/web/public ./dist && cp ./dist/index.html ./dist/404.html
+        
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages # The branch the action should deploy to.
+          folder: ./dist # The folder the action should deploy.
+          clean: true # Automatically remove deleted files from the deploy branch

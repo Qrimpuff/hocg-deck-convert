@@ -14,7 +14,7 @@ Formats supported:
 - Proxy sheets (PDF)
 - Price check (with [Yuyutei](https://yuyu-tei.jp/top/hocg))
 
-![hololive OCG Deck Converter](https://qrimpuff.github.io/hocg-deck-convert/image.png)
+![hololive OCG Deck Converter](https://qrimpuff.github.io/hocg-deck-convert/assets/image.png)
 
 ## Development
 
