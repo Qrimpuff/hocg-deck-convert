@@ -55,6 +55,20 @@ pub struct CommonCards {
 }
 
 impl CommonCards {
+    pub fn from_manage_id(manage_id: u32, amount: u32, info: &CardsInfo) -> Self {
+        let card = info
+            .values()
+            .flatten()
+            .find(|c| c.manage_id == Some(manage_id));
+        CommonCards {
+            manage_id: card.and_then(|c| c.manage_id),
+            card_number: card
+                .map(|c| c.card_number.clone())
+                .unwrap_or("UNKNOWN".into()),
+            amount,
+        }
+    }
+
     pub fn from_card_number(card_number: String, amount: u32, info: &CardsInfo) -> Self {
         let card = info
             .values()
@@ -67,7 +81,7 @@ impl CommonCards {
         }
     }
 
-    pub fn from_card_number_and_rarity_order(
+    pub fn from_card_number_and_order(
         card_number: String,
         rarity_order: u32,
         amount: u32,
