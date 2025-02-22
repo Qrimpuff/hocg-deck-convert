@@ -1,16 +1,13 @@
 use std::{collections::HashMap, error::Error, sync::OnceLock};
 
-use dioxus::{
-    logger::tracing::debug,
-    prelude::*,
-};
+use dioxus::{logger::tracing::debug, prelude::*};
 use itertools::Itertools;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
 use super::{CardsInfo, CommonDeck};
-use crate::{track_event, CardLanguage, EventType, HOCG_DECK_CONVERT_API};
+use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, track_event};
 
 pub type PriceCache = HashMap<String, (Instant, u32)>;
 
@@ -155,8 +152,7 @@ pub fn Export(
                         price_check_convert: None,
                         error: None,
                     },
-                )
-                ;
+                );
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -168,8 +164,7 @@ pub fn Export(
                         price_check_convert: None,
                         error: Some(e.to_string()),
                     },
-                )
-                ;
+                );
             }
         }
 
@@ -210,13 +205,12 @@ pub fn Export(
                 price_check_convert: Some("highest price".into()),
                 error: None,
             },
-        )
-        ;
+        );
 
         *loading.write() = false;
     };
 
-    let decrease_price = move |_|  {
+    let decrease_price = move |_| {
         let mut common_deck = common_deck.write();
         let Some(common_deck) = common_deck.as_mut() else {
             return;
@@ -248,8 +242,7 @@ pub fn Export(
                 price_check_convert: Some("lowest price".into()),
                 error: None,
             },
-        )
-        ;
+        );
 
         *loading.write() = false;
     };

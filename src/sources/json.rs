@@ -7,10 +7,10 @@ use dioxus::{
 use serde::Serialize;
 use web_time::{Duration, Instant};
 
-use crate::{download_file, track_event, EventType};
+use crate::{EventType, download_file, track_event};
 
 use super::{
-    holodelta, holoduel, tabletop_sim, CardsInfo, CommonDeck, CommonDeckConversion, DeckType,
+    CardsInfo, CommonDeck, CommonDeckConversion, DeckType, holodelta, holoduel, tabletop_sim,
 };
 
 #[derive(Debug, Clone)]
@@ -133,8 +133,7 @@ pub fn JsonImport(
                             format: import_name.read().clone(),
                             error: None,
                         },
-                    )
-                    ;
+                    );
                     *tracking_sent.write() = Some(Instant::now());
                 }
             }
@@ -152,8 +151,7 @@ pub fn JsonImport(
                             format: import_name.read().clone(),
                             error: Some(e.to_string()),
                         },
-                    )
-                    ;
+                    );
                     *tracking_sent.write() = Some(Instant::now());
                 }
             }
@@ -193,8 +191,7 @@ pub fn JsonImport(
                                             format: import_name.read().clone(),
                                             error: None,
                                         },
-                                    )
-                                    ;
+                                    );
                                 }
                                 Err(e) => {
                                     *deck_error.write() = e.to_string();
@@ -205,8 +202,7 @@ pub fn JsonImport(
                                             format: import_name.read().clone(),
                                             error: Some(e.to_string()),
                                         },
-                                    )
-                                    ;
+                                    );
                                 }
                             }
                         }
@@ -218,8 +214,7 @@ pub fn JsonImport(
                                     format: import_name.read().clone(),
                                     error: Some(e.to_string()),
                                 },
-                            )
-                            ;
+                            );
                         }
                     }
                 }
@@ -313,7 +308,7 @@ pub fn JsonExport(
         None => "".into(),
     };
 
-    let download_file = move |_|  {
+    let download_file = move |_| {
         let deck: Option<_> = common_deck.read().as_ref().map(|d| {
             (
                 d.file_name(),
@@ -332,8 +327,7 @@ pub fn JsonExport(
                             export_kind: ExportKind::Download,
                             error: None,
                         },
-                    )
-                    ;
+                    );
                 }
                 Err(e) => {
                     *deck_error.write() = e.to_string();
@@ -344,8 +338,7 @@ pub fn JsonExport(
                             export_kind: ExportKind::Download,
                             error: Some(e.to_string()),
                         },
-                    )
-                    ;
+                    );
                 }
             }
         }

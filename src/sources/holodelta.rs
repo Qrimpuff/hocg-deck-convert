@@ -49,11 +49,11 @@ impl CommonCardsConversion for OshiCard {
     type CardDeck = OshiCard;
 
     fn from_common_cards(cards: CommonCards, info: &CardsInfo) -> Self {
-        OshiCard(cards.card_number.clone(), cards.rarity_order(info))
+        OshiCard(cards.card_number.clone(), cards.rarity_index(info))
     }
 
     fn to_common_cards(value: Self, info: &CardsInfo) -> CommonCards {
-        CommonCards::from_card_number_and_order(value.0, value.1, 1, info)
+        CommonCards::from_card_number_and_index(value.0, value.1, 1, info)
     }
 
     fn build_custom_deck(_cards: Vec<CommonCards>, _info: &CardsInfo) -> Self::CardDeck {
@@ -72,12 +72,12 @@ impl CommonCardsConversion for DeckCards {
         DeckCards(
             cards.card_number.clone(),
             cards.amount,
-            cards.rarity_order(info),
+            cards.rarity_index(info),
         )
     }
 
     fn to_common_cards(value: Self, info: &CardsInfo) -> CommonCards {
-        CommonCards::from_card_number_and_order(value.0, value.2, value.1, info)
+        CommonCards::from_card_number_and_index(value.0, value.2, value.1, info)
     }
 
     fn build_custom_deck(cards: Vec<CommonCards>, info: &CardsInfo) -> Self::CardDeck {

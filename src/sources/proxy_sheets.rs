@@ -2,8 +2,8 @@ use std::error::Error;
 use std::iter;
 use std::{collections::HashMap, sync::Arc};
 
-use ::image::imageops::FilterType;
 use ::image::ImageFormat;
+use ::image::imageops::FilterType;
 use dioxus::prelude::*;
 use futures::future::join_all;
 use futures::lock::Mutex;
@@ -11,7 +11,7 @@ use printpdf::*;
 use serde::Serialize;
 
 use super::{CardsInfo, CommonDeck};
-use crate::{download_file, track_event, CardLanguage, EventType};
+use crate::{CardLanguage, EventType, download_file, track_event};
 
 #[derive(Clone, Copy, Serialize)]
 enum PaperSize {
@@ -213,8 +213,7 @@ pub fn Export(
                         include_cheers: *include_cheers.read(),
                         error: None,
                     },
-                )
-                ;
+                );
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -227,8 +226,7 @@ pub fn Export(
                         include_cheers: *include_cheers.read(),
                         error: Some(e.to_string()),
                     },
-                )
-                ;
+                );
             }
         }
 

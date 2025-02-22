@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use dioxus::{logger::tracing::debug, prelude::*};
 use serde::Serialize;
 
-use crate::{track_event, EventType};
+use crate::{EventType, track_event};
 
 use super::{CardsInfo, CommonCards, CommonDeck};
 
@@ -201,7 +201,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                         CommonCards::from_card_number("hSD01-017".into(), 2, info),
                         CommonCards::from_card_number("hBP01-104".into(), 2, info),
                         CommonCards::from_card_number("hBP01-108".into(), 2, info),
-                        CommonCards::from_card_number_and_order("hPR-002".into(), 2, 4, info),
+                        CommonCards::from_card_number_and_index("hPR-002".into(), 2, 4, info),
                     ],
                     cheer_deck: vec![CommonCards::from_card_number("hY01-001".into(), 20, info)],
                 },
@@ -214,12 +214,12 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                     name: Some("hSD06 - Start Deck (Green) Kazama Iroha".into()),
                     oshi: CommonCards::from_card_number("hSD06-001".into(), 1, info),
                     main_deck: vec![
-                        CommonCards::from_card_number_and_order("hBP01-048".into(), 2, 6, info),
+                        CommonCards::from_card_number_and_index("hBP01-048".into(), 2, 6, info),
                         CommonCards::from_card_number("hSD06-002".into(), 4, info),
                         CommonCards::from_card_number("hSD06-003".into(), 2, info),
                         CommonCards::from_card_number("hSD06-004".into(), 4, info),
                         CommonCards::from_card_number("hSD06-005".into(), 4, info),
-                        CommonCards::from_card_number_and_order("hBP01-050".into(), 2, 2, info),
+                        CommonCards::from_card_number_and_index("hBP01-050".into(), 2, 2, info),
                         CommonCards::from_card_number("hSD06-006".into(), 2, info),
                         CommonCards::from_card_number("hSD06-007".into(), 2, info),
                         CommonCards::from_card_number("hSD06-008".into(), 2, info),

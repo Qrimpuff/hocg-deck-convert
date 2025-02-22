@@ -81,9 +81,9 @@ impl CommonCards {
         }
     }
 
-    pub fn from_card_number_and_order(
+    pub fn from_card_number_and_index(
         card_number: String,
-        rarity_order: u32,
+        rarity_index: u32,
         amount: u32,
         info: &CardsInfo,
     ) -> Self {
@@ -96,7 +96,7 @@ impl CommonCards {
                 acc.entry(&c.img).or_insert(c);
                 acc
             });
-        let card = rarities.values().nth(rarity_order as usize);
+        let card = rarities.values().nth(rarity_index as usize);
         if let Some(card) = card {
             CommonCards {
                 manage_id: card.manage_id,
@@ -109,7 +109,7 @@ impl CommonCards {
         }
     }
 
-    pub fn rarity_order(&self, info: &CardsInfo) -> u32 {
+    pub fn rarity_index(&self, info: &CardsInfo) -> u32 {
         if let Some(c) = self.card_info(info) {
             // grouped by card image
             let rarities: IndexMap<_, _> = info

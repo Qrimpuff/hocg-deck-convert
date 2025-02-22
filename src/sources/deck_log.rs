@@ -6,7 +6,7 @@ use dioxus::prelude::*;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use crate::{track_event, EventType, HOCG_DECK_CONVERT_API};
+use crate::{EventType, HOCG_DECK_CONVERT_API, track_event};
 
 use super::{
     CardsInfo, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
@@ -269,8 +269,7 @@ pub fn Import(
                         deck_id: Some(deck.deck_id.clone()),
                         error: None,
                     },
-                )
-                ;
+                );
                 *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
                 *show_price.write() = false;
             }
@@ -284,8 +283,7 @@ pub fn Import(
                         deck_id: None,
                         error: Some(e.to_string()),
                     },
-                )
-                ;
+                );
             }
         }
 
@@ -392,8 +390,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                         deck_id: Some(deck.deck_id.clone()),
                         error: None,
                     },
-                )
-                ;
+                );
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -405,8 +402,7 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                         deck_id: None,
                         error: Some(e.to_string()),
                     },
-                )
-                ;
+                );
             }
         }
 

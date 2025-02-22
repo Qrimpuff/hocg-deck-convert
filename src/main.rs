@@ -13,7 +13,7 @@ use num_format::{Locale, ToFormattedString};
 use price_check::PriceCache;
 use serde::Serialize;
 use sources::*;
-use tracker::{track_event, track_url, EventType};
+use tracker::{EventType, track_event, track_url};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
