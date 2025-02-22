@@ -201,7 +201,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                         CommonCards::from_card_number("hSD01-017".into(), 2, info),
                         CommonCards::from_card_number("hBP01-104".into(), 2, info),
                         CommonCards::from_card_number("hBP01-108".into(), 2, info),
-                        CommonCards::from_card_number_and_order("hPR-002".into(), 1, 4, info),
+                        CommonCards::from_card_number_and_order("hPR-002".into(), 2, 4, info),
                     ],
                     cheer_deck: vec![CommonCards::from_card_number("hY01-001".into(), 20, info)],
                 },
