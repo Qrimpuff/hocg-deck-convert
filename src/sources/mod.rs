@@ -81,22 +81,17 @@ impl CommonCards {
         }
     }
 
-    pub fn from_card_number_and_index(
+    pub fn from_card_number_and_manage_id(
         card_number: String,
-        rarity_index: u32,
+        manage_id: u32,
         amount: u32,
         info: &CardsInfo,
     ) -> Self {
-        // grouped by card image
-        let rarities: IndexMap<_, _> = info
+        let card: Option<&CardEntry> = info
             .values()
             .flatten()
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
-            .fold(Default::default(), |mut acc, c| {
-                acc.entry(&c.img).or_insert(c);
-                acc
-            });
-        let card = rarities.values().nth(rarity_index as usize);
+            .find(|c| c.manage_id == Some(manage_id));
         if let Some(card) = card {
             CommonCards {
                 manage_id: card.manage_id,
@@ -109,24 +104,44 @@ impl CommonCards {
         }
     }
 
-    pub fn rarity_index(&self, info: &CardsInfo) -> u32 {
+    pub fn from_card_number_and_delta_art_index(
+        card_number: String,
+        delta_art_index: u32,
+        amount: u32,
+        info: &CardsInfo,
+    ) -> Self {
+        let card: Option<&CardEntry> = info
+            .values()
+            .flatten()
+            .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
+            .find(|c| c.delta_art_index == Some(delta_art_index));
+        if let Some(card) = card {
+            CommonCards {
+                manage_id: card.manage_id,
+                card_number: card.card_number.clone(),
+                amount,
+            }
+        } else {
+            // default to basic rarity if not found
+            CommonCards::from_card_number(card_number, amount, info)
+        }
+    }
+
+    pub fn delta_art_index(&self, info: &CardsInfo) -> u32 {
         if let Some(c) = self.card_info(info) {
-            // grouped by card image
-            let rarities: IndexMap<_, _> = info
+            if let Some(delta_art_index) = c.delta_art_index {
+                return delta_art_index;
+            }
+
+            // fallback to a possible future art index
+            let next_delta_art_index = info
                 .values()
                 .flatten()
                 .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
-                .fold(Default::default(), |mut acc, c| {
-                    acc.entry(&c.img).or_insert(c);
-                    acc
-                });
-            rarities
-                .keys()
-                .enumerate()
-                .filter(|(_, img)| ***img == c.img)
-                .map(|(i, _)| i)
-                .next()
-                .unwrap_or_default() as u32
+                .filter_map(|c| Some(c.delta_art_index? + 1))
+                .max()
+                .unwrap_or(0);
+            next_delta_art_index
         } else {
             0
         }
