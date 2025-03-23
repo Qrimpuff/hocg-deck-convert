@@ -195,7 +195,8 @@ pub fn Export(
                 card.manage_id = manage_id;
             }
         }
-        *common_deck = deck.merge();
+        deck.merge();
+        *common_deck = deck;
 
         track_event(
             EventType::Export("Price check".into()),
@@ -232,7 +233,8 @@ pub fn Export(
                 card.manage_id = manage_id;
             }
         }
-        *common_deck = deck.merge();
+        deck.merge();
+        *common_deck = deck;
 
         track_event(
             EventType::Export("Price check".into()),

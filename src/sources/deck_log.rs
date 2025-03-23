@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 use crate::{EventType, HOCG_DECK_CONVERT_API, track_event};
 
 use super::{
-    CardsInfo, CommonCards, CommonCardsConversion, CommonDeck, CommonDeckConversion,
+    CardsInfo, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
     MergeCommonCards,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct Cards {
+pub struct Card {
     card_number: String,
     num: u32,
     manage_id: String,
@@ -27,9 +27,9 @@ pub struct Deck {
     game_title_id: u32,
     deck_id: String,
     title: String,
-    p_list: Vec<Cards>,   // oshi
-    list: Vec<Cards>,     // main deck
-    sub_list: Vec<Cards>, // cheer deck
+    p_list: Vec<Card>,   // oshi
+    list: Vec<Card>,     // main deck
+    sub_list: Vec<Card>, // cheer deck
 }
 
 impl Deck {
@@ -127,40 +127,40 @@ impl Deck {
     }
 }
 
-impl CommonCardsConversion for Cards {
-    type CardDeck = Vec<Cards>;
+impl CommonCardConversion for Card {
+    type CardDeck = Vec<Card>;
 
-    fn from_common_cards(cards: CommonCards, _info: &CardsInfo) -> Self {
-        Cards {
-            card_number: cards.card_number,
-            num: cards.amount,
-            manage_id: cards
+    fn from_common_card(card: CommonCard, _info: &CardsInfo) -> Self {
+        Card {
+            card_number: card.card_number,
+            num: card.amount,
+            manage_id: card
                 .manage_id
                 .expect("should be a valid card in deck log")
                 .to_string(),
         }
     }
 
-    fn to_common_cards(value: Self, _info: &CardsInfo) -> CommonCards {
-        CommonCards {
+    fn to_common_card(value: Self, _info: &CardsInfo) -> CommonCard {
+        CommonCard {
             manage_id: value.manage_id.parse().ok(),
             card_number: value.card_number,
             amount: value.num,
         }
     }
 
-    fn build_custom_deck(cards: Vec<CommonCards>, info: &CardsInfo) -> Self::CardDeck {
+    fn build_custom_deck(cards: Vec<CommonCard>, info: &CardsInfo) -> Self::CardDeck {
         cards
             .merge()
             .into_iter()
-            .map(|c| Cards::from_common_cards(c, info))
+            .map(|c| Card::from_common_card(c, info))
             .collect()
     }
 
-    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCards> {
+    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCard> {
         cards
             .into_iter()
-            .map(|c| Cards::to_common_cards(c, info))
+            .map(|c| Card::to_common_card(c, info))
             .collect::<Vec<_>>()
             .merge()
     }
@@ -172,18 +172,18 @@ impl CommonDeckConversion for Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name(),
-            p_list: Cards::build_custom_deck(vec![deck.oshi], info),
-            list: Cards::build_custom_deck(deck.main_deck, info),
-            sub_list: Cards::build_custom_deck(deck.cheer_deck, info),
+            p_list: Card::build_custom_deck(vec![deck.oshi], info),
+            list: Card::build_custom_deck(deck.main_deck, info),
+            sub_list: Card::build_custom_deck(deck.cheer_deck, info),
         }
     }
 
     fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
         CommonDeck {
             name: Some(value.title),
-            oshi: Cards::build_common_deck(value.p_list, info).swap_remove(0),
-            main_deck: Cards::build_common_deck(value.list, info),
-            cheer_deck: Cards::build_common_deck(value.sub_list, info),
+            oshi: Card::build_common_deck(value.p_list, info).swap_remove(0),
+            main_deck: Card::build_common_deck(value.list, info),
+            cheer_deck: Card::build_common_deck(value.sub_list, info),
         }
     }
 }

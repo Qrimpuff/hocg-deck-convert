@@ -53,7 +53,7 @@ async fn generate_pdf(
     margin_height = (page_height - (CARD_HEIGHT + gap) * fit_height) / 2.0;
 
     let cards_per_page = (fit_width * fit_height) as usize;
-    let cards: Box<dyn Iterator<Item = &crate::CommonCards>> = if include_cheers {
+    let cards: Box<dyn Iterator<Item = &crate::CommonCard>> = if include_cheers {
         Box::new(deck.all_cards())
     } else {
         Box::new(std::iter::once(&deck.oshi).chain(deck.main_deck.iter()))

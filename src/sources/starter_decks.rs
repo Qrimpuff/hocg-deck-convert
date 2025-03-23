@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{EventType, track_event};
 
-use super::{CardsInfo, CommonCards, CommonDeck};
+use super::{CardsInfo, CommonCard, CommonDeck};
 
 #[derive(Debug, Clone)]
 struct DeckEntry {
@@ -14,8 +14,8 @@ struct DeckEntry {
     deck: CommonDeck,
 }
 
-fn card(card_number: &str, manage_id: u32, amount: u32, info: &CardsInfo) -> CommonCards {
-    CommonCards::from_card_number_and_manage_id(card_number.into(), manage_id, amount, info)
+fn card(card_number: &str, manage_id: u32, amount: u32, info: &CardsInfo) -> CommonCard {
+    CommonCard::from_card_number_and_manage_id(card_number.into(), manage_id, amount, info)
 }
 
 fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {

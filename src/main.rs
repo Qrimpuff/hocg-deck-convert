@@ -1,8 +1,10 @@
 #![allow(non_snake_case)]
 
+mod components;
 mod sources;
 mod tracker;
 
+use components::{card::Card, deck_preview::DeckPreview};
 use dioxus::{logger::tracing::debug, prelude::*};
 use gloo::{
     file::{Blob, BlobContents},
@@ -90,7 +92,13 @@ fn App() -> Element {
                         Form { card_lang }
                     }
                     div { class: "column is-three-fifths",
-                        DeckPreview { card_lang }
+                        DeckPreview {
+                            card_lang,
+                            info: CARDS_INFO.signal(),
+                            common_deck: COMMON_DECK.signal(),
+                            show_price: SHOW_PRICE.signal(),
+                            prices: CARDS_PRICES.signal(),
+                        }
                     }
                 }
             }
@@ -170,7 +178,9 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                         select {
                             id: "import_format",
                             oninput: move |ev| {
-                                *COMMON_DECK.write() = None;
+                                if ev.value().as_str() != "edit_deck" {
+                                    *COMMON_DECK.write() = None;
+                                }
                                 *SHOW_PRICE.write() = false;
                                 *import_format.write() = match ev.value().as_str() {
                                     "starter_decks" => Some(DeckType::StarterDecks),
@@ -178,6 +188,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                     "holo_delta" => Some(DeckType::HoloDelta),
                                     "holo_duel" => Some(DeckType::HoloDuel),
                                     "hocg_tts" => Some(DeckType::TabletopSim),
+                                    "edit_deck" => Some(DeckType::EditDeck),
                                     "unknown" => Some(DeckType::Unknown),
                                     _ => None,
                                 };
@@ -187,6 +198,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                             option { value: "holo_delta", "holoDelta" }
                             option { value: "holo_duel", "HoloDuel" }
                             option { value: "hocg_tts", "Tabletop Simulator (by Noodlebrain)" }
+                            option { value: "edit_deck", "Edit deck" }
                             option { value: "unknown", "I don't know..." }
                         }
                     }
@@ -224,6 +236,13 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                 }
                 if *import_format.read() == Some(DeckType::TabletopSim) {
                     tabletop_sim::Import {
+                        common_deck: COMMON_DECK.signal(),
+                        info: CARDS_INFO.signal(),
+                        show_price: SHOW_PRICE.signal(),
+                    }
+                }
+                if *import_format.read() == Some(DeckType::EditDeck) {
+                    edit_deck::Import {
                         common_deck: COMMON_DECK.signal(),
                         info: CARDS_INFO.signal(),
                         show_price: SHOW_PRICE.signal(),
@@ -461,189 +480,6 @@ pub enum CardType {
 pub enum CardLanguage {
     Japanese,
     English,
-}
-
-#[component]
-fn DeckPreview(card_lang: Signal<CardLanguage>) -> Element {
-    let deck = COMMON_DECK.read();
-    let info = CARDS_INFO.read();
-
-    let Some(deck) = deck.as_ref() else {
-        return rsx! {};
-    };
-
-    let oshi = rsx! {
-        Cards {
-            cards: deck.oshi.clone(),
-            card_type: CardType::Oshi,
-            card_lang,
-        }
-    };
-    let main_deck = deck.main_deck.iter().map(move |cards| {
-        rsx! {
-            Cards {
-                cards: cards.clone(),
-                card_type: CardType::Main,
-                card_lang,
-            }
-        }
-    });
-    let cheer_deck = deck.cheer_deck.iter().map(move |cards| {
-        rsx! {
-            Cards {
-                cards: cards.clone(),
-                card_type: CardType::Cheer,
-                card_lang,
-            }
-        }
-    });
-
-    let mut warnings = deck.validate(&info);
-
-    // warn on missing english proxy
-    if *card_lang.read() == CardLanguage::English
-        && deck
-            .all_cards()
-            .any(|c| c.image_path(&info, *card_lang.read()).is_none())
-    {
-        warnings.push("Missing english proxy.".into());
-    }
-
-    let show_price = *SHOW_PRICE.read();
-    let approx_price = if show_price
-        && deck
-            .all_cards()
-            .any(|c| c.price(&info, &CARDS_PRICES.read()).is_none())
-    {
-        ">"
-    } else {
-        ""
-    };
-    let price = if show_price {
-        deck.all_cards()
-            .filter_map(|c| c.price(&info, &CARDS_PRICES.read()).map(|p| (c, p)))
-            .map(|(c, p)| p * c.amount)
-            .sum::<u32>()
-            .to_formatted_string(&Locale::en)
-    } else {
-        String::new()
-    };
-
-    rsx! {
-        if !warnings.is_empty() {
-            article { class: "message is-warning",
-                div { class: "message-header",
-                    p { "Warning" }
-                }
-                div { class: "message-body content",
-                    ul {
-                        for warn in warnings {
-                            li { "{warn}" }
-                        }
-                    }
-                }
-            }
-        }
-        h2 { class: "title is-4", "Deck preview" }
-        p { class: "subtitle is-6 is-spaced",
-            if let Some(name) = &deck.name {
-                div { "Name: {name}" }
-            }
-            if show_price {
-                div { "Price: {approx_price}¥{price}" }
-            }
-        }
-        div { class: "block is-flex is-flex-wrap-wrap",
-            div { class: "block mx-1",
-                h3 { class: "subtitle mb-0", "Oshi" }
-                div { class: "block is-flex is-flex-wrap-wrap", {oshi} }
-            }
-            div { class: "block mx-1",
-                h3 { class: "subtitle mb-0", "Cheer deck" }
-                div { class: "block is-flex is-flex-wrap-wrap", {cheer_deck} }
-            }
-        }
-        div { class: "block mx-1",
-            h3 { class: "subtitle mb-0", "Main deck" }
-            div { class: "block is-flex is-flex-wrap-wrap", {main_deck} }
-        }
-    }
-}
-
-#[component]
-fn Cards(cards: CommonCards, card_type: CardType, card_lang: Signal<CardLanguage>) -> Element {
-    let img_class = if card_type == CardType::Oshi {
-        "card-img-oshi"
-    } else {
-        "card-img"
-    };
-
-    let error_img_path: &str = match card_type {
-        CardType::Oshi | CardType::Cheer => "cheer-back.webp",
-        CardType::Main => "card-back.webp",
-    };
-    let error_img_path =
-        format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
-
-    let img_path = cards
-        .image_path(&CARDS_INFO.read(), *card_lang.read())
-        .unwrap_or_else(|| error_img_path.clone());
-
-    let show_price = *SHOW_PRICE.read();
-    let price = cards
-        .price(&CARDS_INFO.read(), &CARDS_PRICES.read())
-        .map(|p| p.to_formatted_string(&Locale::en))
-        .unwrap_or("?".into());
-    // TODO not only yuyutei
-    let price_url = cards
-        .card_info(&CARDS_INFO.read())
-        .and_then(|c| c.yuyutei_sell_url.clone());
-
-    // verify card amount
-    let warning = COMMON_DECK
-        .read()
-        .as_ref()
-        .map(|d| {
-            d.all_cards()
-                .filter(|c| c.card_number == cards.card_number)
-                .map(|c| c.amount)
-                .sum::<u32>()
-        })
-        .unwrap_or(0)
-        > cards
-            .card_info(&CARDS_INFO.read())
-            .map(|i| i.max)
-            .unwrap_or(50);
-    let warning_class = if warning { "is-warning" } else { "is-dark" };
-
-    rsx! {
-        div {
-            figure { class: "image m-2 {img_class}",
-                img {
-                    title: "{cards.card_number}",
-                    border_radius: "3.7%",
-                    src: "{img_path}",
-                    "onerror": "this.src='{error_img_path}'",
-                }
-                if show_price {
-                    span { class: "badge is-bottom {warning_class}",
-                        " ¥{price} × {cards.amount} "
-                        if let Some(price_url) = price_url {
-                            a {
-                                title: "Go to Yuyutei for {cards.card_number}",
-                                href: "{price_url}",
-                                target: "_blank",
-                                onclick: |_| { track_url("Yuyutei") },
-                                i { class: "fa-solid fa-arrow-up-right-from-square" }
-                            }
-                        }
-                    }
-                } else if card_type != CardType::Oshi {
-                    span { class: "badge is-bottom {warning_class}", "{cards.amount}" }
-                }
-            }
-        }
-    }
 }
 
 pub fn download_file(file_name: &str, content: impl BlobContents) {
