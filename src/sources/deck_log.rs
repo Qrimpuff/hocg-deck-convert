@@ -9,8 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{EventType, HOCG_DECK_CONVERT_API, track_event};
 
 use super::{
-    CardsInfo, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
-    MergeCommonCards,
+    CardsInfo, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,21 +166,21 @@ impl CommonCardConversion for Card {
 }
 
 impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Self {
-        Deck {
+    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Option<Self> {
+        Some(Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name(),
-            p_list: Card::build_custom_deck(vec![deck.oshi], info),
+            p_list: Card::build_custom_deck(deck.oshi.into_iter().collect(), info),
             list: Card::build_custom_deck(deck.main_deck, info),
             sub_list: Card::build_custom_deck(deck.cheer_deck, info),
-        }
+        })
     }
 
     fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
         CommonDeck {
             name: Some(value.title),
-            oshi: Card::build_common_deck(value.p_list, info).swap_remove(0),
+            oshi: Some(Card::build_common_deck(value.p_list, info).swap_remove(0)),
             main_deck: Card::build_common_deck(value.list, info),
             cheer_deck: Card::build_common_deck(value.sub_list, info),
         }
@@ -195,7 +194,7 @@ fn http_client() -> &'static Client {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<Option<CommonDeck>>,
+    mut common_deck: Signal<CommonDeck>,
     info: Signal<CardsInfo>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -270,7 +269,7 @@ pub fn Import(
                         error: None,
                     },
                 );
-                *common_deck.write() = Some(Deck::to_common_deck(deck, &info.read()));
+                *common_deck.write() = Deck::to_common_deck(deck, &info.read());
                 *show_price.write() = false;
             }
             Err(e) => {
@@ -322,7 +321,7 @@ pub fn Import(
                         || *loading.read(),
                     onclick: import_deck,
                     span { class: "icon",
-                        i { class: "fa-solid fa-download" }
+                        i { class: "fa-solid fa-cloud-arrow-down" }
                     }
                     span { "Import deck" }
                 }
@@ -334,7 +333,7 @@ pub fn Import(
 static PUBLISH_CACHE: GlobalSignal<HashMap<(u32, u64), String>> = Signal::global(Default::default);
 
 #[component]
-pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInfo>) -> Element {
+pub fn Export(mut common_deck: Signal<CommonDeck>, info: Signal<CardsInfo>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -350,18 +349,10 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
     let mut deck_log_url = use_signal(String::new);
     let mut loading = use_signal(|| false);
 
-    let warnings = common_deck
-        .read()
-        .as_ref()
-        .map(|d| d.validate(&info.read()))
-        .unwrap_or_default();
+    let warnings = common_deck.read().validate(&info.read());
 
     let publish_deck = move |_| async move {
         let common_deck = common_deck.read();
-        let Some(common_deck) = common_deck.as_ref() else {
-            return;
-        };
-
         *loading.write() = true;
         *deck_log_url.write() = String::new();
         *deck_error.write() = String::new();
@@ -375,34 +366,36 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
             return;
         }
 
-        let mut deck = Deck::from_common_deck(common_deck.clone(), &info.read());
-        match deck.publish(*game_title_id.read()).await {
-            Ok(url) => {
-                *deck_log_url.write() = url.clone();
-                PUBLISH_CACHE
-                    .write()
-                    .insert((*game_title_id.read(), common_deck.calculate_hash()), url);
-                track_event(
-                    EventType::Export("Deck Log".into()),
-                    EventData {
-                        format: "Deck Log",
-                        game_title_id: *game_title_id.read(),
-                        deck_id: Some(deck.deck_id.clone()),
-                        error: None,
-                    },
-                );
-            }
-            Err(e) => {
-                *deck_error.write() = e.to_string();
-                track_event(
-                    EventType::Export("Deck Log".into()),
-                    EventData {
-                        format: "Deck Log",
-                        game_title_id: *game_title_id.read(),
-                        deck_id: None,
-                        error: Some(e.to_string()),
-                    },
-                );
+        let deck = Deck::from_common_deck(common_deck.clone(), &info.read());
+        if let Some(mut deck) = deck {
+            match deck.publish(*game_title_id.read()).await {
+                Ok(url) => {
+                    *deck_log_url.write() = url.clone();
+                    PUBLISH_CACHE
+                        .write()
+                        .insert((*game_title_id.read(), common_deck.calculate_hash()), url);
+                    track_event(
+                        EventType::Export("Deck Log".into()),
+                        EventData {
+                            format: "Deck Log",
+                            game_title_id: *game_title_id.read(),
+                            deck_id: Some(deck.deck_id.clone()),
+                            error: None,
+                        },
+                    );
+                }
+                Err(e) => {
+                    *deck_error.write() = e.to_string();
+                    track_event(
+                        EventType::Export("Deck Log".into()),
+                        EventData {
+                            format: "Deck Log",
+                            game_title_id: *game_title_id.read(),
+                            deck_id: None,
+                            error: Some(e.to_string()),
+                        },
+                    );
+                }
             }
         }
 
@@ -444,10 +437,10 @@ pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInf
                     r#type: "button",
                     class: "button",
                     class: if *loading.read() { "is-loading" },
-                    disabled: common_deck.read().is_none() || !warnings.is_empty() || *loading.read(),
+                    disabled: !warnings.is_empty() || *loading.read(),
                     onclick: publish_deck,
                     span { class: "icon",
-                        i { class: "fa-solid fa-upload" }
+                        i { class: "fa-solid fa-cloud-arrow-up" }
                     }
                     span { "Publish deck" }
                 }

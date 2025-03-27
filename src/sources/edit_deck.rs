@@ -1,19 +1,18 @@
-use std::collections::HashMap;
-
-use dioxus::logger::tracing::debug;
 use dioxus::prelude::*;
 use serde::Serialize;
 
-use crate::{EventType, components::card_search::CardSearch, sources::PartialDeck, track_event};
+use crate::components::card_search::CardSearch;
 
-use super::{CardsInfo, CommonCard, CommonDeck, CommonDeckConversion};
+use super::{CardsInfo, CommonDeck};
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<Option<CommonDeck>>,
+    mut common_deck: Signal<CommonDeck>,
     info: Signal<CardsInfo>,
+    is_edit: Signal<bool>,
     show_price: Signal<bool>,
 ) -> Element {
+    // TODO update event data for edit
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -25,28 +24,19 @@ pub fn Import(
         error: Option<String>,
     }
 
-    let mut edit_deck = use_signal(|| {
+    let common_deck_name = use_memo(move || {
         common_deck
             .read()
+            .name
             .as_ref()
-            .map(|d| PartialDeck::from_common_deck(d.clone()))
+            .cloned()
             .unwrap_or_default()
     });
-    let edit_deck_name =
-        use_memo(move || edit_deck.read().name.as_ref().cloned().unwrap_or_default());
 
-    // update common deck when edit deck changes
-    let _ = use_effect(move || {
-        let deck = edit_deck.read();
-        let deck = PartialDeck::to_common_deck(deck.clone());
-        if let Some(deck) = deck {
-            common_deck.write().replace(deck);
-        }
-    });
 
     let update_deck_name = move |event: Event<FormData>| {
         let deck_name = event.value();
-        edit_deck.write().name = Some(deck_name.trim().to_string()).filter(|s| !s.is_empty());
+        common_deck.write().name = Some(deck_name.trim().to_string()).filter(|s| !s.is_empty());
     };
 
     rsx! {
@@ -60,11 +50,11 @@ pub fn Import(
                     oninput: update_deck_name,
                     maxlength: 100,
                     placeholder: "Enter a name...",
-                    value: "{edit_deck_name}",
+                    value: "{common_deck_name}",
                 }
             }
         }
 
-        CardSearch { info, common_deck }
+        CardSearch { info, common_deck, is_edit }
     }
 }

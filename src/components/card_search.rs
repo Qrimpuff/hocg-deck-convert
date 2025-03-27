@@ -1,10 +1,10 @@
-use dioxus::prelude::*;
+use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{CardEntry, CardsInfo};
 
 use crate::{
     CardLanguage, CardType,
     components::card::Card,
-    sources::{CommonCard, CommonDeck, price_check::PriceCache},
+    sources::{CommonCard, CommonDeck},
 };
 
 // return a list of cards that match the filters
@@ -18,48 +18,59 @@ fn filter_cards<'a>(filter: &str, info: &'a CardsInfo) -> Vec<&'a CardEntry> {
 }
 
 #[component]
-pub fn CardSearch(info: Signal<CardsInfo>, common_deck: Signal<Option<CommonDeck>>) -> Element {
+pub fn CardSearch(
+    info: Signal<CardsInfo>,
+    common_deck: Signal<CommonDeck>,
+    is_edit: Signal<bool>,
+) -> Element {
     let mut cards = use_signal(Vec::new);
     let mut cards_filter = use_signal(String::new);
+    const CARD_INCREMENT: usize = 120; // split even for 6, 5, 4, etc. columns
+    let mut card_amount = use_signal(|| CARD_INCREMENT);
+    let mut max_card_amount = use_signal(|| 0);
+    let mut loading = use_signal(|| false);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
         *cards_filter.write() = filter.trim().to_lowercase();
+        *card_amount.write() = CARD_INCREMENT;
+        // scroll to top, after updating the filter, to show the first cards
+        document().eval("document.getElementById('card_search_cards').scrollTop = 0;".into());
     };
 
     let _ = use_effect(move || {
         let filter = cards_filter.read();
         let _info = info.read();
         let _common_deck = common_deck.read();
-        // limit the number of cards shown (max 100?)
-        // TODO maybe add a placeholder at the end of the list, to show that there are more cards
-        if filter.len() >= 3 {
-            *cards.write() = filter_cards(&filter, &_info)
-                .into_iter()
-                .take(100)
-                .map(move |card| {
-                    rsx! {
-                        Card {
-                            card: CommonCard {
-                                manage_id: card.manage_id,
-                                card_number: card.card_number.clone(),
-                                amount: _common_deck
-                                    .as_ref()
-                                    .and_then(|d| card.manage_id.and_then(|id| d.find_card(id)))
-                                    .map(|c| c.amount)
-                                    .unwrap_or(0),
-                            },
-                            card_type: CardType::Main,
-                            card_lang: use_signal(|| CardLanguage::Japanese),
-                            info,
-                            common_deck,
-                        }
+        let filtered_cards = filter_cards(&filter, &_info);
+        *max_card_amount.write() = filtered_cards.len();
+        *cards.write() = filtered_cards
+            .into_iter()
+            // limit the number of cards shown
+            .take(*card_amount.read())
+            .map(move |card| {
+                rsx! {
+                    Card {
+                        card: CommonCard {
+                            manage_id: card.manage_id,
+                            card_number: card.card_number.clone(),
+                            amount: card
+                                .manage_id
+                                .and_then(|id| _common_deck.find_card(id))
+                                .map(|c| c.amount)
+                                .unwrap_or(0),
+                        },
+                        card_type: CardType::Main,
+                        card_lang: use_signal(|| CardLanguage::Japanese),
+                        is_preview: false,
+                        info,
+                        common_deck,
+                        is_edit,
                     }
-                })
-                .collect::<Vec<_>>();
-        } else {
-            *cards.write() = Vec::new();
-        }
+                }
+            })
+            .collect::<Vec<_>>();
+        *loading.write() = false;
     });
 
     rsx! {
@@ -77,10 +88,34 @@ pub fn CardSearch(info: Signal<CardsInfo>, common_deck: Signal<Option<CommonDeck
             }
         }
         div {
+            id: "card_search_cards",
             class: "block is-flex is-flex-wrap-wrap is-justify-content-center",
             style: "max-height: 50vh; overflow: scroll;",
             for card in cards.read().iter() {
                 {card}
+            }
+
+            // load more cards
+            if *card_amount.read() < *max_card_amount.read() {
+                div {
+                    class: "field m-2 is-flex is-justify-content-center",
+                    style: "width: 100%",
+                    div { class: "control",
+                        button {
+                            r#type: "button",
+                            class: "button",
+                            class: if *loading.read() { "is-loading" },
+                            onclick: move |_| {
+                                *loading.write() = true;
+                                *card_amount.write() += CARD_INCREMENT;
+                            },
+                            span { class: "icon",
+                                i { class: "fa-solid fa-arrow-down" }
+                            }
+                            span { "Load more cards" }
+                        }
+                    }
+                }
             }
         }
     }

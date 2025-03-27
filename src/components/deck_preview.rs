@@ -12,48 +12,63 @@ use crate::{
 pub fn DeckPreview(
     card_lang: Signal<CardLanguage>,
     info: Signal<CardsInfo>,
-    common_deck: Signal<Option<CommonDeck>>,
+    common_deck: Signal<CommonDeck>,
+    is_edit: Signal<bool>,
     show_price: Signal<bool>,
     prices: Signal<PriceCache>,
 ) -> Element {
     let deck = common_deck.read();
 
-    let Some(deck) = deck.as_ref() else {
+    // Don't render anything if the deck is empty
+    if *deck == Default::default() {
         return rsx! {};
     };
 
-    let oshi = rsx! {
-        Card {
-            card: deck.oshi.clone(),
-            card_type: CardType::Oshi,
-            card_lang,
-            info,
-            common_deck,
-            show_price,
-            prices,
+    let show_oshi = deck.oshi.is_some();
+    let oshi = deck.oshi.iter().map(move |card| {
+        rsx! {
+            Card {
+                card: card.clone(),
+                card_type: CardType::Oshi,
+                card_lang,
+                is_preview: true,
+                info,
+                common_deck,
+                is_edit,
+                show_price,
+                prices,
+            }
         }
-    };
+    });
+
+    let show_main_deck = !deck.main_deck.is_empty();
     let main_deck = deck.main_deck.iter().map(move |card| {
         rsx! {
             Card {
                 card: card.clone(),
                 card_type: CardType::Main,
                 card_lang,
+                is_preview: true,
                 info,
                 common_deck,
+                is_edit,
                 show_price,
                 prices,
             }
         }
     });
+
+    let show_cheer_deck = !deck.cheer_deck.is_empty();
     let cheer_deck = deck.cheer_deck.iter().map(move |card| {
         rsx! {
             Card {
                 card: card.clone(),
                 card_type: CardType::Cheer,
                 card_lang,
+                is_preview: true,
                 info,
                 common_deck,
+                is_edit,
                 show_price,
                 prices,
             }
@@ -116,19 +131,27 @@ pub fn DeckPreview(
                 div { "Price: {approx_price}¥{price}" }
             }
         }
-        div { class: "block is-flex is-flex-wrap-wrap",
-            div { class: "block mx-1",
-                h3 { class: "subtitle mb-0", "Oshi" }
-                div { class: "block is-flex is-flex-wrap-wrap", {oshi} }
-            }
-            div { class: "block mx-1",
-                h3 { class: "subtitle mb-0", "Cheer deck" }
-                div { class: "block is-flex is-flex-wrap-wrap", {cheer_deck} }
+        if show_oshi || show_cheer_deck {
+            div { class: "block is-flex is-flex-wrap-wrap",
+                if show_oshi {
+                    div { class: "mx-1",
+                        h3 { class: "subtitle mb-0", "Oshi" }
+                        div { class: "block is-flex is-flex-wrap-wrap", {oshi} }
+                    }
+                }
+                if show_cheer_deck {
+                    div { class: "mx-1",
+                        h3 { class: "subtitle mb-0", "Cheer deck" }
+                        div { class: "block is-flex is-flex-wrap-wrap", {cheer_deck} }
+                    }
+                }
             }
         }
-        div { class: "block mx-1",
-            h3 { class: "subtitle mb-0", "Main deck" }
-            div { class: "block is-flex is-flex-wrap-wrap", {main_deck} }
+        if show_main_deck {
+            div { class: "block mx-1",
+                h3 { class: "subtitle mb-0", "Main deck" }
+                div { class: "block is-flex is-flex-wrap-wrap", {main_deck} }
+            }
         }
     }
 }

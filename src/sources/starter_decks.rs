@@ -28,7 +28,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD01 - Start Deck「Tokino Sora & AZKi」 (Sora oshi)".into(),
                 deck: CommonDeck {
                     name: Some("Start Deck「Tokino Sora & AZKi」".into()),
-                    oshi: card("hSD01-001", 1, 1, info),
+                    oshi: Some(card("hSD01-001", 1, 1, info)),
                     main_deck: vec![
                         card("hSD01-003", 3, 4, info),
                         card("hSD01-004", 4, 3, info),
@@ -62,7 +62,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD01 - Start Deck「Tokino Sora & AZKi」 (AZKi oshi)".into(),
                 deck: CommonDeck {
                     name: Some("Start Deck「Tokino Sora & AZKi」".into()),
-                    oshi: card("hSD01-002", 2, 1, info),
+                    oshi: Some(card("hSD01-002", 2, 1, info)),
                     main_deck: vec![
                         card("hSD01-003", 3, 4, info),
                         card("hSD01-004", 4, 3, info),
@@ -96,7 +96,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD02 - Start Deck (Red) Nakiri Ayame".into(),
                 deck: CommonDeck {
                     name: Some("hSD02 - Start Deck (Red) Nakiri Ayame".into()),
-                    oshi: card("hSD02-001", 225, 1, info),
+                    oshi: Some(card("hSD02-001", 225, 1, info)),
                     main_deck: vec![
                         card("hSD02-002", 226, 6, info),
                         card("hSD02-003", 227, 4, info),
@@ -126,7 +126,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD03 - Start Deck (Blue) Nekomata Okayu".into(),
                 deck: CommonDeck {
                     name: Some("hSD03 - Start Deck (Blue) Nekomata Okayu".into()),
-                    oshi: card("hSD03-001", 239, 1, info),
+                    oshi: Some(card("hSD03-001", 239, 1, info)),
                     main_deck: vec![
                         card("hSD03-002", 240, 6, info),
                         card("hSD03-003", 241, 4, info),
@@ -156,7 +156,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD04 - Start Deck (Purple) Yuzuki Choco".into(),
                 deck: CommonDeck {
                     name: Some("hSD04 - Start Deck (Purple) Yuzuki Choco".into()),
-                    oshi: card("hSD04-001", 253, 1, info),
+                    oshi: Some(card("hSD04-001", 253, 1, info)),
                     main_deck: vec![
                         card("hSD04-002", 254, 6, info),
                         card("hSD04-003", 255, 4, info),
@@ -186,7 +186,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD05 - Start Deck (White) Todoroki Hajime".into(),
                 deck: CommonDeck {
                     name: Some("hSD05 - Start Deck (White) Todoroki Hajime".into()),
-                    oshi: card("hSD05-001", 517, 1, info),
+                    oshi: Some(card("hSD05-001", 517, 1, info)),
                     main_deck: vec![
                         card("hSD05-002", 518, 6, info),
                         card("hSD05-003", 519, 4, info),
@@ -216,7 +216,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD06 - Start Deck (Green) Kazama Iroha".into(),
                 deck: CommonDeck {
                     name: Some("hSD06 - Start Deck (Green) Kazama Iroha".into()),
-                    oshi: card("hSD06-001", 532, 1, info),
+                    oshi: Some(card("hSD06-001", 532, 1, info)),
                     main_deck: vec![
                         card("hBP01-048", 533, 6, info),
                         card("hSD06-002", 534, 4, info),
@@ -246,7 +246,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
                 display: "hSD07 - Start Deck (Yellow) Shiranui Flare".into(),
                 deck: CommonDeck {
                     name: Some("hSD07 - Start Deck (Yellow) Shiranui Flare".into()),
-                    oshi: card("hSD07-001", 546, 1, info),
+                    oshi: Some(card("hSD07-001", 546, 1, info)),
                     main_deck: vec![
                         card("hSD07-002", 547, 6, info),
                         card("hSD07-003", 548, 4, info),
@@ -276,7 +276,7 @@ fn starter_decks(info: &CardsInfo) -> &'static Vec<DeckEntry> {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<Option<CommonDeck>>,
+    mut common_deck: Signal<CommonDeck>,
     info: Signal<CardsInfo>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -307,7 +307,7 @@ pub fn Import(
                 },
             );
         }
-        *common_deck.write() = deck.map(|d| d.deck.clone());
+        *common_deck.write() = deck.map(|d| d.deck.clone()).unwrap_or_default();
 
         *show_price.write() = false;
         *loading.write() = false;
@@ -315,7 +315,7 @@ pub fn Import(
 
     // display once
     use_effect(move || {
-        if common_deck.peek().is_none() {
+        if *common_deck.peek() == Default::default() {
             load_deck();
         }
     });

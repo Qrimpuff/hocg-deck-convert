@@ -56,7 +56,7 @@ async fn generate_pdf(
     let cards: Box<dyn Iterator<Item = &crate::CommonCard>> = if include_cheers {
         Box::new(deck.all_cards())
     } else {
-        Box::new(std::iter::once(&deck.oshi).chain(deck.main_deck.iter()))
+        Box::new(deck.oshi.iter().chain(deck.main_deck.iter()))
     };
     let cards: Vec<_> = cards
         .filter(|c| c.image_path(info, card_lang).is_some())
@@ -155,7 +155,7 @@ async fn generate_pdf(
 
 #[component]
 pub fn Export(
-    mut common_deck: Signal<Option<CommonDeck>>,
+    mut common_deck: Signal<CommonDeck>,
     info: Signal<CardsInfo>,
     card_lang: Signal<CardLanguage>,
 ) -> Element {
@@ -176,9 +176,6 @@ pub fn Export(
 
     let print_deck = move |_| async move {
         let common_deck = common_deck.read();
-        let Some(common_deck) = common_deck.as_ref() else {
-            return;
-        };
 
         *loading.write() = true;
         *deck_error.write() = String::new();
@@ -194,7 +191,7 @@ pub fn Export(
         let file_name = common_deck.file_name();
         let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
         match generate_pdf(
-            common_deck,
+            &common_deck,
             &info.read(),
             *card_lang.read(),
             *paper_size.read(),
@@ -301,7 +298,7 @@ pub fn Export(
                     r#type: "button",
                     class: "button",
                     class: if *loading.read() { "is-loading" },
-                    disabled: common_deck.read().is_none() || *loading.read(),
+                    disabled: common_deck.read().is_empty() || *loading.read(),
                     onclick: print_deck,
                     span { class: "icon",
                         i { class: "fa-solid fa-print" }

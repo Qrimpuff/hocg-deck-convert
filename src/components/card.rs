@@ -16,8 +16,10 @@ pub fn Card(
     card: CommonCard,
     card_type: CardType,
     card_lang: Signal<CardLanguage>,
+    is_preview: bool,
     info: Signal<CardsInfo>,
-    common_deck: Option<Signal<Option<CommonDeck>>>,
+    common_deck: Option<Signal<CommonDeck>>,
+    is_edit: Signal<bool>,
     show_price: Option<Signal<bool>>,
     prices: Option<Signal<PriceCache>>,
 ) -> Element {
@@ -55,14 +57,10 @@ pub fn Card(
     let total_amount = if let Some(common_deck) = common_deck {
         common_deck
             .read()
-            .as_ref()
-            .map(|d| {
-                d.all_cards()
-                    .filter(|c| c.card_number == card.card_number)
-                    .map(|c| c.amount)
-                    .sum::<u32>()
-            })
-            .unwrap_or(0)
+            .all_cards()
+            .filter(|c| c.card_number == card.card_number)
+            .map(|c| c.amount)
+            .sum::<u32>()
     } else {
         0
     };
@@ -79,27 +77,22 @@ pub fn Card(
         .map(|e| format!("{} ({})", card.card_number, e.rare))
         .unwrap_or(card.card_number.to_string());
 
-    let show_edit = true;
     let _card = card.clone();
     let add_card = move |_| {
         if let Some(mut common_deck) = common_deck {
             let mut deck = common_deck.write();
-            if let Some(deck) = deck.as_mut() {
-                let mut card = _card.clone();
-                card.amount = 1;
-                deck.add_card(card, &info.read());
-            }
+            let mut card = _card.clone();
+            card.amount = 1;
+            deck.add_card(card, card_type, &info.read());
         }
     };
     let _card = card.clone();
     let remove_card = move |_| {
         if let Some(mut common_deck) = common_deck {
             let mut deck = common_deck.write();
-            if let Some(deck) = deck.as_mut() {
-                let mut card = _card.clone();
-                card.amount = 1;
-                deck.remove_card(card, &info.read());
-            }
+            let mut card = _card.clone();
+            card.amount = 1;
+            deck.remove_card(card, card_type, &info.read());
         }
     };
 
@@ -113,7 +106,9 @@ pub fn Card(
                     "onerror": "this.src='{error_img_path}'",
                 }
                 if show_price {
-                    span { class: "badge is-bottom {warning_class}",
+                    span {
+                        class: "badge is-bottom {warning_class}",
+                        style: "z-index: 10",
                         " ¥{price} × {card.amount} "
                         if let Some(price_url) = price_url {
                             a {
@@ -133,16 +128,25 @@ pub fn Card(
                     }
                 }
             }
-            if show_edit {
+            if *is_edit.read() {
                 div { class: "mt-1 is-flex is-justify-content-center",
-                    if card.card_type(&info.read()) == CardType::Oshi {
-                        // TODO add remove, only for deck preview, will work with partial deck
-                        button {
-                            r#type: "button",
-                            class: "button is-small has-text-success",
-                            title: "Select oshi {tooltip}",
-                            onclick: add_card,
-                            "Select"
+                    if card.card_type(&info.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
+                        if is_preview {
+                            button {
+                                r#type: "button",
+                                class: "button is-small has-text-danger",
+                                title: "Remove oshi {tooltip}",
+                                onclick: remove_card,
+                                "Remove"
+                            }
+                        } else {
+                            button {
+                                r#type: "button",
+                                class: "button is-small has-text-success",
+                                title: "Select oshi {tooltip}",
+                                onclick: add_card,
+                                "Select"
+                            }
                         }
                     } else {
                         div { class: "buttons has-addons",
@@ -154,11 +158,11 @@ pub fn Card(
                                 disabled: card.amount == 0,
                                 onclick: remove_card,
                                 span { class: "icon is-small has-text-danger",
-                                    if card.amount > 1 {
-                                        i { class: "fas fa-minus" }
-                                    } else {
-                                        // TODO only for deck preview
+                                    if card.amount == 1 && is_preview {
+                                        // only for deck preview
                                         i { class: "fas fa-trash" }
+                                    } else {
+                                        i { class: "fas fa-minus" }
                                     }
                                 }
                             }

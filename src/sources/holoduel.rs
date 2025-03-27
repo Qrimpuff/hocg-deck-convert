@@ -105,13 +105,13 @@ impl CommonCardConversion for DeckCard {
 }
 
 impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Self {
-        Deck {
+    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Option<Self> {
+        Some(Deck {
             deck_name: deck.name,
-            oshi: OshiCard::from_common_card(deck.oshi, info),
+            oshi: OshiCard::from_common_card(deck.oshi?, info),
             deck: DeckCard::build_custom_deck(deck.main_deck, info),
             cheer_deck: DeckCard::build_custom_deck(deck.cheer_deck, info),
-        }
+        })
     }
 
     fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
@@ -119,7 +119,7 @@ impl CommonDeckConversion for Deck {
             name: value
                 .deck_name
                 .and_then(|n| n.trim().is_empty().not().then_some(n)),
-            oshi: OshiCard::to_common_card(value.oshi, info),
+            oshi: Some(OshiCard::to_common_card(value.oshi, info)),
             main_deck: DeckCard::build_common_deck(value.deck, info),
             cheer_deck: DeckCard::build_common_deck(value.cheer_deck, info),
         }
@@ -128,7 +128,7 @@ impl CommonDeckConversion for Deck {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<Option<CommonDeck>>,
+    mut common_deck: Signal<CommonDeck>,
     info: Signal<CardsInfo>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -145,7 +145,7 @@ pub fn Import(
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<Option<CommonDeck>>, info: Signal<CardsInfo>) -> Element {
+pub fn Export(mut common_deck: Signal<CommonDeck>, info: Signal<CardsInfo>) -> Element {
     rsx! {
         JsonExport {
             deck_type: DeckType::HoloDuel,

@@ -9,7 +9,7 @@ use itertools::Itertools;
 use price_check::PriceCache;
 use web_time::Instant;
 
-use crate::{CardLanguage, CardType, components::card::Card};
+use crate::{CardLanguage, CardType};
 
 pub mod deck_log;
 pub mod edit_deck;
@@ -30,7 +30,6 @@ pub enum DeckType {
     TabletopSim,
     ProxySheets,
     PriceCheck,
-    EditDeck,
     Unknown,
 }
 
@@ -45,7 +44,9 @@ pub trait CommonCardConversion: Sized {
 }
 
 pub trait CommonDeckConversion {
-    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Self;
+    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Option<Self>
+    where
+        Self: Sized;
     fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck;
 }
 
@@ -160,11 +161,12 @@ impl CommonCard {
             .find(|c| c.manage_id == self.manage_id)
     }
 
-    pub fn card_type(&self, info: &CardsInfo) -> CardType {
+    pub fn card_type(&self, info: &CardsInfo) -> Option<CardType> {
         match self.card_info(info).map(|c| c.deck_type.as_str()) {
-            Some("OSHI") => CardType::Oshi,
-            Some("YELL") => CardType::Cheer,
-            _ => CardType::Main,
+            Some("OSHI") => Some(CardType::Oshi),
+            Some("YELL") => Some(CardType::Cheer),
+            Some("N") => Some(CardType::Main),
+            _ => None,
         }
     }
 
@@ -254,23 +256,26 @@ impl MergeCommonCards for Vec<CommonCard> {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+/// Is a partial representation of a deck, used for editing and importing/exporting
 pub struct CommonDeck {
     pub name: Option<String>,
-    pub oshi: CommonCard,
+    pub oshi: Option<CommonCard>,
     pub main_deck: Vec<CommonCard>,
     pub cheer_deck: Vec<CommonCard>,
 }
 
 impl CommonDeck {
     pub fn all_cards(&self) -> impl Iterator<Item = &CommonCard> {
-        std::iter::once(&self.oshi)
+        self.oshi
+            .iter()
             .chain(self.main_deck.iter())
             .chain(self.cheer_deck.iter())
     }
 
     pub fn all_cards_mut(&mut self) -> impl Iterator<Item = &mut CommonCard> {
-        std::iter::once(&mut self.oshi)
+        self.oshi
+            .iter_mut()
             .chain(self.main_deck.iter_mut())
             .chain(self.cheer_deck.iter_mut())
     }
@@ -288,7 +293,13 @@ impl CommonDeck {
     }
 
     pub fn default_deck_name(&self) -> String {
-        format!("Custom deck - {}", self.oshi.card_number)
+        if let Some(oshi) = &self.oshi {
+            // TODO use card name
+            // format!("{}'s deck", oshi.card_number)
+            format!("Custom deck - {}", oshi.card_number)
+        } else {
+            "Custom deck".into()
+        }
     }
 
     pub fn file_name(&self) -> String {
@@ -313,16 +324,25 @@ impl CommonDeck {
     }
 
     pub fn merge(&mut self) {
-        // TODO oshi to none
+        // remove oshi card if amount is 0
+        if let Some(oshi) = &self.oshi {
+            if oshi.amount == 0 {
+                self.oshi = None;
+            }
+        }
         self.main_deck = std::mem::take(&mut self.main_deck).merge();
         self.cheer_deck = std::mem::take(&mut self.cheer_deck).merge();
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.oshi.is_none() && self.main_deck.is_empty() && self.cheer_deck.is_empty()
     }
 
     pub fn validate(&self, info: &CardsInfo) -> Vec<String> {
         let mut errors = vec![];
 
         // check for unreleased or invalid cards
-        if self.oshi.manage_id.is_none()
+        if self.oshi.iter().any(|c| c.manage_id.is_none())
             || self.main_deck.iter().any(|c| c.manage_id.is_none())
             || self.cheer_deck.iter().any(|c| c.manage_id.is_none())
         {
@@ -330,7 +350,11 @@ impl CommonDeck {
         }
 
         // check for card amount
-        if self.oshi.manage_id.is_none() {
+        let oshi_amount = self.oshi.iter().map(|c| c.amount).sum::<u32>();
+        if oshi_amount > 1 {
+            errors.push("Too many Oshi cards.".to_string());
+        }
+        if oshi_amount < 1 {
             errors.push("Missing an Oshi card.".into());
         }
         let main_deck_amount = self.main_deck.iter().map(|c| c.amount).sum::<u32>();
@@ -388,21 +412,22 @@ impl CommonDeck {
         self.all_cards().find(|c| c.manage_id == Some(manage_id))
     }
 
-    // TODO needs to be in PartialDeck
-    pub fn add_card(&mut self, card: CommonCard, info: &CardsInfo) {
-        match card.card_type(info) {
-            CardType::Oshi => self.oshi = card.clone(),
+    pub fn add_card(&mut self, card: CommonCard, card_type: CardType, info: &CardsInfo) {
+        match card.card_type(info).unwrap_or(card_type) {
+            CardType::Oshi => self.oshi = Some(card.clone()),
             CardType::Main => self.main_deck.push(card),
             CardType::Cheer => self.cheer_deck.push(card),
         }
         self.merge();
     }
 
-    // TODO needs to be in PartialDeck
-    pub fn remove_card(&mut self, card: CommonCard, info: &CardsInfo) {
-        match card.card_type(info) {
-            // TODO should be none
-            CardType::Oshi => self.oshi.amount = 0,
+    pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, info: &CardsInfo) {
+        match card.card_type(info).unwrap_or(card_type) {
+            CardType::Oshi => self.oshi.iter_mut().for_each(|c| {
+                if c.manage_id == card.manage_id && c.card_number == card.card_number {
+                    c.amount = c.amount.saturating_sub(card.amount);
+                }
+            }),
             CardType::Main => self.main_deck.iter_mut().for_each(|c| {
                 if c.manage_id == card.manage_id && c.card_number == card.card_number {
                     c.amount = c.amount.saturating_sub(card.amount);
@@ -415,37 +440,5 @@ impl CommonDeck {
             }),
         }
         self.merge();
-    }
-}
-
-#[derive(Debug, Clone, Hash, Default, PartialEq, Eq)]
-pub struct PartialDeck {
-    pub name: Option<String>,
-    pub oshi: Option<CommonCard>,
-    pub main_deck: Vec<CommonCard>,
-    pub cheer_deck: Vec<CommonCard>,
-}
-
-impl PartialDeck {
-    fn from_common_deck(deck: CommonDeck) -> Self {
-        PartialDeck {
-            name: deck.name,
-            oshi: Some(deck.oshi),
-            main_deck: deck.main_deck,
-            cheer_deck: deck.cheer_deck,
-        }
-    }
-
-    fn to_common_deck(self) -> Option<CommonDeck> {
-        Some(CommonDeck {
-            name: self.name,
-            oshi: self.oshi.unwrap_or(CommonCard {
-                manage_id: None,
-                card_number: "UNKNOWN".into(),
-                amount: 1,
-            }),
-            main_deck: self.main_deck,
-            cheer_deck: self.cheer_deck,
-        })
     }
 }

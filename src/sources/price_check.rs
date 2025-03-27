@@ -108,7 +108,7 @@ async fn price_check(
 
 #[component]
 pub fn Export(
-    mut common_deck: Signal<Option<CommonDeck>>,
+    mut common_deck: Signal<CommonDeck>,
     info: Signal<CardsInfo>,
     prices: Signal<PriceCache>,
     card_lang: Signal<CardLanguage>,
@@ -131,15 +131,12 @@ pub fn Export(
 
     let price_check = move |_| async move {
         let common_deck = common_deck.read();
-        let Some(common_deck) = common_deck.as_ref() else {
-            return;
-        };
 
         *loading.write() = true;
         *deck_error.write() = String::new();
 
         let price_check =
-            price_check(common_deck, &info.read(), &prices.read(), *service.read()).await;
+            price_check(&common_deck, &info.read(), &prices.read(), *service.read()).await;
         match price_check {
             Ok(price_check) => {
                 prices.write().extend(price_check);
@@ -173,9 +170,6 @@ pub fn Export(
 
     let increase_price = move |_| {
         let mut common_deck = common_deck.write();
-        let Some(common_deck) = common_deck.as_mut() else {
-            return;
-        };
 
         *loading.write() = true;
         *deck_error.write() = String::new();
@@ -213,9 +207,6 @@ pub fn Export(
 
     let decrease_price = move |_| {
         let mut common_deck = common_deck.write();
-        let Some(common_deck) = common_deck.as_mut() else {
-            return;
-        };
 
         *loading.write() = true;
         *deck_error.write() = String::new();
@@ -275,7 +266,7 @@ pub fn Export(
                     r#type: "button",
                     class: "button",
                     class: if *loading.read() { "is-loading" },
-                    disabled: common_deck.read().is_none() || *loading.read(),
+                    disabled: common_deck.read().is_empty() || *loading.read(),
                     onclick: price_check,
                     span { class: "icon",
                         i { class: "fa-solid fa-tag" }
@@ -293,7 +284,7 @@ pub fn Export(
                 button {
                     r#type: "button",
                     class: "button",
-                    disabled: common_deck.read().is_none() || *loading.read() || !*show_price.read(),
+                    disabled: common_deck.read().is_empty() || *loading.read() || !*show_price.read(),
                     onclick: increase_price,
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up" }
@@ -308,7 +299,7 @@ pub fn Export(
                 button {
                     r#type: "button",
                     class: "button",
-                    disabled: common_deck.read().is_none() || *loading.read() || !*show_price.read(),
+                    disabled: common_deck.read().is_empty() || *loading.read() || !*show_price.read(),
                     onclick: decrease_price,
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-down" }
