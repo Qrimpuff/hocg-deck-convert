@@ -186,7 +186,15 @@ impl CommonCard {
     pub fn alt_cards(&self, info: &CardsInfo) -> Vec<Self> {
         info.values()
             .flatten()
-            .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
+            .filter(|c| {
+                if self.card_type(info) == Some(CardType::Cheer) {
+                    // all cheers of the same color are considered alt cards. e.g. hY01-001 = hY01-002
+                    c.card_number.split_once('-').map(|n| n.0)
+                        == self.card_number.split_once('-').map(|n| n.0)
+                } else {
+                    c.card_number.eq_ignore_ascii_case(&self.card_number)
+                }
+            })
             .map(|c| Self {
                 manage_id: c.manage_id,
                 card_number: c.card_number.clone(),

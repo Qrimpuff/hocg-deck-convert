@@ -176,17 +176,17 @@ pub fn Export(
 
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
-            if let Some(manage_id) = card
+            if let Some(alt_card) = card
                 .alt_cards(&info.read())
                 .into_iter()
                 .filter(|c| c.price(&info.read(), &prices.read()).is_some())
                 .sorted_by_key(|c| {
                     u32::MAX - c.price(&info.read(), &prices.read()).expect("it's some")
                 }) // this is the highest price
-                .map(|c| c.manage_id)
                 .next()
             {
-                card.manage_id = manage_id;
+                card.manage_id = alt_card.manage_id;
+                card.card_number = alt_card.card_number; // it could be a cheer card
             }
         }
         deck.merge();
@@ -213,15 +213,15 @@ pub fn Export(
 
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
-            if let Some(manage_id) = card
+            if let Some(alt_card) = card
                 .alt_cards(&info.read())
                 .into_iter()
                 .filter(|c| c.price(&info.read(), &prices.read()).is_some())
                 .sorted_by_key(|c| c.price(&info.read(), &prices.read()).expect("it's some")) // this is the lowest price
-                .map(|c| c.manage_id)
                 .next()
             {
-                card.manage_id = manage_id;
+                card.manage_id = alt_card.manage_id;
+                card.card_number = alt_card.card_number; // it could be a cheer card
             }
         }
         deck.merge();

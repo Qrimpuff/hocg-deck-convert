@@ -75,7 +75,8 @@ pub fn CardSearch(
 
     rsx! {
         div { class: "field",
-            label { "for": "card_search", class: "label", "Card search" }
+            // TODO change label
+            label { "for": "card_search", class: "label", "Card number" }
             div { class: "control",
                 input {
                     id: "card_search",

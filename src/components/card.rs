@@ -9,7 +9,6 @@ use crate::{
 };
 
 // TODO add popup for card info (allow adding and removing cards)
-// TODO add buttons to add and remove cards
 
 #[component]
 pub fn Card(
@@ -131,7 +130,7 @@ pub fn Card(
             if *is_edit.read() {
                 div { class: "mt-1 is-flex is-justify-content-center",
                     if card.card_type(&info.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
-                        if is_preview {
+                        if card.amount > 0 {
                             button {
                                 r#type: "button",
                                 class: "button is-small has-text-danger",
