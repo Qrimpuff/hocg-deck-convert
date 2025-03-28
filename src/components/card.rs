@@ -1,11 +1,13 @@
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::CardsInfo;
 use num_format::{Locale, ToFormattedString};
+use serde::Serialize;
+use web_time::{Duration, Instant};
 
 use crate::{
     CardLanguage, CardType,
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
-    tracker::track_url,
+    tracker::{EventType, track_event, track_url},
 };
 
 // TODO add popup for card info (allow adding and removing cards)
@@ -22,6 +24,11 @@ pub fn Card(
     show_price: Option<Signal<bool>>,
     prices: Option<Signal<PriceCache>>,
 ) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        action: String,
+    }
+
     let img_class = if card_type == CardType::Oshi {
         "card-img-oshi"
     } else {
@@ -77,21 +84,53 @@ pub fn Card(
         .unwrap_or(card.card_number.to_string());
 
     let _card = card.clone();
+    let mut tracking_sent_add_card: Signal<Option<Instant>> = use_signal(|| None);
     let add_card = move |_| {
         if let Some(mut common_deck) = common_deck {
             let mut deck = common_deck.write();
             let mut card = _card.clone();
             card.amount = 1;
             deck.add_card(card, card_type, &info.read());
+
+            if tracking_sent_add_card
+                .peek()
+                .as_ref()
+                .map(|t| t.elapsed() >= Duration::from_secs(10))
+                .unwrap_or(true)
+            {
+                track_event(
+                    EventType::EditDeck,
+                    EventData {
+                        action: "Add card".into(),
+                    },
+                );
+                *tracking_sent_add_card.write() = Some(Instant::now());
+            }
         }
     };
     let _card = card.clone();
+    let mut tracking_sent_remove_card: Signal<Option<Instant>> = use_signal(|| None);
     let remove_card = move |_| {
         if let Some(mut common_deck) = common_deck {
             let mut deck = common_deck.write();
             let mut card = _card.clone();
             card.amount = 1;
             deck.remove_card(card, card_type, &info.read());
+
+            if tracking_sent_remove_card
+                .peek()
+                .as_ref()
+                .map(|t| t.elapsed() >= Duration::from_secs(10))
+                .unwrap_or(true)
+            {
+                track_event(
+                    EventType::EditDeck,
+                    EventData {
+                        action: "Remove card".into(),
+                    },
+                );
+                *tracking_sent_remove_card.write() = Some(Instant::now());
+            }
         }
     };
 

@@ -1,7 +1,11 @@
 use dioxus::prelude::*;
 use serde::Serialize;
+use web_time::{Duration, Instant};
 
-use crate::components::card_search::CardSearch;
+use crate::{
+    components::card_search::CardSearch,
+    tracker::{EventType, track_event},
+};
 
 use super::{CardsInfo, CommonDeck};
 
@@ -12,18 +16,12 @@ pub fn Import(
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
 ) -> Element {
-    // TODO update event data for edit
     #[derive(Serialize)]
     struct EventData {
-        format: &'static str,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        game_title_id: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        deck_id: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        error: Option<String>,
+        action: String,
     }
 
+    let mut tracking_sent: Signal<Option<Instant>> = use_signal(|| None);
     let common_deck_name = use_memo(move || {
         common_deck
             .read()
@@ -33,10 +31,24 @@ pub fn Import(
             .unwrap_or_default()
     });
 
-
     let update_deck_name = move |event: Event<FormData>| {
         let deck_name = event.value();
         common_deck.write().name = Some(deck_name.trim().to_string()).filter(|s| !s.is_empty());
+
+        if tracking_sent
+            .peek()
+            .as_ref()
+            .map(|t| t.elapsed() >= Duration::from_secs(10))
+            .unwrap_or(true)
+        {
+            track_event(
+                EventType::EditDeck,
+                EventData {
+                    action: "Update deck name".into(),
+                },
+            );
+            *tracking_sent.write() = Some(Instant::now());
+        }
     };
 
     rsx! {

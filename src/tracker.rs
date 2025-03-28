@@ -17,6 +17,7 @@ pub enum EventType {
     Entry,
     Import(String),
     Export(String),
+    EditDeck,
     Url(String),
 }
 
@@ -29,6 +30,7 @@ where
         EventType::Entry => None,
         EventType::Import(_fmt) => Some("import"),
         EventType::Export(_fmt) => Some("export"),
+        EventType::EditDeck => Some("edit_deck"),
         EventType::Url(_url) => Some("external_url"),
     };
 

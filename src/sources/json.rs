@@ -122,9 +122,9 @@ pub fn JsonImport(
                 *common_deck.write() = Deck::to_common_deck(deck, &info.read());
                 *show_price.write() = false;
                 if tracking_sent
-                    .read()
+                    .peek()
                     .as_ref()
-                    .map(|t| t.elapsed() >= Duration::from_secs(5))
+                    .map(|t| t.elapsed() >= Duration::from_secs(10))
                     .unwrap_or(true)
                 {
                     track_event(
@@ -140,9 +140,9 @@ pub fn JsonImport(
             Err(e) => {
                 *deck_error.write() = e.to_string();
                 if tracking_sent
-                    .read()
+                    .peek()
                     .as_ref()
-                    .map(|t| t.elapsed() >= Duration::from_secs(5))
+                    .map(|t| t.elapsed() >= Duration::from_secs(10))
                     .unwrap_or(true)
                 {
                     track_event(
@@ -195,7 +195,6 @@ pub fn JsonImport(
                                 }
                                 Err(e) => {
                                     *deck_error.write() = e.to_string();
-
                                     track_event(
                                         EventType::Import(import_name.read().clone()),
                                         EventData {

@@ -1,10 +1,13 @@
 use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{CardEntry, CardsInfo};
+use serde::Serialize;
+use web_time::{Duration, Instant};
 
 use crate::{
     CardLanguage, CardType,
     components::card::Card,
     sources::{CommonCard, CommonDeck},
+    tracker::{EventType, track_event},
 };
 
 // return a list of cards that match the filters
@@ -23,12 +26,19 @@ pub fn CardSearch(
     common_deck: Signal<CommonDeck>,
     is_edit: Signal<bool>,
 ) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        action: String,
+    }
+
     let mut cards = use_signal(Vec::new);
     let mut cards_filter = use_signal(String::new);
     const CARD_INCREMENT: usize = 120; // split even for 6, 5, 4, etc. columns
     let mut card_amount = use_signal(|| CARD_INCREMENT);
     let mut max_card_amount = use_signal(|| 0);
     let mut loading = use_signal(|| false);
+    let mut tracking_sent_card_search: Signal<Option<Instant>> = use_signal(|| None);
+    let mut tracking_sent_load_more: Signal<Option<Instant>> = use_signal(|| None);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -36,6 +46,21 @@ pub fn CardSearch(
         *card_amount.write() = CARD_INCREMENT;
         // scroll to top, after updating the filter, to show the first cards
         document().eval("document.getElementById('card_search_cards').scrollTop = 0;".into());
+
+        if tracking_sent_card_search
+            .peek()
+            .as_ref()
+            .map(|t| t.elapsed() >= Duration::from_secs(10))
+            .unwrap_or(true)
+        {
+            track_event(
+                EventType::EditDeck,
+                EventData {
+                    action: "Card search".into(),
+                },
+            );
+            *tracking_sent_card_search.write() = Some(Instant::now());
+        }
     };
 
     let _ = use_effect(move || {
@@ -109,6 +134,20 @@ pub fn CardSearch(
                             onclick: move |_| {
                                 *loading.write() = true;
                                 *card_amount.write() += CARD_INCREMENT;
+                                if tracking_sent_load_more
+                                    .peek()
+                                    .as_ref()
+                                    .map(|t| t.elapsed() >= Duration::from_secs(10))
+                                    .unwrap_or(true)
+                                {
+                                    track_event(
+                                        EventType::EditDeck,
+                                        EventData {
+                                            action: "Load more cards".into(),
+                                        },
+                                    );
+                                    *tracking_sent_load_more.write() = Some(Instant::now());
+                                }
                             },
                             span { class: "icon",
                                 i { class: "fa-solid fa-arrow-down" }
