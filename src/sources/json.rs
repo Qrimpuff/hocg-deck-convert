@@ -124,7 +124,7 @@ pub fn JsonImport(
                 if tracking_sent
                     .peek()
                     .as_ref()
-                    .map(|t| t.elapsed() >= Duration::from_secs(10))
+                    .map(|t| t.elapsed() >= Duration::from_secs(30))
                     .unwrap_or(true)
                 {
                     track_event(
@@ -142,7 +142,7 @@ pub fn JsonImport(
                 if tracking_sent
                     .peek()
                     .as_ref()
-                    .map(|t| t.elapsed() >= Duration::from_secs(10))
+                    .map(|t| t.elapsed() >= Duration::from_secs(30))
                     .unwrap_or(true)
                 {
                     track_event(

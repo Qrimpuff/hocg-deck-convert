@@ -50,7 +50,7 @@ pub fn CardSearch(
         if tracking_sent_card_search
             .peek()
             .as_ref()
-            .map(|t| t.elapsed() >= Duration::from_secs(10))
+            .map(|t| t.elapsed() >= Duration::from_secs(30))
             .unwrap_or(true)
         {
             track_event(
@@ -137,7 +137,7 @@ pub fn CardSearch(
                                 if tracking_sent_load_more
                                     .peek()
                                     .as_ref()
-                                    .map(|t| t.elapsed() >= Duration::from_secs(10))
+                                    .map(|t| t.elapsed() >= Duration::from_secs(30))
                                     .unwrap_or(true)
                                 {
                                     track_event(

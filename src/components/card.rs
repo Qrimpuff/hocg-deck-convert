@@ -95,7 +95,7 @@ pub fn Card(
             if tracking_sent_add_card
                 .peek()
                 .as_ref()
-                .map(|t| t.elapsed() >= Duration::from_secs(10))
+                .map(|t| t.elapsed() >= Duration::from_secs(30))
                 .unwrap_or(true)
             {
                 track_event(
@@ -120,7 +120,7 @@ pub fn Card(
             if tracking_sent_remove_card
                 .peek()
                 .as_ref()
-                .map(|t| t.elapsed() >= Duration::from_secs(10))
+                .map(|t| t.elapsed() >= Duration::from_secs(30))
                 .unwrap_or(true)
             {
                 track_event(
