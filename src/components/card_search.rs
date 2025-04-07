@@ -1,5 +1,6 @@
 use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
+use itertools::Itertools;
 use serde::Serialize;
 use web_time::{Duration, Instant};
 
@@ -12,11 +13,69 @@ use crate::{
 
 // return a list of cards that match the filters
 fn filter_cards<'a>(filter: &str, db: &'a CardsDatabase) -> Vec<&'a hocg::CardIllustration> {
-    let filter = filter.to_lowercase();
-    db.values()
-        .flat_map(|cards| &cards.illustrations)
-        // TODO add more filter options
-        .filter(|card| card.card_number.to_lowercase().contains(&filter))
+    let filter = filter.trim().to_lowercase();
+    let filter = filter.split_whitespace().collect_vec();
+    let mut cards = db
+        .values()
+        // filter by text
+        .filter(|card| {
+            // check that all words matches
+            filter.iter().all(|filter| {
+                card.card_number.to_lowercase().contains(filter)
+                    || card.name.japanese.to_lowercase().contains(filter)
+                    || card
+                        .name
+                        .english
+                        .as_ref()
+                        .map(|t| t.to_lowercase().contains(filter))
+                        .unwrap_or_default()
+                    || format!("{:?}", card.card_type)
+                        .to_lowercase()
+                        .contains(filter)
+                    || format!("{:?}", card.colors).to_lowercase().contains(filter)
+                    || card.life.to_string().contains(filter)
+                    || card.hp.to_string().contains(filter)
+                    || format!("{:?}", card.bloom_level)
+                        .to_lowercase()
+                        .contains(filter)
+                    || card
+                        .buzz
+                        .then_some("buzz")
+                        .unwrap_or_default()
+                        .contains(filter)
+                    || card
+                        .limited
+                        .then_some("limited")
+                        .unwrap_or_default()
+                        .contains(filter)
+                    || card.text.japanese.to_lowercase().contains(filter)
+                    || card
+                        .text
+                        .english
+                        .as_ref()
+                        .map(|t| t.to_lowercase().contains(filter))
+                        .unwrap_or_default()
+                    || card
+                        .tags
+                        .iter()
+                        .any(|tag| tag.japanese.to_lowercase().contains(filter))
+                    || card.tags.iter().any(|tag| {
+                        tag.english
+                            .as_ref()
+                            .map(|t| t.to_lowercase().contains(filter))
+                            .unwrap_or_default()
+                    })
+            })
+        })
+        // TODO add more filter options (from select boxes)
+        .collect_vec();
+
+    // TODO sort by relevance
+    cards.sort();
+
+    cards
+        .into_iter()
+        .flat_map(|card| &card.illustrations)
         .collect()
 }
 
@@ -50,7 +109,7 @@ pub fn CardSearch(
         if tracking_sent_card_search
             .peek()
             .as_ref()
-            .map(|t| t.elapsed() >= Duration::from_secs(30))
+            .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
             .unwrap_or(true)
         {
             track_event(
@@ -101,7 +160,7 @@ pub fn CardSearch(
     rsx! {
         div { class: "field",
             // TODO change label
-            label { "for": "card_search", class: "label", "Card number" }
+            label { "for": "card_search", class: "label", "Card search" }
             div { class: "control",
                 input {
                     id: "card_search",
@@ -137,7 +196,7 @@ pub fn CardSearch(
                                 if tracking_sent_load_more
                                     .peek()
                                     .as_ref()
-                                    .map(|t| t.elapsed() >= Duration::from_secs(30))
+                                    .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
                                     .unwrap_or(true)
                                 {
                                     track_event(

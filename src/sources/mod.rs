@@ -435,6 +435,12 @@ impl CommonDeck {
             CardType::Cheer => self.cheer_deck.push(card),
         }
         self.merge();
+
+        // sort the decks
+        self.main_deck
+            .sort_by_cached_key(|c| (c.card_info(db), c.manage_id));
+        self.cheer_deck
+            .sort_by_cached_key(|c| (c.card_info(db), c.manage_id));
     }
 
     pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {

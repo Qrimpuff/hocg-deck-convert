@@ -7,7 +7,8 @@ use crate::DeckType;
 
 use super::json::{JsonExport, JsonImport};
 use super::{
-    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
+    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
+    MergeCommonCards,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

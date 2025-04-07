@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use super::json::{JsonExport, JsonImport};
 
 use super::{
-    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
+    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
+    MergeCommonCards,
 };
 use crate::DeckType;
 

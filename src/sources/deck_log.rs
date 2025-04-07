@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use crate::{EventType, HOCG_DECK_CONVERT_API, track_event};
 
 use super::{
-    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
+    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
+    MergeCommonCards,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

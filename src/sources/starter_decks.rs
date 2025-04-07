@@ -55,10 +55,7 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
                         card("hSD01-020", 20, 2, db),
                         card("hSD01-021", 21, 2, db),
                     ],
-                    cheer_deck: vec![
-                        card("hY01-001", 168, 10, db),
-                        card("hY02-001", 169, 10, db),
-                    ],
+                    cheer_deck: vec![card("hY01-001", 168, 10, db), card("hY02-001", 169, 10, db)],
                 },
             },
             // hSD02 - スタートデッキ 赤 百鬼あやめ
