@@ -10,7 +10,7 @@ use gloo::{
     file::{Blob, BlobContents},
     utils::document,
 };
-use hocg_fan_sim_assets_model::CardsInfo;
+use hocg_fan_sim_assets_model::CardsDatabase;
 use price_check::PriceCache;
 use serde::Serialize;
 use sources::*;
@@ -28,9 +28,9 @@ fn main() {
 fn App() -> Element {
     done_loading();
 
-    let _card_info: Coroutine<()> = use_coroutine(|_rx| async move {
-        *CARDS_INFO.write() =
-            reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/cards_info.json")
+    let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
+        *CARDS_DB.write() =
+            reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json")
                 .await
                 .unwrap()
                 .json()
@@ -93,7 +93,7 @@ fn App() -> Element {
                     div { class: "column is-three-fifths",
                         DeckPreview {
                             card_lang,
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             common_deck: COMMON_DECK.signal(),
                             is_edit: EDIT_DECK.signal(),
                             show_price: SHOW_PRICE.signal(),
@@ -155,7 +155,7 @@ fn App() -> Element {
     }
 }
 
-static CARDS_INFO: GlobalSignal<CardsInfo> = Signal::global(Default::default);
+static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
 static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
@@ -200,7 +200,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
             if *EDIT_DECK.read() {
                 edit_deck::Import {
                     common_deck: COMMON_DECK.signal(),
-                    info: CARDS_INFO.signal(),
+                    db: CARDS_DB.signal(),
                     is_edit: EDIT_DECK.signal(),
                     show_price: SHOW_PRICE.signal(),
                 }
@@ -263,42 +263,42 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                     if *import_format.read() == Some(DeckType::StarterDecks) {
                         starter_decks::Import {
                             common_deck: COMMON_DECK.signal(),
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             show_price: SHOW_PRICE.signal(),
                         }
                     }
                     if *import_format.read() == Some(DeckType::DeckLog) {
                         deck_log::Import {
                             common_deck: COMMON_DECK.signal(),
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             show_price: SHOW_PRICE.signal(),
                         }
                     }
                     if *import_format.read() == Some(DeckType::HoloDelta) {
                         holodelta::Import {
                             common_deck: COMMON_DECK.signal(),
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             show_price: SHOW_PRICE.signal(),
                         }
                     }
                     if *import_format.read() == Some(DeckType::HoloDuel) {
                         holoduel::Import {
                             common_deck: COMMON_DECK.signal(),
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             show_price: SHOW_PRICE.signal(),
                         }
                     }
                     if *import_format.read() == Some(DeckType::TabletopSim) {
                         tabletop_sim::Import {
                             common_deck: COMMON_DECK.signal(),
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             show_price: SHOW_PRICE.signal(),
                         }
                     }
                     if *import_format.read() == Some(DeckType::Unknown) {
                         UnknownImport {
                             common_deck: COMMON_DECK.signal(),
-                            info: CARDS_INFO.signal(),
+                            db: CARDS_DB.signal(),
                             show_price: SHOW_PRICE.signal(),
                         }
                     }
@@ -365,38 +365,38 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                 if *export_format.read() == Some(DeckType::DeckLog) {
                     deck_log::Export {
                         common_deck: COMMON_DECK.signal(),
-                        info: CARDS_INFO.signal(),
+                        db: CARDS_DB.signal(),
                     }
                 }
                 if *export_format.read() == Some(DeckType::HoloDelta) {
                     holodelta::Export {
                         common_deck: COMMON_DECK.signal(),
-                        info: CARDS_INFO.signal(),
+                        db: CARDS_DB.signal(),
                     }
                 }
                 if *export_format.read() == Some(DeckType::HoloDuel) {
                     holoduel::Export {
                         common_deck: COMMON_DECK.signal(),
-                        info: CARDS_INFO.signal(),
+                        db: CARDS_DB.signal(),
                     }
                 }
                 if *export_format.read() == Some(DeckType::TabletopSim) {
                     tabletop_sim::Export {
                         common_deck: COMMON_DECK.signal(),
-                        info: CARDS_INFO.signal(),
+                        db: CARDS_DB.signal(),
                     }
                 }
                 if *export_format.read() == Some(DeckType::ProxySheets) {
                     proxy_sheets::Export {
                         common_deck: COMMON_DECK.signal(),
-                        info: CARDS_INFO.signal(),
+                        db: CARDS_DB.signal(),
                         card_lang,
                     }
                 }
                 if *export_format.read() == Some(DeckType::PriceCheck) {
                     price_check::Export {
                         common_deck: COMMON_DECK.signal(),
-                        info: CARDS_INFO.signal(),
+                        db: CARDS_DB.signal(),
                         prices: CARDS_PRICES.signal(),
                         card_lang,
                         show_price: SHOW_PRICE.signal(),
@@ -410,7 +410,7 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
 #[component]
 pub fn UnknownImport(
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -442,7 +442,7 @@ pub fn UnknownImport(
                     let deck = holodelta::Deck::from_file(&contents);
                     debug!("{:?}", deck);
                     if let Ok(deck) = deck {
-                        *common_deck.write() = holodelta::Deck::to_common_deck(deck, &info.read());
+                        *common_deck.write() = holodelta::Deck::to_common_deck(deck, &db.read());
                         *deck_success.write() = "Deck file format: holoDelta".into();
                         *show_price.write() = false;
                         track_event(
@@ -460,7 +460,7 @@ pub fn UnknownImport(
                     let deck = holoduel::Deck::from_file(&contents);
                     debug!("{:?}", deck);
                     if let Ok(deck) = deck {
-                        *common_deck.write() = holoduel::Deck::to_common_deck(deck, &info.read());
+                        *common_deck.write() = holoduel::Deck::to_common_deck(deck, &db.read());
                         *deck_success.write() = "Deck file format: HoloDuel".into();
                         *show_price.write() = false;
                         track_event(
@@ -478,8 +478,7 @@ pub fn UnknownImport(
                     let deck = tabletop_sim::Deck::from_file(&contents);
                     debug!("{:?}", deck);
                     if let Ok(deck) = deck {
-                        *common_deck.write() =
-                            tabletop_sim::Deck::to_common_deck(deck, &info.read());
+                        *common_deck.write() = tabletop_sim::Deck::to_common_deck(deck, &db.read());
                         *deck_success.write() =
                             "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
                         *show_price.write() = false;

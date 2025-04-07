@@ -10,7 +10,7 @@ use futures::lock::Mutex;
 use printpdf::*;
 use serde::Serialize;
 
-use super::{CardsInfo, CommonDeck};
+use super::{CardsDatabase, CommonDeck};
 use crate::{CardLanguage, EventType, download_file, track_event};
 
 #[derive(Clone, Copy, Serialize)]
@@ -21,7 +21,7 @@ enum PaperSize {
 
 async fn generate_pdf(
     deck: &CommonDeck,
-    info: &CardsInfo,
+    db: &CardsDatabase,
     card_lang: CardLanguage,
     paper_size: PaperSize,
     include_cheers: bool,
@@ -59,7 +59,7 @@ async fn generate_pdf(
         Box::new(deck.oshi.iter().chain(deck.main_deck.iter()))
     };
     let cards: Vec<_> = cards
-        .filter(|c| c.image_path(info, card_lang).is_some())
+        .filter(|c| c.image_path(db, card_lang).is_some())
         .flat_map(|c| iter::repeat(c.clone()).take(c.amount as usize))
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
@@ -72,7 +72,7 @@ async fn generate_pdf(
     let download_images = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
-            let Some(img_path) = card.image_path(info, card_lang) else {
+            let Some(img_path) = card.image_path(db, card_lang) else {
                 // skip missing card
                 return;
             };
@@ -156,7 +156,7 @@ async fn generate_pdf(
 #[component]
 pub fn Export(
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     card_lang: Signal<CardLanguage>,
 ) -> Element {
     #[derive(Serialize)]
@@ -192,7 +192,7 @@ pub fn Export(
         let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
         match generate_pdf(
             &common_deck,
-            &info.read(),
+            &db.read(),
             *card_lang.read(),
             *paper_size.read(),
             *include_cheers.read(),

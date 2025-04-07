@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hocg_fan_sim_assets_model::CardsInfo;
+use hocg_fan_sim_assets_model::CardsDatabase;
 use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 use web_time::{Duration, Instant};
@@ -18,7 +18,7 @@ pub fn Card(
     card_type: CardType,
     card_lang: Signal<CardLanguage>,
     is_preview: bool,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     common_deck: Option<Signal<CommonDeck>>,
     is_edit: Signal<bool>,
     show_price: Option<Signal<bool>>,
@@ -43,12 +43,12 @@ pub fn Card(
         format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
 
     let img_path = card
-        .image_path(&info.read(), *card_lang.read())
+        .image_path(&db.read(), *card_lang.read())
         .unwrap_or_else(|| error_img_path.clone());
 
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
     let price = if let Some(prices) = prices {
-        card.price(&info.read(), &prices.read())
+        card.price(&db.read(), &prices.read())
             .map(|p| p.to_formatted_string(&Locale::en))
             .unwrap_or("?".into())
     } else {
@@ -56,7 +56,7 @@ pub fn Card(
     };
     // TODO not only yuyutei
     let price_url = card
-        .card_info(&info.read())
+        .card_illustration(&db.read())
         .and_then(|c| c.yuyutei_sell_url.clone());
 
     // verify card amount
@@ -70,7 +70,10 @@ pub fn Card(
     } else {
         0
     };
-    let max_amount = card.card_info(&info.read()).map(|i| i.max).unwrap_or(50);
+    let max_amount = card
+        .card_info(&db.read())
+        .map(|i| i.max_amount)
+        .unwrap_or(50);
     let warning_amount = total_amount > max_amount;
     let warning_class = if warning_amount {
         "is-warning"
@@ -79,8 +82,8 @@ pub fn Card(
     };
 
     let tooltip = card
-        .card_info(&info.read())
-        .map(|e| format!("{} ({})", card.card_number, e.rare))
+        .card_illustration(&db.read())
+        .map(|e| format!("{} ({})", card.card_number, e.rarity))
         .unwrap_or(card.card_number.to_string());
 
     let _card = card.clone();
@@ -90,12 +93,12 @@ pub fn Card(
             let mut deck = common_deck.write();
             let mut card = _card.clone();
             card.amount = 1;
-            deck.add_card(card, card_type, &info.read());
+            deck.add_card(card, card_type, &db.read());
 
             if tracking_sent_add_card
                 .peek()
                 .as_ref()
-                .map(|t| t.elapsed() >= Duration::from_secs(30))
+                .map(|t| t.elapsed() >= Duration::from_secs(60))
                 .unwrap_or(true)
             {
                 track_event(
@@ -115,12 +118,12 @@ pub fn Card(
             let mut deck = common_deck.write();
             let mut card = _card.clone();
             card.amount = 1;
-            deck.remove_card(card, card_type, &info.read());
+            deck.remove_card(card, card_type, &db.read());
 
             if tracking_sent_remove_card
                 .peek()
                 .as_ref()
-                .map(|t| t.elapsed() >= Duration::from_secs(30))
+                .map(|t| t.elapsed() >= Duration::from_secs(60))
                 .unwrap_or(true)
             {
                 track_event(
@@ -168,7 +171,7 @@ pub fn Card(
             }
             if *is_edit.read() {
                 div { class: "mt-1 is-flex is-justify-content-center",
-                    if card.card_type(&info.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
+                    if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
                         if card.amount > 0 {
                             button {
                                 r#type: "button",

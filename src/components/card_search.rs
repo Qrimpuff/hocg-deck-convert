@@ -1,5 +1,5 @@
 use dioxus::{document::document, prelude::*};
-use hocg_fan_sim_assets_model::{CardEntry, CardsInfo};
+use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use serde::Serialize;
 use web_time::{Duration, Instant};
 
@@ -11,10 +11,10 @@ use crate::{
 };
 
 // return a list of cards that match the filters
-fn filter_cards<'a>(filter: &str, info: &'a CardsInfo) -> Vec<&'a CardEntry> {
+fn filter_cards<'a>(filter: &str, db: &'a CardsDatabase) -> Vec<&'a hocg::CardIllustration> {
     let filter = filter.to_lowercase();
-    info.values()
-        .flat_map(|cards| cards.iter())
+    db.values()
+        .flat_map(|cards| &cards.illustrations)
         // TODO add more filter options
         .filter(|card| card.card_number.to_lowercase().contains(&filter))
         .collect()
@@ -22,7 +22,7 @@ fn filter_cards<'a>(filter: &str, info: &'a CardsInfo) -> Vec<&'a CardEntry> {
 
 #[component]
 pub fn CardSearch(
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     common_deck: Signal<CommonDeck>,
     is_edit: Signal<bool>,
 ) -> Element {
@@ -65,9 +65,9 @@ pub fn CardSearch(
 
     let _ = use_effect(move || {
         let filter = cards_filter.read();
-        let _info = info.read();
+        let _db = db.read();
         let _common_deck = common_deck.read();
-        let filtered_cards = filter_cards(&filter, &_info);
+        let filtered_cards = filter_cards(&filter, &_db);
         *max_card_amount.write() = filtered_cards.len();
         *cards.write() = filtered_cards
             .into_iter()
@@ -88,7 +88,7 @@ pub fn CardSearch(
                         card_type: CardType::Main,
                         card_lang: use_signal(|| CardLanguage::Japanese),
                         is_preview: false,
-                        info,
+                        db,
                         common_deck,
                         is_edit,
                     }

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{EventType, HOCG_DECK_CONVERT_API, track_event};
 
 use super::{
-    CardsInfo, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
+    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,7 +129,7 @@ impl Deck {
 impl CommonCardConversion for Card {
     type CardDeck = Vec<Card>;
 
-    fn from_common_card(card: CommonCard, _info: &CardsInfo) -> Self {
+    fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
         Card {
             card_number: card.card_number,
             num: card.amount,
@@ -140,7 +140,7 @@ impl CommonCardConversion for Card {
         }
     }
 
-    fn to_common_card(value: Self, _info: &CardsInfo) -> CommonCard {
+    fn to_common_card(value: Self, _db: &CardsDatabase) -> CommonCard {
         CommonCard {
             manage_id: value.manage_id.parse().ok(),
             card_number: value.card_number,
@@ -148,41 +148,41 @@ impl CommonCardConversion for Card {
         }
     }
 
-    fn build_custom_deck(cards: Vec<CommonCard>, info: &CardsInfo) -> Self::CardDeck {
+    fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck {
         cards
             .merge()
             .into_iter()
-            .map(|c| Card::from_common_card(c, info))
+            .map(|c| Card::from_common_card(c, db))
             .collect()
     }
 
-    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCard> {
+    fn build_common_deck(cards: Self::CardDeck, db: &CardsDatabase) -> Vec<CommonCard> {
         cards
             .into_iter()
-            .map(|c| Card::to_common_card(c, info))
+            .map(|c| Card::to_common_card(c, db))
             .collect::<Vec<_>>()
             .merge()
     }
 }
 
 impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Option<Self> {
+    fn from_common_deck(deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
         Some(Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name(),
-            p_list: Card::build_custom_deck(deck.oshi.into_iter().collect(), info),
-            list: Card::build_custom_deck(deck.main_deck, info),
-            sub_list: Card::build_custom_deck(deck.cheer_deck, info),
+            p_list: Card::build_custom_deck(deck.oshi.into_iter().collect(), db),
+            list: Card::build_custom_deck(deck.main_deck, db),
+            sub_list: Card::build_custom_deck(deck.cheer_deck, db),
         })
     }
 
-    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
+    fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck {
         CommonDeck {
             name: Some(value.title),
-            oshi: Some(Card::build_common_deck(value.p_list, info).swap_remove(0)),
-            main_deck: Card::build_common_deck(value.list, info),
-            cheer_deck: Card::build_common_deck(value.sub_list, info),
+            oshi: Some(Card::build_common_deck(value.p_list, db).swap_remove(0)),
+            main_deck: Card::build_common_deck(value.list, db),
+            cheer_deck: Card::build_common_deck(value.sub_list, db),
         }
     }
 }
@@ -195,7 +195,7 @@ fn http_client() -> &'static Client {
 #[component]
 pub fn Import(
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -269,7 +269,7 @@ pub fn Import(
                         error: None,
                     },
                 );
-                *common_deck.write() = Deck::to_common_deck(deck, &info.read());
+                *common_deck.write() = Deck::to_common_deck(deck, &db.read());
                 *show_price.write() = false;
             }
             Err(e) => {
@@ -333,7 +333,7 @@ pub fn Import(
 static PUBLISH_CACHE: GlobalSignal<HashMap<(u32, u64), String>> = Signal::global(Default::default);
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, info: Signal<CardsInfo>) -> Element {
+pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -349,7 +349,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, info: Signal<CardsInfo>) -> E
     let mut deck_log_url = use_signal(String::new);
     let mut loading = use_signal(|| false);
 
-    let warnings = common_deck.read().validate(&info.read());
+    let warnings = common_deck.read().validate(&db.read());
 
     let publish_deck = move |_| async move {
         let common_deck = common_deck.read();
@@ -366,7 +366,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, info: Signal<CardsInfo>) -> E
             return;
         }
 
-        let deck = Deck::from_common_deck(common_deck.clone(), &info.read());
+        let deck = Deck::from_common_deck(common_deck.clone(), &db.read());
         if let Some(mut deck) = deck {
             match deck.publish(*game_title_id.read()).await {
                 Ok(url) => {

@@ -7,12 +7,12 @@ use crate::{
     tracker::{EventType, track_event},
 };
 
-use super::{CardsInfo, CommonDeck};
+use super::{CardsDatabase, CommonDeck};
 
 #[component]
 pub fn Import(
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -67,6 +67,6 @@ pub fn Import(
             }
         }
 
-        CardSearch { info, common_deck, is_edit }
+        CardSearch { db, common_deck, is_edit }
     }
 }

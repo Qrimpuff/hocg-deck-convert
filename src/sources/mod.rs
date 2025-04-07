@@ -3,7 +3,7 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
 };
 
-use hocg_fan_sim_assets_model::{CardEntry, CardsInfo};
+use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use price_check::PriceCache;
@@ -36,18 +36,18 @@ pub enum DeckType {
 pub trait CommonCardConversion: Sized {
     type CardDeck;
 
-    fn from_common_card(card: CommonCard, info: &CardsInfo) -> Self;
-    fn to_common_card(value: Self, info: &CardsInfo) -> CommonCard;
+    fn from_common_card(card: CommonCard, db: &CardsDatabase) -> Self;
+    fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard;
 
-    fn build_custom_deck(cards: Vec<CommonCard>, info: &CardsInfo) -> Self::CardDeck;
-    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCard>;
+    fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck;
+    fn build_common_deck(cards: Self::CardDeck, db: &CardsDatabase) -> Vec<CommonCard>;
 }
 
 pub trait CommonDeckConversion {
-    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Option<Self>
+    fn from_common_deck(deck: CommonDeck, db: &CardsDatabase) -> Option<Self>
     where
         Self: Sized;
-    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck;
+    fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -58,10 +58,10 @@ pub struct CommonCard {
 }
 
 impl CommonCard {
-    pub fn from_manage_id(manage_id: u32, amount: u32, info: &CardsInfo) -> Self {
-        let card = info
+    pub fn from_manage_id(manage_id: u32, amount: u32, db: &CardsDatabase) -> Self {
+        let card = db
             .values()
-            .flatten()
+            .flat_map(|c| &c.illustrations)
             .find(|c| c.manage_id == Some(manage_id));
         CommonCard {
             manage_id: card.and_then(|c| c.manage_id),
@@ -72,10 +72,10 @@ impl CommonCard {
         }
     }
 
-    pub fn from_card_number(card_number: String, amount: u32, info: &CardsInfo) -> Self {
-        let card = info
+    pub fn from_card_number(card_number: String, amount: u32, db: &CardsDatabase) -> Self {
+        let card = db
             .values()
-            .flatten()
+            .flat_map(|c| &c.illustrations)
             .find(|c| c.card_number.eq_ignore_ascii_case(&card_number));
         CommonCard {
             manage_id: card.and_then(|c| c.manage_id),
@@ -88,11 +88,11 @@ impl CommonCard {
         card_number: String,
         manage_id: u32,
         amount: u32,
-        info: &CardsInfo,
+        db: &CardsDatabase,
     ) -> Self {
-        let card: Option<&CardEntry> = info
+        let card: Option<_> = db
             .values()
-            .flatten()
+            .flat_map(|c| &c.illustrations)
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
             .find(|c| c.manage_id == Some(manage_id));
         if let Some(card) = card {
@@ -103,7 +103,7 @@ impl CommonCard {
             }
         } else {
             // default to basic rarity if not found
-            CommonCard::from_card_number(card_number, amount, info)
+            CommonCard::from_card_number(card_number, amount, db)
         }
     }
 
@@ -111,11 +111,11 @@ impl CommonCard {
         card_number: String,
         delta_art_index: u32,
         amount: u32,
-        info: &CardsInfo,
+        db: &CardsDatabase,
     ) -> Self {
-        let card: Option<&CardEntry> = info
+        let card: Option<_> = db
             .values()
-            .flatten()
+            .flat_map(|c| &c.illustrations)
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
             .find(|c| c.delta_art_index == Some(delta_art_index));
         if let Some(card) = card {
@@ -126,20 +126,20 @@ impl CommonCard {
             }
         } else {
             // default to basic rarity if not found
-            CommonCard::from_card_number(card_number, amount, info)
+            CommonCard::from_card_number(card_number, amount, db)
         }
     }
 
-    pub fn delta_art_index(&self, info: &CardsInfo) -> u32 {
-        if let Some(c) = self.card_info(info) {
+    pub fn delta_art_index(&self, db: &CardsDatabase) -> u32 {
+        if let Some(c) = self.card_illustration(db) {
             if let Some(delta_art_index) = c.delta_art_index {
                 return delta_art_index;
             }
 
             // fallback to a possible future art index
-            let next_delta_art_index = info
+            let next_delta_art_index = db
                 .values()
-                .flatten()
+                .flat_map(|c| &c.illustrations)
                 .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
                 .filter_map(|c| Some(c.delta_art_index? + 1))
                 .max()
@@ -150,44 +150,52 @@ impl CommonCard {
         }
     }
 
-    pub fn to_lower_rarity(&self, info: &CardsInfo) -> Self {
-        CommonCard::from_card_number(self.card_number.clone(), self.amount, info)
+    pub fn to_lower_rarity(&self, db: &CardsDatabase) -> Self {
+        CommonCard::from_card_number(self.card_number.clone(), self.amount, db)
     }
 
-    pub fn card_info<'a>(&self, info: &'a CardsInfo) -> Option<&'a CardEntry> {
-        info.get(&self.card_number)
-            .into_iter()
-            .flatten()
-            .find(|c| c.manage_id == self.manage_id)
+    pub fn card_info<'a>(&self, db: &'a CardsDatabase) -> Option<&'a hocg::Card> {
+        db.get(&self.card_number)
     }
 
-    pub fn card_type(&self, info: &CardsInfo) -> Option<CardType> {
-        match self.card_info(info).map(|c| c.deck_type.as_str()) {
-            Some("OSHI") => Some(CardType::Oshi),
-            Some("YELL") => Some(CardType::Cheer),
-            Some("N") => Some(CardType::Main),
+    pub fn card_illustration<'a>(
+        &self,
+        db: &'a CardsDatabase,
+    ) -> Option<&'a hocg::CardIllustration> {
+        self.card_info(db).and_then(|c| {
+            c.illustrations
+                .iter()
+                .find(|i| i.manage_id == self.manage_id)
+        })
+    }
+
+    pub fn card_type(&self, db: &CardsDatabase) -> Option<CardType> {
+        match self.card_info(db).map(|c| c.card_type) {
+            Some(hocg::CardType::OshiHoloMember) => Some(CardType::Oshi),
+            Some(hocg::CardType::Cheer) => Some(CardType::Cheer),
+            Some(_) => Some(CardType::Main),
             _ => None,
         }
     }
 
-    pub fn price(&self, info: &CardsInfo, prices: &PriceCache) -> Option<u32> {
-        self.price_cache(info, prices).map(|p| p.1)
+    pub fn price(&self, db: &CardsDatabase, prices: &PriceCache) -> Option<u32> {
+        self.price_cache(db, prices).map(|p| p.1)
     }
     pub fn price_cache<'a>(
         &self,
-        info: &CardsInfo,
+        db: &CardsDatabase,
         prices: &'a PriceCache,
     ) -> Option<&'a (Instant, u32)> {
-        self.card_info(info)
+        self.card_illustration(db)
             .and_then(|c| c.yuyutei_sell_url.as_ref())
             .and_then(|y| prices.get(y))
     }
 
-    pub fn alt_cards(&self, info: &CardsInfo) -> Vec<Self> {
-        info.values()
-            .flatten()
+    pub fn alt_cards(&self, db: &CardsDatabase) -> Vec<Self> {
+        db.values()
+            .flat_map(|c| &c.illustrations)
             .filter(|c| {
-                if self.card_type(info) == Some(CardType::Cheer) {
+                if self.card_type(db) == Some(CardType::Cheer) {
                     // all cheers of the same color are considered alt cards. e.g. hY01-001 = hY01-002
                     c.card_number.split_once('-').map(|n| n.0)
                         == self.card_number.split_once('-').map(|n| n.0)
@@ -203,26 +211,26 @@ impl CommonCard {
             .collect_vec()
     }
 
-    pub fn image_path(&self, info: &CardsInfo, lang: CardLanguage) -> Option<String> {
-        let card = self.card_info(info)?;
+    pub fn image_path(&self, db: &CardsDatabase, lang: CardLanguage) -> Option<String> {
+        let card = self.card_illustration(db)?;
         if lang == CardLanguage::English {
-            if let Some(img_proxy_en) = &card.img_proxy_en {
+            if let Some(img_en) = &card.img_path.english {
                 Some(format!(
-                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_proxy_en/{img_proxy_en}",
+                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/{img_en}",
                 ))
             } else {
                 // fallback to lower rarity
-                let lower = self.to_lower_rarity(info);
-                let card = lower.card_info(info)?;
+                let lower = self.to_lower_rarity(db);
+                let card = lower.card_illustration(db)?;
                 Some(format!(
-                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_proxy_en/{}",
-                    card.img_proxy_en.as_ref()?
+                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/{}",
+                    card.img_path.english.as_ref()?
                 ))
             }
         } else {
             Some(format!(
                 "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{}",
-                card.img
+                card.img_path.japanese
             ))
         }
     }
@@ -346,7 +354,7 @@ impl CommonDeck {
         self.oshi.is_none() && self.main_deck.is_empty() && self.cheer_deck.is_empty()
     }
 
-    pub fn validate(&self, info: &CardsInfo) -> Vec<String> {
+    pub fn validate(&self, db: &CardsDatabase) -> Vec<String> {
         let mut errors = vec![];
 
         // check for unreleased or invalid cards
@@ -396,9 +404,9 @@ impl CommonDeck {
         });
         for card in main_deck
             .into_iter()
-            .map(|(k, v)| CommonCard::from_card_number(k.clone(), v, info))
+            .map(|(k, v)| CommonCard::from_card_number(k.clone(), v, db))
         {
-            let max = card.card_info(info).map(|i| i.max).unwrap_or(50);
+            let max = card.card_info(db).map(|i| i.max_amount).unwrap_or(50);
             if card.amount > max {
                 errors.push(format!(
                     "Too many {} in main deck. ({} cards; {max} max)",
@@ -420,8 +428,8 @@ impl CommonDeck {
         self.all_cards().find(|c| c.manage_id == Some(manage_id))
     }
 
-    pub fn add_card(&mut self, card: CommonCard, card_type: CardType, info: &CardsInfo) {
-        match card.card_type(info).unwrap_or(card_type) {
+    pub fn add_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {
+        match card.card_type(db).unwrap_or(card_type) {
             CardType::Oshi => self.oshi = Some(card.clone()),
             CardType::Main => self.main_deck.push(card),
             CardType::Cheer => self.cheer_deck.push(card),
@@ -429,8 +437,8 @@ impl CommonDeck {
         self.merge();
     }
 
-    pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, info: &CardsInfo) {
-        match card.card_type(info).unwrap_or(card_type) {
+    pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {
+        match card.card_type(db).unwrap_or(card_type) {
             CardType::Oshi => self.oshi.iter_mut().for_each(|c| {
                 if c.manage_id == card.manage_id && c.card_number == card.card_number {
                     c.amount = c.amount.saturating_sub(card.amount);

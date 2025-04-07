@@ -6,7 +6,7 @@ use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
-use super::{CardsInfo, CommonDeck};
+use super::{CardsDatabase, CommonDeck};
 use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, track_event};
 
 pub type PriceCache = HashMap<String, (Instant, u32)>;
@@ -37,7 +37,7 @@ fn http_client() -> &'static Client {
 
 async fn price_check(
     deck: &CommonDeck,
-    info: &CardsInfo,
+    db: &CardsDatabase,
     prices: &PriceCache,
     service: PriceCheckService,
 ) -> Result<PriceCache, Box<dyn Error>> {
@@ -47,16 +47,16 @@ async fn price_check(
     let urls: Vec<_> = deck
         .all_cards()
         // check price for all versions
-        .flat_map(|c| c.alt_cards(info).into_iter())
+        .flat_map(|c| c.alt_cards(db).into_iter())
         .filter(|c| {
-            c.price_cache(info, prices)
+            c.price_cache(db, prices)
                 .map(|(cache_time, _)| {
                     // more than an hour
                     Instant::now().duration_since(*cache_time) > Duration::from_secs(60 * 60)
                 })
                 .unwrap_or(true)
         })
-        .filter_map(|c| c.card_info(info))
+        .filter_map(|c| c.card_illustration(db))
         .filter_map(|c| match service {
             PriceCheckService::Yuyutei => c.yuyutei_sell_url.clone(),
         })
@@ -89,9 +89,9 @@ async fn price_check(
     let mut prices = PriceCache::new();
     for card in deck.all_cards() {
         for card in card
-            .alt_cards(info)
+            .alt_cards(db)
             .into_iter()
-            .filter_map(|c| c.card_info(info))
+            .filter_map(|c| c.card_illustration(db))
         {
             if let Some(url) = match service {
                 PriceCheckService::Yuyutei => &card.yuyutei_sell_url,
@@ -109,7 +109,7 @@ async fn price_check(
 #[component]
 pub fn Export(
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     prices: Signal<PriceCache>,
     card_lang: Signal<CardLanguage>,
     show_price: Signal<bool>,
@@ -136,7 +136,7 @@ pub fn Export(
         *deck_error.write() = String::new();
 
         let price_check =
-            price_check(&common_deck, &info.read(), &prices.read(), *service.read()).await;
+            price_check(&common_deck, &db.read(), &prices.read(), *service.read()).await;
         match price_check {
             Ok(price_check) => {
                 prices.write().extend(price_check);
@@ -177,11 +177,11 @@ pub fn Export(
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
             if let Some(alt_card) = card
-                .alt_cards(&info.read())
+                .alt_cards(&db.read())
                 .into_iter()
-                .filter(|c| c.price(&info.read(), &prices.read()).is_some())
+                .filter(|c| c.price(&db.read(), &prices.read()).is_some())
                 .sorted_by_key(|c| {
-                    u32::MAX - c.price(&info.read(), &prices.read()).expect("it's some")
+                    u32::MAX - c.price(&db.read(), &prices.read()).expect("it's some")
                 }) // this is the highest price
                 .next()
             {
@@ -214,10 +214,10 @@ pub fn Export(
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
             if let Some(alt_card) = card
-                .alt_cards(&info.read())
+                .alt_cards(&db.read())
                 .into_iter()
-                .filter(|c| c.price(&info.read(), &prices.read()).is_some())
-                .sorted_by_key(|c| c.price(&info.read(), &prices.read()).expect("it's some")) // this is the lowest price
+                .filter(|c| c.price(&db.read(), &prices.read()).is_some())
+                .sorted_by_key(|c| c.price(&db.read(), &prices.read()).expect("it's some")) // this is the lowest price
                 .next()
             {
                 card.manage_id = alt_card.manage_id;

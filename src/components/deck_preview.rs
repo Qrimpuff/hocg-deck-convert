@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hocg_fan_sim_assets_model::CardsInfo;
+use hocg_fan_sim_assets_model::CardsDatabase;
 use num_format::{Locale, ToFormattedString};
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 #[component]
 pub fn DeckPreview(
     card_lang: Signal<CardLanguage>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     common_deck: Signal<CommonDeck>,
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
@@ -32,7 +32,7 @@ pub fn DeckPreview(
                 card_type: CardType::Oshi,
                 card_lang,
                 is_preview: true,
-                info,
+                db,
                 common_deck,
                 is_edit,
                 show_price,
@@ -49,7 +49,7 @@ pub fn DeckPreview(
                 card_type: CardType::Main,
                 card_lang,
                 is_preview: true,
-                info,
+                db,
                 common_deck,
                 is_edit,
                 show_price,
@@ -66,7 +66,7 @@ pub fn DeckPreview(
                 card_type: CardType::Cheer,
                 card_lang,
                 is_preview: true,
-                info,
+                db,
                 common_deck,
                 is_edit,
                 show_price,
@@ -75,14 +75,14 @@ pub fn DeckPreview(
         }
     });
 
-    let info = info.read();
-    let mut warnings = deck.validate(&info);
+    let db = db.read();
+    let mut warnings = deck.validate(&db);
 
     // warn on missing english proxy
     if *card_lang.read() == CardLanguage::English
         && deck
             .all_cards()
-            .any(|c| c.image_path(&info, *card_lang.read()).is_none())
+            .any(|c| c.image_path(&db, *card_lang.read()).is_none())
     {
         warnings.push("Missing english proxy.".into());
     }
@@ -91,7 +91,7 @@ pub fn DeckPreview(
     let approx_price = if show_price
         && deck
             .all_cards()
-            .any(|c| c.price(&info, &prices.read()).is_none())
+            .any(|c| c.price(&db, &prices.read()).is_none())
     {
         ">"
     } else {
@@ -99,7 +99,7 @@ pub fn DeckPreview(
     };
     let price = if show_price {
         deck.all_cards()
-            .filter_map(|c| c.price(&info, &prices.read()).map(|p| (c, p)))
+            .filter_map(|c| c.price(&db, &prices.read()).map(|p| (c, p)))
             .map(|(c, p)| p * c.amount)
             .sum::<u32>()
             .to_formatted_string(&Locale::en)

@@ -7,7 +7,7 @@ use crate::DeckType;
 
 use super::json::{JsonExport, JsonImport};
 use super::{
-    CardsInfo, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
+    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion, MergeCommonCards,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,19 +47,19 @@ impl Deck {
 impl CommonCardConversion for OshiCard {
     type CardDeck = OshiCard;
 
-    fn from_common_card(card: CommonCard, info: &CardsInfo) -> Self {
-        OshiCard(card.card_number.clone(), card.delta_art_index(info))
+    fn from_common_card(card: CommonCard, db: &CardsDatabase) -> Self {
+        OshiCard(card.card_number.clone(), card.delta_art_index(db))
     }
 
-    fn to_common_card(value: Self, info: &CardsInfo) -> CommonCard {
-        CommonCard::from_card_number_and_delta_art_index(value.0, value.1, 1, info)
+    fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
+        CommonCard::from_card_number_and_delta_art_index(value.0, value.1, 1, db)
     }
 
-    fn build_custom_deck(_cards: Vec<CommonCard>, _info: &CardsInfo) -> Self::CardDeck {
+    fn build_custom_deck(_cards: Vec<CommonCard>, _db: &CardsDatabase) -> Self::CardDeck {
         unimplemented!("not needed for single card")
     }
 
-    fn build_common_deck(_cards: Self::CardDeck, _info: &CardsInfo) -> Vec<CommonCard> {
+    fn build_common_deck(_cards: Self::CardDeck, _db: &CardsDatabase) -> Vec<CommonCard> {
         unimplemented!("not needed for single card")
     }
 }
@@ -67,53 +67,53 @@ impl CommonCardConversion for OshiCard {
 impl CommonCardConversion for DeckCard {
     type CardDeck = Vec<DeckCard>;
 
-    fn from_common_card(card: CommonCard, info: &CardsInfo) -> Self {
+    fn from_common_card(card: CommonCard, db: &CardsDatabase) -> Self {
         DeckCard(
             card.card_number.clone(),
             card.amount,
-            card.delta_art_index(info),
+            card.delta_art_index(db),
         )
     }
 
-    fn to_common_card(value: Self, info: &CardsInfo) -> CommonCard {
-        CommonCard::from_card_number_and_delta_art_index(value.0, value.2, value.1, info)
+    fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
+        CommonCard::from_card_number_and_delta_art_index(value.0, value.2, value.1, db)
     }
 
-    fn build_custom_deck(cards: Vec<CommonCard>, info: &CardsInfo) -> Self::CardDeck {
+    fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck {
         cards
             .merge()
             .into_iter()
-            .map(|c| DeckCard::from_common_card(c, info))
+            .map(|c| DeckCard::from_common_card(c, db))
             .collect()
     }
 
-    fn build_common_deck(cards: Self::CardDeck, info: &CardsInfo) -> Vec<CommonCard> {
+    fn build_common_deck(cards: Self::CardDeck, db: &CardsDatabase) -> Vec<CommonCard> {
         cards
             .into_iter()
-            .map(|c| DeckCard::to_common_card(c, info))
+            .map(|c| DeckCard::to_common_card(c, db))
             .collect::<Vec<_>>()
             .merge()
     }
 }
 
 impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, info: &CardsInfo) -> Option<Self> {
+    fn from_common_deck(deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
         Some(Deck {
             deck_name: deck.name,
-            oshi: OshiCard::from_common_card(deck.oshi?, info),
-            deck: DeckCard::build_custom_deck(deck.main_deck, info),
-            cheer_deck: DeckCard::build_custom_deck(deck.cheer_deck, info),
+            oshi: OshiCard::from_common_card(deck.oshi?, db),
+            deck: DeckCard::build_custom_deck(deck.main_deck, db),
+            cheer_deck: DeckCard::build_custom_deck(deck.cheer_deck, db),
         })
     }
 
-    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
+    fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck {
         CommonDeck {
             name: value
                 .deck_name
                 .and_then(|n| n.trim().is_empty().not().then_some(n)),
-            oshi: Some(OshiCard::to_common_card(value.oshi, info)),
-            main_deck: DeckCard::build_common_deck(value.deck, info),
-            cheer_deck: DeckCard::build_common_deck(value.cheer_deck, info),
+            oshi: Some(OshiCard::to_common_card(value.oshi, db)),
+            main_deck: DeckCard::build_common_deck(value.deck, db),
+            cheer_deck: DeckCard::build_common_deck(value.cheer_deck, db),
         }
     }
 }
@@ -121,7 +121,7 @@ impl CommonDeckConversion for Deck {
 #[component]
 pub fn Import(
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
     rsx! {
@@ -130,21 +130,21 @@ pub fn Import(
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "holoDelta",
             common_deck,
-            info,
+            db,
             show_price,
         }
     }
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, info: Signal<CardsInfo>) -> Element {
+pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
         JsonExport {
             deck_type: DeckType::HoloDelta,
             export_name: "holoDelta",
             export_id: "holodelta",
             common_deck,
-            info,
+            db,
         }
     }
 }

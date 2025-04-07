@@ -10,7 +10,7 @@ use web_time::{Duration, Instant};
 use crate::{EventType, download_file, track_event};
 
 use super::{
-    CardsInfo, CommonDeck, CommonDeckConversion, DeckType, holodelta, holoduel, tabletop_sim,
+    CardsDatabase, CommonDeck, CommonDeckConversion, DeckType, holodelta, holoduel, tabletop_sim,
 };
 
 #[derive(Debug, Clone)]
@@ -55,22 +55,22 @@ impl Deck {
         })
     }
 
-    fn from_common_deck(deck_type: DeckType, deck: CommonDeck, info: &CardsInfo) -> Option<Self> {
+    fn from_common_deck(deck_type: DeckType, deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
         Some(match deck_type {
-            DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_common_deck(deck, info)?),
-            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_common_deck(deck, info)?),
+            DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_common_deck(deck, db)?),
+            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_common_deck(deck, db)?),
             DeckType::TabletopSim => {
-                Deck::TabletopSim(tabletop_sim::Deck::from_common_deck(deck, info)?)
+                Deck::TabletopSim(tabletop_sim::Deck::from_common_deck(deck, db)?)
             }
             _ => unreachable!("this is not a json deck"),
         })
     }
 
-    fn to_common_deck(value: Self, info: &CardsInfo) -> CommonDeck {
+    fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck {
         match value {
-            Deck::HoloDelta(deck) => holodelta::Deck::to_common_deck(deck, info),
-            Deck::HoloDuel(deck) => holoduel::Deck::to_common_deck(deck, info),
-            Deck::TabletopSim(deck) => tabletop_sim::Deck::to_common_deck(deck, info),
+            Deck::HoloDelta(deck) => holodelta::Deck::to_common_deck(deck, db),
+            Deck::HoloDuel(deck) => holoduel::Deck::to_common_deck(deck, db),
+            Deck::TabletopSim(deck) => tabletop_sim::Deck::to_common_deck(deck, db),
         }
     }
 }
@@ -81,7 +81,7 @@ pub fn JsonImport(
     fallback_deck_type: DeckType,
     import_name: String,
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -119,7 +119,7 @@ pub fn JsonImport(
         debug!("{:?}", deck);
         match deck {
             Ok(deck) => {
-                *common_deck.write() = Deck::to_common_deck(deck, &info.read());
+                *common_deck.write() = Deck::to_common_deck(deck, &db.read());
                 *show_price.write() = false;
                 if tracking_sent
                     .peek()
@@ -180,7 +180,7 @@ pub fn JsonImport(
                     debug!("{:?}", deck);
                     match deck {
                         Ok(deck) => {
-                            *common_deck.write() = Deck::to_common_deck(deck, &info.read());
+                            *common_deck.write() = Deck::to_common_deck(deck, &db.read());
                             *show_price.write() = false;
                             match String::from_utf8(contents) {
                                 Ok(contents) => {
@@ -272,7 +272,7 @@ pub fn JsonExport(
     export_name: String,
     export_id: String,
     mut common_deck: Signal<CommonDeck>,
-    info: Signal<CardsInfo>,
+    db: Signal<CardsDatabase>,
 ) -> Element {
     #[derive(Serialize)]
     enum ExportKind {
@@ -292,7 +292,7 @@ pub fn JsonExport(
     let mut deck_error = use_signal(String::new);
 
     let deck: Option<Deck> =
-        Deck::from_common_deck(deck_type, common_deck.read().clone(), &info.read());
+        Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read());
     debug!("{:?}", deck);
     let text = match deck {
         Some(deck) => match deck.to_text() {
@@ -307,7 +307,7 @@ pub fn JsonExport(
 
     let download_file = move |_| {
         let deck: Option<_> =
-            Deck::from_common_deck(deck_type, common_deck.read().clone(), &info.read())
+            Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read())
                 .map(|d| (common_deck.read().file_name(), d));
         if let Some((file_name, deck)) = deck {
             let file_name = format!("{file_name}.{export_id}.json");
