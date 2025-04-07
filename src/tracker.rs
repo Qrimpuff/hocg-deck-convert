@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
 use std::sync::OnceLock;
+use web_time::{Duration, Instant};
 
 use dioxus::{logger::tracing::debug, prelude::spawn};
 use gloo::utils::{document, window};
@@ -13,12 +16,27 @@ fn http_client() -> &'static Client {
     HTTP_CLIENT.get_or_init(|| ClientBuilder::new().build().unwrap())
 }
 
+// Global map to track timestamps for throttling
+fn event_timestamps() -> &'static Mutex<HashMap<String, Instant>> {
+    static EVENT_TIMESTAMPS: OnceLock<Mutex<HashMap<String, Instant>>> = OnceLock::new();
+    EVENT_TIMESTAMPS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+// Default throttling duration (in seconds)
+const THROTTLE_DURATION_SECS: u64 = 60; // 1 minute default
+
 pub enum EventType {
     Entry,
     Import(String),
     Export(String),
     EditDeck,
     Url(String),
+}
+
+// Generate a key for the throttling map based on event type and data
+fn generate_event_key<T: Serialize>(event_name: &str, data: &T) -> String {
+    let data_str = serde_json::to_string(data).unwrap_or_default();
+    format!("{}:{}", event_name, data_str)
 }
 
 pub fn track_event<T>(event: EventType, data: T)
@@ -33,6 +51,25 @@ where
         EventType::EditDeck => Some("edit_deck"),
         EventType::Url(_url) => Some("external_url"),
     };
+
+    // Check throttling for events that have a name
+    if let Some(event) = event {
+        let event_key = generate_event_key(event, &data);
+
+        // Check if this event has been tracked recently
+        let mut timestamps = event_timestamps().lock().unwrap();
+        let now = Instant::now();
+
+        if let Some(last_time) = timestamps.get(&event_key) {
+            if now.duration_since(*last_time) < Duration::from_secs(THROTTLE_DURATION_SECS) {
+                // Too soon, don't track
+                return;
+            }
+        }
+
+        // Update the timestamp
+        timestamps.insert(event_key, now);
+    }
 
     let mut payload = json!({
       "payload": {

@@ -2,7 +2,6 @@ use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use itertools::Itertools;
 use serde::Serialize;
-use web_time::{Duration, Instant};
 
 use crate::{
     CardLanguage, CardType,
@@ -96,8 +95,6 @@ pub fn CardSearch(
     let mut card_amount = use_signal(|| CARD_INCREMENT);
     let mut max_card_amount = use_signal(|| 0);
     let mut loading = use_signal(|| false);
-    let mut tracking_sent_card_search: Signal<Option<Instant>> = use_signal(|| None);
-    let mut tracking_sent_load_more: Signal<Option<Instant>> = use_signal(|| None);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -106,20 +103,12 @@ pub fn CardSearch(
         // scroll to top, after updating the filter, to show the first cards
         document().eval("document.getElementById('card_search_cards').scrollTop = 0;".into());
 
-        if tracking_sent_card_search
-            .peek()
-            .as_ref()
-            .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
-            .unwrap_or(true)
-        {
-            track_event(
-                EventType::EditDeck,
-                EventData {
-                    action: "Card search".into(),
-                },
-            );
-            *tracking_sent_card_search.write() = Some(Instant::now());
-        }
+        track_event(
+            EventType::EditDeck,
+            EventData {
+                action: "Card search".into(),
+            },
+        );
     };
 
     let _ = use_effect(move || {
@@ -193,20 +182,12 @@ pub fn CardSearch(
                             onclick: move |_| {
                                 *loading.write() = true;
                                 *card_amount.write() += CARD_INCREMENT;
-                                if tracking_sent_load_more
-                                    .peek()
-                                    .as_ref()
-                                    .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
-                                    .unwrap_or(true)
-                                {
-                                    track_event(
-                                        EventType::EditDeck,
-                                        EventData {
-                                            action: "Load more cards".into(),
-                                        },
-                                    );
-                                    *tracking_sent_load_more.write() = Some(Instant::now());
-                                }
+                                track_event(
+                                    EventType::EditDeck,
+                                    EventData {
+                                        action: "Load more cards".into(),
+                                    },
+                                );
                             },
                             span { class: "icon",
                                 i { class: "fa-solid fa-arrow-down" }

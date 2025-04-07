@@ -5,7 +5,6 @@ use dioxus::{
     prelude::*,
 };
 use serde::Serialize;
-use web_time::{Duration, Instant};
 
 use crate::{EventType, download_file, track_event};
 
@@ -97,7 +96,6 @@ pub fn JsonImport(
     let mut deck_error = use_signal(String::new);
     let mut json = use_signal(String::new);
     let mut file_name = use_signal(String::new);
-    let mut tracking_sent: Signal<Option<Instant>> = use_signal(|| None);
 
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
@@ -121,39 +119,23 @@ pub fn JsonImport(
             Ok(deck) => {
                 *common_deck.write() = Deck::to_common_deck(deck, &db.read());
                 *show_price.write() = false;
-                if tracking_sent
-                    .peek()
-                    .as_ref()
-                    .map(|t| t.elapsed() >= Duration::from_secs(30))
-                    .unwrap_or(true)
-                {
-                    track_event(
-                        EventType::Import(import_name.read().clone()),
-                        EventData {
-                            format: import_name.read().clone(),
-                            error: None,
-                        },
-                    );
-                    *tracking_sent.write() = Some(Instant::now());
-                }
+                track_event(
+                    EventType::Import(import_name.read().clone()),
+                    EventData {
+                        format: import_name.read().clone(),
+                        error: None,
+                    },
+                );
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
-                if tracking_sent
-                    .peek()
-                    .as_ref()
-                    .map(|t| t.elapsed() >= Duration::from_secs(30))
-                    .unwrap_or(true)
-                {
-                    track_event(
-                        EventType::Import(import_name.read().clone()),
-                        EventData {
-                            format: import_name.read().clone(),
-                            error: Some(e.to_string()),
-                        },
-                    );
-                    *tracking_sent.write() = Some(Instant::now());
-                }
+                track_event(
+                    EventType::Import(import_name.read().clone()),
+                    EventData {
+                        format: import_name.read().clone(),
+                        error: Some(e.to_string()),
+                    },
+                );
             }
         }
     };

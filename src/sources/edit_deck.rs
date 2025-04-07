@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 use serde::Serialize;
-use web_time::{Duration, Instant};
 
 use crate::{
     components::card_search::CardSearch,
@@ -21,7 +20,6 @@ pub fn Import(
         action: String,
     }
 
-    let mut tracking_sent: Signal<Option<Instant>> = use_signal(|| None);
     let common_deck_name = use_memo(move || {
         common_deck
             .read()
@@ -35,20 +33,12 @@ pub fn Import(
         let deck_name = event.value();
         common_deck.write().name = Some(deck_name.trim().to_string()).filter(|s| !s.is_empty());
 
-        if tracking_sent
-            .peek()
-            .as_ref()
-            .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
-            .unwrap_or(true)
-        {
-            track_event(
-                EventType::EditDeck,
-                EventData {
-                    action: "Update deck name".into(),
-                },
-            );
-            *tracking_sent.write() = Some(Instant::now());
-        }
+        track_event(
+            EventType::EditDeck,
+            EventData {
+                action: "Update deck name".into(),
+            },
+        );
     };
 
     rsx! {

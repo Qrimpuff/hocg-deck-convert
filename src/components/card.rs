@@ -2,7 +2,6 @@ use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::CardsDatabase;
 use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
-use web_time::{Duration, Instant};
 
 use crate::{
     CardLanguage, CardType,
@@ -87,7 +86,6 @@ pub fn Card(
         .unwrap_or(card.card_number.to_string());
 
     let _card = card.clone();
-    let mut tracking_sent_add_card: Signal<Option<Instant>> = use_signal(|| None);
     let add_card = move |_| {
         if let Some(mut common_deck) = common_deck {
             let mut deck = common_deck.write();
@@ -95,24 +93,15 @@ pub fn Card(
             card.amount = 1;
             deck.add_card(card, card_type, &db.read());
 
-            if tracking_sent_add_card
-                .peek()
-                .as_ref()
-                .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
-                .unwrap_or(true)
-            {
-                track_event(
-                    EventType::EditDeck,
-                    EventData {
-                        action: "Add card".into(),
-                    },
-                );
-                *tracking_sent_add_card.write() = Some(Instant::now());
-            }
+            track_event(
+                EventType::EditDeck,
+                EventData {
+                    action: "Add card".into(),
+                },
+            );
         }
     };
     let _card = card.clone();
-    let mut tracking_sent_remove_card: Signal<Option<Instant>> = use_signal(|| None);
     let remove_card = move |_| {
         if let Some(mut common_deck) = common_deck {
             let mut deck = common_deck.write();
@@ -120,20 +109,12 @@ pub fn Card(
             card.amount = 1;
             deck.remove_card(card, card_type, &db.read());
 
-            if tracking_sent_remove_card
-                .peek()
-                .as_ref()
-                .map(|t| t.elapsed() >= Duration::from_secs(10 * 60))
-                .unwrap_or(true)
-            {
-                track_event(
-                    EventType::EditDeck,
-                    EventData {
-                        action: "Remove card".into(),
-                    },
-                );
-                *tracking_sent_remove_card.write() = Some(Instant::now());
-            }
+            track_event(
+                EventType::EditDeck,
+                EventData {
+                    action: "Remove card".into(),
+                },
+            );
         }
     };
 
