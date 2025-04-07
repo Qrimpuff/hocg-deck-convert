@@ -7,3 +7,9 @@
     width: 128px;
     min-height: 176px
 }
+
+/* fix badge text clipping */
+.badge.card-amount {
+    line-height: 0.8 !important;
+    height: unset !important;
+}

@@ -148,7 +148,7 @@ pub fn Card(
                 }
                 if show_price {
                     span {
-                        class: "badge is-bottom {warning_class}",
+                        class: "badge is-bottom {warning_class} card-amount",
                         style: "z-index: 10",
                         " ¥{price} × {card.amount} "
                         if let Some(price_url) = price_url {
@@ -163,7 +163,7 @@ pub fn Card(
                     }
                 } else if card_type != CardType::Oshi && card.amount > 0 {
                     span {
-                        class: "badge is-bottom {warning_class}",
+                        class: "badge is-bottom {warning_class} card-amount",
                         style: "z-index: 10",
                         "{card.amount}"
                     }
