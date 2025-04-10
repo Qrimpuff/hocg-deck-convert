@@ -18,7 +18,7 @@ use tracker::{EventType, track_event, track_url};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
-const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
+const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api-y7os.shuttle.app";
 
 fn main() {
     launch(App);
