@@ -113,8 +113,8 @@ where
             .post(format!("{HOCG_DECK_CONVERT_API}/umami"))
             .json(&payload)
             .send()
-            .await
-            .unwrap();
+            .await;
+            //.unwrap();// TODO quick fix for now 
     });
 }
 
