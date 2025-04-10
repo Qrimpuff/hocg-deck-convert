@@ -73,7 +73,7 @@ async fn price_check(
         .json(&req)
         .send()
         .await
-        .unwrap();
+        .map_err(|_| "service unavailable")?;
 
     let content = resp.text().await.unwrap();
     debug!("{:?}", content);

@@ -109,12 +109,12 @@ where
 
     // we as few await point as possible, so we are sending the request in a new task
     spawn(async move {
+        // we don't care about any errors
         let _resp = http_client()
             .post(format!("{HOCG_DECK_CONVERT_API}/umami"))
             .json(&payload)
             .send()
             .await;
-            //.unwrap();// TODO quick fix for now 
     });
 }
 
