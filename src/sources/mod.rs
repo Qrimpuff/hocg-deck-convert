@@ -296,32 +296,51 @@ impl CommonDeck {
             .chain(self.cheer_deck.iter_mut())
     }
 
-    pub fn required_deck_name(&self) -> String {
-        if let Some(name) = &self.name {
-            if name.trim().is_empty() {
-                self.default_deck_name()
-            } else {
-                name.clone()
-            }
+    pub fn required_deck_name(&self, db: &CardsDatabase) -> String {
+        self.required_deck_name_max_length(usize::MAX, db)
+    }
+
+    pub fn required_deck_name_max_length(&self, max_length: usize, db: &CardsDatabase) -> String {
+        if let Some(name) = self
+            .name
+            .as_ref()
+            .map(|n| n.trim())
+            .filter(|n| !n.is_empty())
+        {
+            name.to_string()
         } else {
-            self.default_deck_name()
+            self.default_deck_name(max_length, db)
         }
     }
 
-    pub fn default_deck_name(&self) -> String {
+    fn default_deck_name(&self, max_length: usize, db: &CardsDatabase) -> String {
         if let Some(oshi) = &self.oshi {
-            // TODO use card name
-            // format!("{}'s deck", oshi.card_number)
-            format!("Custom deck - {}", oshi.card_number)
-        } else {
-            "Custom deck".into()
+            if let Some(oshi) = oshi.card_info(db) {
+                let name = oshi
+                    .name
+                    .english
+                    .as_ref()
+                    .unwrap_or(&oshi.name.japanese)
+                    .to_string();
+                let name = format!("Custom deck - {}", name);
+                if name.len() <= max_length {
+                    return name;
+                }
+            }
+
+            let name = format!("Custom deck - {}", oshi.card_number);
+            if name.len() <= max_length {
+                return name;
+            }
         }
+
+        "Custom deck".into()
     }
 
-    pub fn file_name(&self) -> String {
-        let mut name = self.required_deck_name();
+    pub fn file_name(&self, db: &CardsDatabase) -> String {
+        let mut name = self.required_deck_name(db);
         if !name.is_ascii() {
-            name = self.default_deck_name();
+            name = "Custom deck".into();
         }
 
         name.trim()

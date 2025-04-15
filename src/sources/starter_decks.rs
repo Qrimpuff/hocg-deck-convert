@@ -357,8 +357,13 @@ pub fn Import(
                                 change_oshi();
                             },
                             for (idx , oshi) in oshi_options.iter().enumerate() {
-                                // TODO use card name with card number
-                                option { value: "{idx}", "{oshi.card_number}" }
+                                if let Some(oshi) = oshi.card_info(&db.read()) {
+                                    option { value: "{idx}",
+                                        "{oshi.card_number} - {oshi.name.english.as_ref().unwrap_or(&oshi.name.japanese)}"
+                                    }
+                                } else {
+                                    option { value: "{idx}", "{oshi.card_number}" }
+                                }
                             }
                         }
                     }

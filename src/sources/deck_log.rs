@@ -171,7 +171,7 @@ impl CommonDeckConversion for Deck {
         Some(Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
-            title: deck.required_deck_name(),
+            title: deck.required_deck_name_max_length(25, db),
             p_list: Card::build_custom_deck(deck.oshi.into_iter().collect(), db),
             list: Card::build_custom_deck(deck.main_deck, db),
             sub_list: Card::build_custom_deck(deck.cheer_deck, db),

@@ -290,7 +290,7 @@ pub fn JsonExport(
     let download_file = move |_| {
         let deck: Option<_> =
             Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read())
-                .map(|d| (common_deck.read().file_name(), d));
+                .map(|d| (common_deck.read().file_name(&db.read()), d));
         if let Some((file_name, deck)) = deck {
             let file_name = format!("{file_name}.{export_id}.json");
             match deck.to_file() {

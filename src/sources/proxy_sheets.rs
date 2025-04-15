@@ -64,7 +64,7 @@ async fn generate_pdf(
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
 
-    let title = format!("Proxy sheets for {}", deck.required_deck_name());
+    let title = format!("Proxy sheets for {}", deck.required_deck_name(db));
     let doc = PdfDocument::empty(&title);
 
     // download the images (the browser should have them cached)
@@ -188,7 +188,7 @@ pub fn Export(
             PaperSize::A4 => "a4",
             PaperSize::Letter => "letter",
         };
-        let file_name = common_deck.file_name();
+        let file_name = common_deck.file_name(&db.read());
         let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
         match generate_pdf(
             &common_deck,
