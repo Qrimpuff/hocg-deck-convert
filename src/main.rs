@@ -226,32 +226,32 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                 },
                                 option {
                                     value: "starter_decks",
-                                    initial_selected: *import_format.read() == Some(DeckType::DeckLog),
+                                    selected: *import_format.read() == Some(DeckType::DeckLog),
                                     "Starter decks"
                                 }
                                 option {
                                     value: "deck_log",
-                                    initial_selected: *import_format.read() == Some(DeckType::DeckLog),
+                                    selected: *import_format.read() == Some(DeckType::DeckLog),
                                     "Deck Log (Bushiroad)"
                                 }
                                 option {
                                     value: "holo_delta",
-                                    initial_selected: *import_format.read() == Some(DeckType::HoloDelta),
+                                    selected: *import_format.read() == Some(DeckType::HoloDelta),
                                     "holoDelta"
                                 }
                                 option {
                                     value: "holo_duel",
-                                    initial_selected: *import_format.read() == Some(DeckType::HoloDuel),
+                                    selected: *import_format.read() == Some(DeckType::HoloDuel),
                                     "HoloDuel"
                                 }
                                 option {
                                     value: "hocg_tts",
-                                    initial_selected: *import_format.read() == Some(DeckType::TabletopSim),
+                                    selected: *import_format.read() == Some(DeckType::TabletopSim),
                                     "Tabletop Simulator (by Noodlebrain)"
                                 }
                                 option {
                                     value: "unknown",
-                                    initial_selected: *import_format.read() == Some(DeckType::Unknown),
+                                    selected: *import_format.read() == Some(DeckType::Unknown),
                                     "I don't know..."
                                 }
                             }
@@ -328,32 +328,32 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                             },
                             option {
                                 value: "deck_log",
-                                initial_selected: *export_format.read() == Some(DeckType::DeckLog),
+                                selected: *export_format.read() == Some(DeckType::DeckLog),
                                 "Deck Log (Bushiroad)"
                             }
                             option {
                                 value: "holo_delta",
-                                initial_selected: *export_format.read() == Some(DeckType::HoloDelta),
+                                selected: *export_format.read() == Some(DeckType::HoloDelta),
                                 "holoDelta"
                             }
                             option {
                                 value: "holo_duel",
-                                initial_selected: *export_format.read() == Some(DeckType::HoloDuel),
+                                selected: *export_format.read() == Some(DeckType::HoloDuel),
                                 "HoloDuel"
                             }
                             option {
                                 value: "hocg_tts",
-                                initial_selected: *export_format.read() == Some(DeckType::TabletopSim),
+                                selected: *export_format.read() == Some(DeckType::TabletopSim),
                                 "Tabletop Simulator (by Noodlebrain)"
                             }
                             option {
                                 value: "proxy_sheets",
-                                initial_selected: *export_format.read() == Some(DeckType::ProxySheets),
+                                selected: *export_format.read() == Some(DeckType::ProxySheets),
                                 "Proxy sheets (PDF)"
                             }
                             option {
                                 value: "price_check",
-                                initial_selected: *export_format.read() == Some(DeckType::PriceCheck),
+                                selected: *export_format.read() == Some(DeckType::PriceCheck),
                                 "Price check (JPY)"
                             }
                         }
