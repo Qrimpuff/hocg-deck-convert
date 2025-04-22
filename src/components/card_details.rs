@@ -1,0 +1,227 @@
+use dioxus::prelude::*;
+use hocg_fan_sim_assets_model::CardsDatabase;
+use num_format::{Locale, ToFormattedString};
+use serde::Serialize;
+
+use crate::{
+    CardLanguage, CardType,
+    sources::{CommonCard, CommonDeck, price_check::PriceCache},
+};
+
+// TODO add popup for card info (allow adding and removing cards)
+
+#[component]
+pub fn CardDetails(
+    card: CommonCard,
+    card_type: CardType,
+    db: Signal<CardsDatabase>,
+    common_deck: Option<Signal<CommonDeck>>,
+    prices: Option<Signal<PriceCache>>,
+) -> Element {
+    #[derive(Serialize)]
+    struct EventData {
+        action: String,
+    }
+
+    let error_img_path: &str = match card_type {
+        CardType::Oshi | CardType::Cheer => "cheer-back.webp",
+        CardType::Main => "card-back.webp",
+    };
+    let error_img_path =
+        format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
+
+    let card_lang = use_signal(|| CardLanguage::Japanese);
+    let img_path = card
+        .image_path(&db.read(), *card_lang.read())
+        .unwrap_or_else(|| error_img_path.clone());
+
+    let price = if let Some(prices) = prices {
+        card.price(&db.read(), &prices.read())
+            .map(|p| p.to_formatted_string(&Locale::en))
+            .unwrap_or("?".into())
+    } else {
+        "?".into()
+    };
+    // TODO not only yuyutei
+    let price_url = card
+        .card_illustration(&db.read())
+        .and_then(|c| c.yuyutei_sell_url.clone());
+
+    // verify card amount
+    let total_amount = if let Some(common_deck) = common_deck {
+        common_deck
+            .read()
+            .all_cards()
+            .filter(|c| c.card_number == card.card_number)
+            .map(|c| c.amount)
+            .sum::<u32>()
+    } else {
+        0
+    };
+    let max_amount = card
+        .card_info(&db.read())
+        .map(|i| i.max_amount)
+        .unwrap_or(50);
+    let warning_amount = total_amount > max_amount;
+    let warning_class = if warning_amount {
+        "is-warning"
+    } else {
+        "is-dark"
+    };
+
+    let tooltip = card
+        .card_illustration(&db.read())
+        .map(|e| format!("{} ({})", card.card_number, e.rarity))
+        .unwrap_or(card.card_number.to_string());
+
+    // let _card = card.clone();
+    // let add_card = move |_| {
+    //     if let Some(mut common_deck) = common_deck {
+    //         let mut deck = common_deck.write();
+    //         let mut card = _card.clone();
+    //         card.amount = 1;
+    //         deck.add_card(card, card_type, &db.read());
+
+    //         track_event(
+    //             EventType::EditDeck,
+    //             EventData {
+    //                 action: "Add card".into(),
+    //             },
+    //         );
+    //     }
+    // };
+    // let _card = card.clone();
+    // let remove_card = move |_| {
+    //     if let Some(mut common_deck) = common_deck {
+    //         let mut deck = common_deck.write();
+    //         let mut card = _card.clone();
+    //         card.amount = 1;
+    //         deck.remove_card(card, card_type, &db.read());
+
+    //         track_event(
+    //             EventType::EditDeck,
+    //             EventData {
+    //                 action: "Remove card".into(),
+    //             },
+    //         );
+    //     }
+    // };
+
+    rsx! {
+        div { class: "box",
+            if let Some(card) = card.card_info(&db.read()) {
+                h4 {
+                    div { class: "subtitle", "{card.card_number} " }
+                    // TODO add japanese toggle
+                    div { class: "title",
+                        "{card.name.english.as_ref().unwrap_or(&\"???\".to_string())}"
+                    }
+                }
+                figure { class: "image",
+                    img {
+                        border_radius: "3.7%",
+                        src: "{img_path}",
+                        "onerror": "this.src='{error_img_path}'",
+                    }
+                }
+            }
+                // a {
+        //     href: "#",
+        //     role: "button",
+        //     title: "Show card details for {tooltip}",
+        //     onclick: move |evt| {
+        //         evt.prevent_default();
+        //         show_popup.set(true);
+        //         track_event(
+        //             EventType::EditDeck,
+        //             EventData {
+        //                 action: "Card details".into(),
+        //             },
+        //         );
+        //     },
+        //     figure { class: "image",
+        //         img {
+        //             border_radius: "3.7%",
+        //             src: "{img_path}",
+        //             "onerror": "this.src='{error_img_path}'",
+        //         }
+        //         if show_price {
+        //             span {
+        //                 class: "badge is-bottom {warning_class} card-amount",
+        //                 style: "z-index: 10",
+        //                 " ¥{price} × {card.amount} "
+        //                 if let Some(price_url) = price_url {
+        //                     a {
+        //                         title: "Go to Yuyutei for {card.card_number}",
+        //                         href: "{price_url}",
+        //                         target: "_blank",
+        //                         onclick: |_| { track_url("Yuyutei") },
+        //                         i { class: "fa-solid fa-arrow-up-right-from-square" }
+        //                     }
+        //                 }
+        //             }
+        //         } else if card_type != CardType::Oshi && card.amount > 0 {
+        //             span {
+        //                 class: "badge is-bottom {warning_class} card-amount",
+        //                 style: "z-index: 10",
+        //                 "{card.amount}"
+        //             }
+        //         }
+        //     }
+        // }
+        // if *is_edit.read() {
+        //     div { class: "mt-1 is-flex is-justify-content-center",
+        //         if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
+        //             if card.amount > 0 {
+        //                 button {
+        //                     r#type: "button",
+        //                     class: "button is-small has-text-danger",
+        //                     title: "Remove oshi {tooltip}",
+        //                     onclick: remove_card,
+        //                     "Remove"
+        //                 }
+        //             } else {
+        //                 button {
+        //                     r#type: "button",
+        //                     class: "button is-small has-text-success",
+        //                     title: "Select oshi {tooltip}",
+        //                     onclick: add_card,
+        //                     "Select"
+        //                 }
+        //             }
+        //         } else {
+        //             div { class: "buttons has-addons",
+        //                 button {
+        //                     r#type: "button",
+        //                     class: "button is-small",
+        //                     title: "Remove 1 {tooltip}",
+        //                     // disable when no more to remove
+        //                     disabled: card.amount == 0,
+        //                     onclick: remove_card,
+        //                     span { class: "icon is-small has-text-danger",
+        //                         if card.amount == 1 && is_preview {
+        //                             // only for deck preview
+        //                             i { class: "fas fa-trash" }
+        //                         } else {
+        //                             i { class: "fas fa-minus" }
+        //                         }
+        //                     }
+        //                 }
+        //                 button {
+        //                     r#type: "button",
+        //                     class: "button is-small",
+        //                     title: "Add 1 {tooltip}",
+        //                     // disable when reaching max amount. not total amount. allows some buffer for deck building
+        //                     disabled: card.amount >= max_amount,
+        //                     onclick: add_card,
+        //                     span { class: "icon is-small has-text-success",
+        //                         i { class: "fas fa-plus" }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        }
+    }
+}

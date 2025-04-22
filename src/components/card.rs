@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::{
     CardLanguage, CardType,
+    components::{card_details::CardDetails, modal_popup::ModelPopup},
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
     tracker::{EventType, track_event, track_url},
 };
@@ -118,35 +119,51 @@ pub fn Card(
         }
     };
 
+    let mut show_popup = use_signal(|| false);
+
     rsx! {
         div { class: "m-2",
-            figure { class: "image {img_class}",
-                img {
-                    title: "{tooltip}",
-                    border_radius: "3.7%",
-                    src: "{img_path}",
-                    "onerror": "this.src='{error_img_path}'",
-                }
-                if show_price {
-                    span {
-                        class: "badge is-bottom {warning_class} card-amount",
-                        style: "z-index: 10",
-                        " ¥{price} × {card.amount} "
-                        if let Some(price_url) = price_url {
-                            a {
-                                title: "Go to Yuyutei for {card.card_number}",
-                                href: "{price_url}",
-                                target: "_blank",
-                                onclick: |_| { track_url("Yuyutei") },
-                                i { class: "fa-solid fa-arrow-up-right-from-square" }
+            a {
+                href: "#",
+                role: "button",
+                title: "Show card details for {tooltip}",
+                onclick: move |evt| {
+                    evt.prevent_default();
+                    show_popup.set(true);
+                    track_event(
+                        EventType::EditDeck,
+                        EventData {
+                            action: "Card details".into(),
+                        },
+                    );
+                },
+                figure { class: "image {img_class}",
+                    img {
+                        border_radius: "3.7%",
+                        src: "{img_path}",
+                        "onerror": "this.src='{error_img_path}'",
+                    }
+                    if show_price {
+                        span {
+                            class: "badge is-bottom {warning_class} card-amount",
+                            style: "z-index: 10",
+                            " ¥{price} × {card.amount} "
+                            if let Some(price_url) = price_url {
+                                a {
+                                    title: "Go to Yuyutei for {card.card_number}",
+                                    href: "{price_url}",
+                                    target: "_blank",
+                                    onclick: |_| { track_url("Yuyutei") },
+                                    i { class: "fa-solid fa-arrow-up-right-from-square" }
+                                }
                             }
                         }
-                    }
-                } else if card_type != CardType::Oshi && card.amount > 0 {
-                    span {
-                        class: "badge is-bottom {warning_class} card-amount",
-                        style: "z-index: 10",
-                        "{card.amount}"
+                    } else if card_type != CardType::Oshi && card.amount > 0 {
+                        span {
+                            class: "badge is-bottom {warning_class} card-amount",
+                            style: "z-index: 10",
+                            "{card.amount}"
+                        }
                     }
                 }
             }
@@ -203,6 +220,19 @@ pub fn Card(
                     }
                 }
             }
+        }
+
+        ModelPopup {
+            show_popup,
+            content: rsx! {
+                CardDetails {
+                    card: card.clone(),
+                    card_type,
+                    db,
+                    common_deck,
+                    prices,
+                }
+            },
         }
     }
 }
