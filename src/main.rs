@@ -55,25 +55,57 @@ fn App() -> Element {
                         }
                         ", "
                         a {
-                            href: "https://github.com/GabeJWJ/holoDelta",
+                            href: "https://holodelta.net/",
                             onclick: |_| { track_url("holoDelta") },
                             target: "_blank",
                             "holoDelta"
                         }
                         ", "
+                        // a {
+                        //     href: "https://daktagames.itch.io/holoduel",
+                        //     onclick: |_| { track_url("HoloDuel") },
+                        //     target: "_blank",
+                        //     "HoloDuel"
+                        // }
                         a {
-                            href: "https://daktagames.itch.io/holoduel",
-                            onclick: |_| { track_url("HoloDuel") },
+                            href: "https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285",
+                            onclick: |_| { track_url("Tabletop Simulator") },
                             target: "_blank",
-                            "HoloDuel"
+                            "Tabletop Simulator"
                         }
                         ", or even print proxy sheets."
                     }
                     p { class: "is-hidden-mobile",
-                        "Consider using Deck Log to build your deck, or you can also choose one of the official starter decks to get you started."
+                        "To build your deck from scratch, use "
+                        a {
+                            href: "#",
+                            role: "button",
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                *EDIT_DECK.write() = true;
+                                track_url("Edit deck");
+                            },
+                            "Edit deck"
+                        }
+                        ". You can also choose one of the "
+
+                        a {
+                            href: "#",
+                            role: "button",
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                *EDIT_DECK.write() = false;
+                                *COMMON_DECK.write() = Default::default();
+                                *SHOW_PRICE.write() = false;
+                                *IMPORT_FORMAT.write() = Some(DeckType::StarterDecks);
+                                track_url("Official starter decks");
+                            },
+                            "official starter decks"
+                        }
+                        " to get you started."
                     }
                     p {
-                        "If you have any questions about the game, the "
+                        "If you have any questions about the game, or this tool, the "
                         a {
                             href: "https://discord.com/invite/GJ9RhA22nP",
                             target: "_blank",
@@ -83,7 +115,7 @@ fn App() -> Element {
                             }
                             "Hololive OCG Fan Server"
                         }
-                        " is welcoming to beginners."
+                        " is welcoming."
                     }
                 }
                 div { class: "columns is-tablet",
@@ -158,13 +190,15 @@ fn App() -> Element {
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
+static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
+static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 fn Form(card_lang: Signal<CardLanguage>) -> Element {
-    let mut import_format = use_signal(|| None);
-    let mut export_format = use_signal(|| None);
+    let mut import_format: Signal<Option<DeckType>> = IMPORT_FORMAT.signal();
+    let mut export_format = EXPORT_FORMAT.signal();
     use_effect(move || {
         import_format.set(Some(DeckType::DeckLog));
         export_format.set(Some(DeckType::HoloDelta));

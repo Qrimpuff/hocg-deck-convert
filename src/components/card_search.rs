@@ -328,7 +328,7 @@ pub fn CardSearch(
                 span { class: "icon",
                     i {
                         class: "fa-solid",
-                        class: if *show_filters.read() { "fa-chevron-up" } else { "fa-chevron-down" },
+                        class: if *show_filters.read() { "fa-chevron-down" } else { "fa-chevron-right" },
                     }
                 }
                 "Advanced filtering"

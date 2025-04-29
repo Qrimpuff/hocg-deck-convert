@@ -7,9 +7,15 @@ use serde::Serialize;
 use crate::{
     CardLanguage, CardType,
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
+    tracker::{EventType, track_event},
 };
 
 static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
+
+#[derive(Serialize)]
+struct EventData {
+    action: String,
+}
 
 #[component]
 pub fn CardDetailsTitle(card: CommonCard, db: Signal<CardsDatabase>) -> Element {
@@ -54,6 +60,12 @@ pub fn CardDetailsTitle(card: CommonCard, db: Signal<CardsDatabase>) -> Element 
                         class: if *lang.read() == CardLanguage::English { "is-link is-selected" },
                         onclick: move |_| {
                             *lang.write() = CardLanguage::English;
+                            track_event(
+                                EventType::EditDeck,
+                                EventData {
+                                    action: "Details language EN".into(),
+                                },
+                            );
                         },
                         "EN"
                     }
@@ -63,6 +75,12 @@ pub fn CardDetailsTitle(card: CommonCard, db: Signal<CardsDatabase>) -> Element 
                         class: if *lang.read() == CardLanguage::Japanese { "is-link is-selected" },
                         onclick: move |_| {
                             *lang.write() = CardLanguage::Japanese;
+                            track_event(
+                                EventType::EditDeck,
+                                EventData {
+                                    action: "Details language JP".into(),
+                                },
+                            );
                         },
                         "JP"
                     }
@@ -80,11 +98,6 @@ pub fn CardDetailsContent(
     common_deck: Option<Signal<CommonDeck>>,
     prices: Option<Signal<PriceCache>>,
 ) -> Element {
-    #[derive(Serialize)]
-    struct EventData {
-        action: String,
-    }
-
     let error_img_path: &str = match card_type {
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
         CardType::Main => "card-back.webp",
@@ -344,6 +357,12 @@ pub fn CardDetailsContent(
                 onclick: move |evt| {
                     evt.prevent_default();
                     big_card.toggle();
+                    track_event(
+                        EventType::EditDeck,
+                        EventData {
+                            action: "Card zoom".into(),
+                        },
+                    );
                 },
                 figure { class: "image",
                     img {
