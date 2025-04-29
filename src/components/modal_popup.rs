@@ -84,8 +84,14 @@ pub fn update_popup_layer(show_popup: Option<Signal<bool>>) -> Option<EventListe
 }
 
 #[component]
-pub fn ModelPopup(show_popup: Signal<bool>, content: Element) -> Element {
-    let mut popup_listener = use_signal(|| None);
+pub fn ModelPopup(
+    show_popup: Signal<bool>,
+    title: Option<Element>,
+    content: Element,
+    footer: Option<Element>,
+) -> Element {
+    let modal_card = title.is_some() || footer.is_some();
+    let mut popup_listener: Signal<Option<EventListener>> = use_signal(|| None);
 
     let _ = use_effect(move || {
         // Update the popup layer and manage history state (back button behavior)
@@ -110,12 +116,34 @@ pub fn ModelPopup(show_popup: Signal<bool>, content: Element) -> Element {
                     class: "modal-background",
                     onclick: move |_| { show_popup.set(false) },
                 }
-                div { class: "modal-content", {content} }
-                button {
-                    r#type: "button",
-                    "aria-label": "close",
-                    class: "modal-close is-large",
-                    onclick: move |_| { show_popup.set(false) },
+                if modal_card {
+                    div { class: "modal-card",
+                        if let Some(title) = title {
+                            header {
+                                class: "modal-card-head p-5",
+                                style: "box-shadow: none;",
+                                p { class: "modal-card-title is-flex-shrink-1", {title} }
+                                button {
+                                    r#type: "button",
+                                    "aria-label": "close",
+                                    class: "delete is-large",
+                                    onclick: move |_| { show_popup.set(false) },
+                                }
+                            }
+                        }
+                        section { class: "modal-card-body pt-1", {content} }
+                        if let Some(footer) = footer {
+                            footer { class: "modal-card-foot", {footer} }
+                        }
+                    }
+                } else {
+                    div { class: "modal-content", {content} }
+                    button {
+                        r#type: "button",
+                        "aria-label": "close",
+                        class: "modal-close is-large",
+                        onclick: move |_| { show_popup.set(false) },
+                    }
                 }
             }
         }

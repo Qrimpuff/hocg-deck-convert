@@ -184,6 +184,21 @@ fn scroll_to_top() {
     document().eval("document.getElementById('card_search_cards').scrollTop = 0;".into());
 }
 
+fn is_scrolled_to_bottom() -> bool {
+    let cards = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .query_selector("#card_search_cards")
+        .unwrap()
+        .unwrap();
+    let scroll_top = cards.scroll_top();
+    let scroll_height = cards.scroll_height();
+    let client_height = cards.client_height();
+
+    scroll_height - scroll_top - client_height < 2
+}
+
 #[component]
 pub fn CardSearch(
     db: Signal<CardsDatabase>,
@@ -621,6 +636,20 @@ pub fn CardSearch(
             id: "card_search_cards",
             class: "block is-flex is-flex-wrap-wrap is-justify-content-center",
             style: "max-height: 50vh; overflow: scroll;",
+            // automatically load more cards when scrolled to the bottom
+            onscroll: move |_| {
+                if is_scrolled_to_bottom() {
+                    *loading.write() = true;
+                    *card_amount.write() += CARD_INCREMENT;
+                    track_event(
+                        EventType::EditDeck,
+                        EventData {
+                            action: "Load more cards".into(),
+                        },
+                    );
+                }
+            },
+
             for card in cards.read().iter() {
                 {card}
             }

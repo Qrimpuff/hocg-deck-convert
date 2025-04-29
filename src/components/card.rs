@@ -5,7 +5,10 @@ use serde::Serialize;
 
 use crate::{
     CardLanguage, CardType,
-    components::{card_details::CardDetails, modal_popup::ModelPopup},
+    components::{
+        card_details::{CardDetailsContent, CardDetailsTitle},
+        modal_popup::ModelPopup,
+    },
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
     tracker::{EventType, track_event, track_url},
 };
@@ -43,7 +46,7 @@ pub fn Card(
         format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
 
     let img_path = card
-        .image_path(&db.read(), *card_lang.read())
+        .image_path(&db.read(), *card_lang.read(), true)
         .unwrap_or_else(|| error_img_path.clone());
 
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
@@ -224,8 +227,11 @@ pub fn Card(
 
         ModelPopup {
             show_popup,
+            title: rsx! {
+                CardDetailsTitle { card: card.clone(), db }
+            },
             content: rsx! {
-                CardDetails {
+                CardDetailsContent {
                     card: card.clone(),
                     card_type,
                     db,

@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
-use hocg_fan_sim_assets_model::CardsDatabase;
+use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
+use itertools::Itertools;
 use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
@@ -8,10 +9,71 @@ use crate::{
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
 };
 
-// TODO add popup for card info (allow adding and removing cards)
+static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
 
 #[component]
-pub fn CardDetails(
+pub fn CardDetailsTitle(card: CommonCard, db: Signal<CardsDatabase>) -> Element {
+    let card = use_signal(|| card);
+    let mut lang = CARD_DETAILS_LANG.signal();
+
+    let title = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_info(&db) else {
+            return "<Unknown card>".to_string();
+        };
+
+        if *lang.read() == CardLanguage::Japanese {
+            card.name.japanese.clone()
+        } else {
+            card.name
+                .english
+                .clone()
+                .unwrap_or("<No english translation>".to_string())
+        }
+    });
+    let subtitle = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_illustration(&db) else {
+            return card.read().card_number.to_string();
+        };
+
+        format!("{} ({})", card.card_number, card.rarity)
+    });
+
+    rsx! {
+        div { class: "is-flex is-justify-content-space-between",
+            h4 {
+                div { class: "subtitle", "{subtitle}" }
+                div { class: "title", "{title}" }
+            }
+            div { class: "is-flex is-align-items-center mr-3",
+                div { class: "buttons has-addons is-flex-shrink-0",
+                    button {
+                        r#type: "button",
+                        class: "button is-small",
+                        class: if *lang.read() == CardLanguage::English { "is-link is-selected" },
+                        onclick: move |_| {
+                            *lang.write() = CardLanguage::English;
+                        },
+                        "EN"
+                    }
+                    button {
+                        r#type: "button",
+                        class: "button is-small",
+                        class: if *lang.read() == CardLanguage::Japanese { "is-link is-selected" },
+                        onclick: move |_| {
+                            *lang.write() = CardLanguage::Japanese;
+                        },
+                        "JP"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn CardDetailsContent(
     card: CommonCard,
     card_type: CardType,
     db: Signal<CardsDatabase>,
@@ -30,93 +92,259 @@ pub fn CardDetails(
     let error_img_path =
         format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
 
-    let card_lang = use_signal(|| CardLanguage::Japanese);
-    let img_path = card
-        .image_path(&db.read(), *card_lang.read())
-        .unwrap_or_else(|| error_img_path.clone());
+    let card = use_signal(|| card);
+    let lang = CARD_DETAILS_LANG.signal();
+    let mut big_card = use_signal(|| false);
 
-    let price = if let Some(prices) = prices {
-        card.price(&db.read(), &prices.read())
-            .map(|p| p.to_formatted_string(&Locale::en))
-            .unwrap_or("?".into())
-    } else {
-        "?".into()
-    };
-    // TODO not only yuyutei
-    let price_url = card
-        .card_illustration(&db.read())
-        .and_then(|c| c.yuyutei_sell_url.clone());
+    let _error_img_path = error_img_path.clone();
+    let img_path = use_memo({
+        move || {
+            card.read()
+                .image_path(&db.read(), *lang.read(), false)
+                .unwrap_or_else(|| _error_img_path.clone())
+        }
+    });
 
-    // verify card amount
-    let total_amount = if let Some(common_deck) = common_deck {
-        common_deck
-            .read()
-            .all_cards()
-            .filter(|c| c.card_number == card.card_number)
-            .map(|c| c.amount)
-            .sum::<u32>()
-    } else {
-        0
-    };
-    let max_amount = card
-        .card_info(&db.read())
-        .map(|i| i.max_amount)
-        .unwrap_or(50);
-    let warning_amount = total_amount > max_amount;
-    let warning_class = if warning_amount {
-        "is-warning"
-    } else {
-        "is-dark"
-    };
+    let card_type = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_info(&db) else {
+            return "<Unknown>".to_string();
+        };
 
-    let tooltip = card
-        .card_illustration(&db.read())
-        .map(|e| format!("{} ({})", card.card_number, e.rarity))
-        .unwrap_or(card.card_number.to_string());
+        let mut card_type = if *lang.read() == CardLanguage::Japanese {
+            match card.card_type {
+                hocg::CardType::OshiHoloMember => "推しホロメン",
+                hocg::CardType::HoloMember => match card.bloom_level {
+                    Some(hocg::BloomLevel::Debut) => "Debut ホロメン",
+                    Some(hocg::BloomLevel::First) => "1st ホロメン",
+                    Some(hocg::BloomLevel::Second) => "2nd ホロメン",
+                    Some(hocg::BloomLevel::Spot) => "Spot ホロメン",
+                    None => "ホロメン",
+                },
+                hocg::CardType::Support(support_type) => match support_type {
+                    hocg::SupportType::Staff => "サポート・スタッフ",
+                    hocg::SupportType::Item => "サポート・アイテム",
+                    hocg::SupportType::Event => "サポート・イベント",
+                    hocg::SupportType::Tool => "サポート・ツール",
+                    hocg::SupportType::Mascot => "サポート・マスコット",
+                    hocg::SupportType::Fan => "サポート・ファン",
+                },
+                hocg::CardType::Cheer => "エール",
+                hocg::CardType::Other => "Other",
+            }
+        } else {
+            match card.card_type {
+                hocg::CardType::OshiHoloMember => "Oshi Holo Member",
+                hocg::CardType::HoloMember => match card.bloom_level {
+                    Some(hocg::BloomLevel::Debut) => "Debut Holo Member",
+                    Some(hocg::BloomLevel::First) => "1st Holo Member",
+                    Some(hocg::BloomLevel::Second) => "2nd Holo Member",
+                    Some(hocg::BloomLevel::Spot) => "Spot Holo Member",
+                    None => "Holo Member",
+                },
+                hocg::CardType::Support(support_type) => match support_type {
+                    hocg::SupportType::Staff => "Support - Staff",
+                    hocg::SupportType::Item => "Support - Item",
+                    hocg::SupportType::Event => "Support - Event",
+                    hocg::SupportType::Tool => "Support - Tool",
+                    hocg::SupportType::Mascot => "Support - Mascot",
+                    hocg::SupportType::Fan => "Support - Fan",
+                },
+                hocg::CardType::Cheer => "Cheer",
+                hocg::CardType::Other => "Other",
+            }
+        }
+        .to_string();
+        if card.buzz {
+            if *lang.read() == CardLanguage::Japanese {
+                card_type.push_str("・Buzz");
+            } else {
+                card_type.push_str(" - Buzz");
+            }
+        }
+        if card.limited {
+            if *lang.read() == CardLanguage::Japanese {
+                card_type.push_str("・LIMITED");
+            } else {
+                card_type.push_str(" - Limited");
+            }
+        }
 
-    // let _card = card.clone();
-    // let add_card = move |_| {
-    //     if let Some(mut common_deck) = common_deck {
-    //         let mut deck = common_deck.write();
-    //         let mut card = _card.clone();
-    //         card.amount = 1;
-    //         deck.add_card(card, card_type, &db.read());
-
-    //         track_event(
-    //             EventType::EditDeck,
-    //             EventData {
-    //                 action: "Add card".into(),
-    //             },
-    //         );
-    //     }
-    // };
-    // let _card = card.clone();
-    // let remove_card = move |_| {
-    //     if let Some(mut common_deck) = common_deck {
-    //         let mut deck = common_deck.write();
-    //         let mut card = _card.clone();
-    //         card.amount = 1;
-    //         deck.remove_card(card, card_type, &db.read());
-
-    //         track_event(
-    //             EventType::EditDeck,
-    //             EventData {
-    //                 action: "Remove card".into(),
-    //             },
-    //         );
-    //     }
-    // };
-
-    rsx! {
-        div { class: "box",
-            if let Some(card) = card.card_info(&db.read()) {
-                h4 {
-                    div { class: "subtitle", "{card.card_number} " }
-                    // TODO add japanese toggle
-                    div { class: "title",
-                        "{card.name.english.as_ref().unwrap_or(&\"???\".to_string())}"
+        let colors = card
+            .colors
+            .iter()
+            .filter_map(|c| {
+                if *lang.read() == CardLanguage::Japanese {
+                    match c {
+                        hocg::Color::White => Some("白"),
+                        hocg::Color::Green => Some("緑"),
+                        hocg::Color::Red => Some("赤"),
+                        hocg::Color::Blue => Some("青"),
+                        hocg::Color::Purple => Some("紫"),
+                        hocg::Color::Yellow => Some("黄"),
+                        hocg::Color::Colorless => None,
+                    }
+                } else {
+                    match c {
+                        hocg::Color::White => Some("White"),
+                        hocg::Color::Green => Some("Green"),
+                        hocg::Color::Red => Some("Red"),
+                        hocg::Color::Blue => Some("Blue"),
+                        hocg::Color::Purple => Some("Purple"),
+                        hocg::Color::Yellow => Some("Yellow"),
+                        hocg::Color::Colorless => None,
                     }
                 }
+            })
+            .join("/");
+
+        if colors.is_empty() {
+            card_type
+        } else if *lang.read() == CardLanguage::Japanese {
+            format!("{}・{}", colors, card_type)
+        } else {
+            format!("{} - {}", colors, card_type)
+        }
+    });
+
+    let life_hp = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_info(&db) else {
+            return "";
+        };
+
+        if card.life > 0 {
+            "Life: "
+        } else if card.hp > 0 {
+            "HP: "
+        } else {
+            ""
+        }
+    });
+    let life_hp_amount = use_memo(move || {
+        let db = db.read();
+        let card = card.read().card_info(&db)?;
+
+        if card.life > 0 {
+            Some(card.life)
+        } else if card.hp > 0 {
+            Some(card.hp)
+        } else {
+            None
+        }
+    });
+
+    let card_text = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_info(&db) else {
+            return "<Unknown card>".to_string();
+        };
+
+        if *lang.read() == CardLanguage::Japanese {
+            card.text.japanese.clone()
+        } else {
+            card.text
+                .english
+                .clone()
+                .unwrap_or("<No english translation>".to_string())
+        }
+    });
+
+    let tags = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_info(&db) else {
+            return vec![];
+        };
+
+        card.tags
+            .iter()
+            .map(|t| {
+                if *lang.read() == CardLanguage::Japanese {
+                    t.japanese.clone()
+                } else {
+                    t.english
+                        .clone()
+                        .unwrap_or("<No english translation>".to_string())
+                }
+            })
+            .collect::<Vec<_>>()
+    });
+
+    let baton_pass = use_memo(move || {
+        let db = db.read();
+        let card = card.read().card_info(&db)?;
+
+        if card.card_type == hocg::CardType::HoloMember {
+            Some(if *lang.read() == CardLanguage::Japanese {
+                format!("バトンタッチ: {}", card.baton_pass.len())
+            } else {
+                format!("Baton Pass: {}", card.baton_pass.len())
+            })
+        } else {
+            None
+        }
+    });
+
+    // TODO not only yuyutei
+    let price_url = use_memo(move || {
+        let db = db.read();
+        let card = card.read().card_illustration(&db)?;
+
+        card.yuyutei_sell_url.clone()
+    });
+    let price = use_memo(move || {
+        if let Some(prices) = prices {
+            card.read()
+                .price(&db.read(), &prices.read())
+                .map(|p| p.to_formatted_string(&Locale::en))
+                .unwrap_or("?".into())
+        } else {
+            "?".into()
+        }
+    });
+
+    // verify card amount
+    let total_amount = use_memo(move || {
+        if let Some(common_deck) = common_deck {
+            common_deck
+                .read()
+                .all_cards()
+                .filter(|c| c.card_number == card.read().card_number)
+                .map(|c| c.amount)
+                .sum::<u32>()
+        } else {
+            0
+        }
+    });
+    let max_amount = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_info(&db) else {
+            return 0;
+        };
+
+        card.max_amount
+    });
+    let warning_amount = use_memo(move || *total_amount.read() > *max_amount.read());
+    let warning_class = use_memo(move || {
+        if *warning_amount.read() {
+            "is-warning"
+        } else {
+            "is-dark"
+        }
+    });
+
+    rsx! {
+        div { class: "block is-flex is-justify-content-center",
+            a {
+                href: "#",
+                role: "button",
+                class: "card-img-details",
+                class: if *big_card.read() { "big-card" },
+                style: if *big_card.read() { "cursor: zoom-out;" } else { "cursor: zoom-in;" },
+                onclick: move |evt| {
+                    evt.prevent_default();
+                    big_card.toggle();
+                },
                 figure { class: "image",
                     img {
                         border_radius: "3.7%",
@@ -125,103 +353,30 @@ pub fn CardDetails(
                     }
                 }
             }
-                // a {
-        //     href: "#",
-        //     role: "button",
-        //     title: "Show card details for {tooltip}",
-        //     onclick: move |evt| {
-        //         evt.prevent_default();
-        //         show_popup.set(true);
-        //         track_event(
-        //             EventType::EditDeck,
-        //             EventData {
-        //                 action: "Card details".into(),
-        //             },
-        //         );
-        //     },
-        //     figure { class: "image",
-        //         img {
-        //             border_radius: "3.7%",
-        //             src: "{img_path}",
-        //             "onerror": "this.src='{error_img_path}'",
-        //         }
-        //         if show_price {
-        //             span {
-        //                 class: "badge is-bottom {warning_class} card-amount",
-        //                 style: "z-index: 10",
-        //                 " ¥{price} × {card.amount} "
-        //                 if let Some(price_url) = price_url {
-        //                     a {
-        //                         title: "Go to Yuyutei for {card.card_number}",
-        //                         href: "{price_url}",
-        //                         target: "_blank",
-        //                         onclick: |_| { track_url("Yuyutei") },
-        //                         i { class: "fa-solid fa-arrow-up-right-from-square" }
-        //                     }
-        //                 }
-        //             }
-        //         } else if card_type != CardType::Oshi && card.amount > 0 {
-        //             span {
-        //                 class: "badge is-bottom {warning_class} card-amount",
-        //                 style: "z-index: 10",
-        //                 "{card.amount}"
-        //             }
-        //         }
-        //     }
-        // }
-        // if *is_edit.read() {
-        //     div { class: "mt-1 is-flex is-justify-content-center",
-        //         if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
-        //             if card.amount > 0 {
-        //                 button {
-        //                     r#type: "button",
-        //                     class: "button is-small has-text-danger",
-        //                     title: "Remove oshi {tooltip}",
-        //                     onclick: remove_card,
-        //                     "Remove"
-        //                 }
-        //             } else {
-        //                 button {
-        //                     r#type: "button",
-        //                     class: "button is-small has-text-success",
-        //                     title: "Select oshi {tooltip}",
-        //                     onclick: add_card,
-        //                     "Select"
-        //                 }
-        //             }
-        //         } else {
-        //             div { class: "buttons has-addons",
-        //                 button {
-        //                     r#type: "button",
-        //                     class: "button is-small",
-        //                     title: "Remove 1 {tooltip}",
-        //                     // disable when no more to remove
-        //                     disabled: card.amount == 0,
-        //                     onclick: remove_card,
-        //                     span { class: "icon is-small has-text-danger",
-        //                         if card.amount == 1 && is_preview {
-        //                             // only for deck preview
-        //                             i { class: "fas fa-trash" }
-        //                         } else {
-        //                             i { class: "fas fa-minus" }
-        //                         }
-        //                     }
-        //                 }
-        //                 button {
-        //                     r#type: "button",
-        //                     class: "button is-small",
-        //                     title: "Add 1 {tooltip}",
-        //                     // disable when reaching max amount. not total amount. allows some buffer for deck building
-        //                     disabled: card.amount >= max_amount,
-        //                     onclick: add_card,
-        //                     span { class: "icon is-small has-text-success",
-        //                         i { class: "fas fa-plus" }
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        }
+
+        // TODO add left and right arrows to navigate between cards
+        // what if a card carousel for alternative illustrations?
+        // or an horizontal scrollable list of cards, under the main picture?
+        // TODO add/remove card buttons (max amount)
+        div { class: "is-flex is-justify-content-space-between",
+            div { class: "title is-5", "{card_type}" }
+            div { class: "is-flex-shrink-0",
+                if let Some(life_hp_amount) = *life_hp_amount.read() {
+                    span { class: "subtitle is-5", "{life_hp}" }
+                    span { class: "title is-5", "{life_hp_amount}" }
+                }
+            }
+        }
+        div { class: "block", style: "white-space: pre-line;", "{card_text}" }
+        div { class: "block",
+            for tag in &*tags.read() {
+                span { class: "tag", "{tag}" }
+                " "
+            }
+            if let Some(baton_pass) = baton_pass.read().as_ref() {
+                div { "{baton_pass}" }
+            }
         }
     }
 }

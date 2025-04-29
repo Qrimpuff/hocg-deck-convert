@@ -82,7 +82,7 @@ pub fn DeckPreview(
     if *card_lang.read() == CardLanguage::English
         && deck
             .all_cards()
-            .any(|c| c.image_path(&db, *card_lang.read()).is_none())
+            .any(|c| c.image_path(&db, *card_lang.read(), true).is_none())
     {
         warnings.push("Missing english proxy.".into());
     }

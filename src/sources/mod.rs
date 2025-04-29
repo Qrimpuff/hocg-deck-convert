@@ -211,28 +211,48 @@ impl CommonCard {
             .collect_vec()
     }
 
-    pub fn image_path(&self, db: &CardsDatabase, lang: CardLanguage) -> Option<String> {
+    pub fn image_path(
+        &self,
+        db: &CardsDatabase,
+        lang: CardLanguage,
+        fallback_rarity: bool,
+    ) -> Option<String> {
         let card = self.card_illustration(db)?;
         if lang == CardLanguage::English {
+            // exact match for english cards
             if let Some(img_en) = &card.img_path.english {
-                Some(format!(
+                return Some(format!(
                     "https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/{img_en}",
-                ))
-            } else {
-                // fallback to lower rarity
-                let lower = self.to_lower_rarity(db);
-                let card = lower.card_illustration(db)?;
-                Some(format!(
-                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/{}",
-                    card.img_path.english.as_ref()?
-                ))
+                ));
             }
-        } else {
-            Some(format!(
-                "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{}",
-                card.img_path.japanese
-            ))
+
+            // fallback to similar card images
+            if let Some(img_en) = self
+                .card_info(db)
+                .iter()
+                .flat_map(|c| &c.illustrations)
+                .find(|i| i.delta_art_index == card.delta_art_index && i.img_path.english.is_some())
+                .and_then(|i| i.img_path.english.as_ref())
+            {
+                return Some(format!(
+                    "https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/{img_en}",
+                ));
+            }
+
+            // fallback to lower rarity
+            if fallback_rarity {
+                let lower = self.to_lower_rarity(db);
+                if lower != *self {
+                    return lower.image_path(db, lang, false);
+                }
+            }
         }
+
+        // we always have a japanese image
+        Some(format!(
+            "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{}",
+            card.img_path.japanese
+        ))
     }
 }
 

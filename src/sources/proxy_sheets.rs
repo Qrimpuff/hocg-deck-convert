@@ -59,7 +59,7 @@ async fn generate_pdf(
         Box::new(deck.oshi.iter().chain(deck.main_deck.iter()))
     };
     let cards: Vec<_> = cards
-        .filter(|c| c.image_path(db, card_lang).is_some())
+        .filter(|c| c.image_path(db, card_lang, true).is_some())
         .flat_map(|c| iter::repeat(c.clone()).take(c.amount as usize))
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
@@ -72,7 +72,7 @@ async fn generate_pdf(
     let download_images = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
-            let Some(img_path) = card.image_path(db, card_lang) else {
+            let Some(img_path) = card.image_path(db, card_lang, true) else {
                 // skip missing card
                 return;
             };
