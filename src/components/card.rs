@@ -26,6 +26,7 @@ pub fn Card(
     is_edit: Signal<bool>,
     show_price: Option<Signal<bool>>,
     prices: Option<Signal<PriceCache>>,
+    card_detail: Option<Signal<CommonCard>>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
@@ -123,6 +124,15 @@ pub fn Card(
     };
 
     let mut show_popup = use_signal(|| false);
+    let mut popup_card = use_signal(|| card.clone());
+    let _card = card.clone();
+    let is_selected = use_memo(move || {
+        if let Some(card_detail) = card_detail {
+            *card_detail.read() == _card
+        } else {
+            false
+        }
+    });
 
     rsx! {
         div { class: "m-2",
@@ -132,15 +142,28 @@ pub fn Card(
                 title: "Show card details for {tooltip}",
                 onclick: move |evt| {
                     evt.prevent_default();
-                    show_popup.set(true);
-                    track_event(
-                        EventType::EditDeck,
-                        EventData {
-                            action: "Card details".into(),
-                        },
-                    );
+                    if let Some(mut card_detail) = card_detail {
+                        card_detail.set(card.clone());
+                        track_event(
+                            EventType::EditDeck,
+                            EventData {
+                                action: "Card illustration".into(),
+                            },
+                        );
+                    } else {
+                        popup_card.set(card.clone());
+                        show_popup.set(true);
+                        track_event(
+                            EventType::EditDeck,
+                            EventData {
+                                action: "Card details".into(),
+                            },
+                        );
+                    }
                 },
-                figure { class: "image {img_class}",
+                figure {
+                    class: "image {img_class}",
+                    class: if *is_selected.read() { "selected" },
                     img {
                         border_radius: "3.7%",
                         src: "{img_path}",
@@ -228,11 +251,11 @@ pub fn Card(
         ModelPopup {
             show_popup,
             title: rsx! {
-                CardDetailsTitle { card: card.clone(), db }
+                CardDetailsTitle { card: popup_card, db }
             },
             content: rsx! {
                 CardDetailsContent {
-                    card: card.clone(),
+                    card: popup_card,
                     card_type,
                     db,
                     common_deck,

@@ -1,4 +1,6 @@
-use dioxus::prelude::*;
+use std::vec;
+
+use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use itertools::Itertools;
 use num_format::{Locale, ToFormattedString};
@@ -6,6 +8,7 @@ use serde::Serialize;
 
 use crate::{
     CardLanguage, CardType,
+    components::card::Card,
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
     tracker::{EventType, track_event},
 };
@@ -18,8 +21,7 @@ struct EventData {
 }
 
 #[component]
-pub fn CardDetailsTitle(card: CommonCard, db: Signal<CardsDatabase>) -> Element {
-    let card = use_signal(|| card);
+pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> Element {
     let mut lang = CARD_DETAILS_LANG.signal();
 
     let title = use_memo(move || {
@@ -92,7 +94,7 @@ pub fn CardDetailsTitle(card: CommonCard, db: Signal<CardsDatabase>) -> Element 
 
 #[component]
 pub fn CardDetailsContent(
-    card: CommonCard,
+    card: Signal<CommonCard>,
     card_type: CardType,
     db: Signal<CardsDatabase>,
     common_deck: Option<Signal<CommonDeck>>,
@@ -105,7 +107,6 @@ pub fn CardDetailsContent(
     let error_img_path =
         format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
 
-    let card = use_signal(|| card);
     let lang = CARD_DETAILS_LANG.signal();
     let mut big_card = use_signal(|| false);
 
@@ -116,6 +117,50 @@ pub fn CardDetailsContent(
                 .image_path(&db.read(), *lang.read(), false)
                 .unwrap_or_else(|| _error_img_path.clone())
         }
+    });
+
+    let _db = db.read();
+    let alt_cards = card
+        .read()
+        .alt_cards(&_db)
+        .into_iter()
+        .map(move |mut cc| {
+            if let Some(common_deck) = common_deck {
+                let common_deck = common_deck.read();
+                cc.amount = cc
+                    .manage_id
+                    .as_ref()
+                    .and_then(|id| common_deck.find_card(*id))
+                    .map(|c| c.amount)
+                    .unwrap_or(0);
+            };
+            let id = format!("card-details-alt_{}", cc.manage_id.as_ref().unwrap_or(&0));
+            rsx! {
+                div { id,
+                    Card {
+                        card: cc,
+                        card_type: CardType::Main,
+                        card_lang: use_signal(|| CardLanguage::Japanese),
+                        is_preview: false,
+                        db,
+                        common_deck,
+                        is_edit: use_signal(|| false),
+                        card_detail: Some(card),
+                    }
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    // scroll currently selected into view
+    let _ = use_effect(move || {
+        let id = format!(
+            "card-details-alt_{}",
+            card.read().manage_id.as_ref().unwrap_or(&0)
+        );
+        document().eval(format!("
+            var target = document.getElementById('{id}');
+            target.parentNode.scrollLeft = target.offsetLeft - target.parentNode.offsetLeft - target.parentNode.offsetWidth / 2 + target.offsetWidth / 2;
+        "));
     });
 
     let card_type = use_memo(move || {
@@ -374,9 +419,17 @@ pub fn CardDetailsContent(
             }
         }
 
+        // an horizontal scrollable list of alternative illustrations
+        div {
+            class: "block is-flex is-flex-wrap-nowrap pb-2",
+            style: "overflow-x: auto; justify-content: safe center;",
+            for illust in alt_cards {
+                {illust}
+            }
+        }
+
+
         // TODO add left and right arrows to navigate between cards
-        // what if a card carousel for alternative illustrations?
-        // or an horizontal scrollable list of cards, under the main picture?
         // TODO add/remove card buttons (max amount)
         div { class: "is-flex is-justify-content-space-between",
             div { class: "title is-5", "{card_type}" }
