@@ -4,11 +4,7 @@ use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
 use crate::{
-    CardLanguage, CardType,
-    components::{
-        card_details::{CardDetailsContent, CardDetailsTitle},
-        modal_popup::ModelPopup,
-    },
+    CARD_DETAILS, CardLanguage, CardType, SHOW_CARD_DETAILS,
     sources::{CommonCard, CommonDeck, price_check::PriceCache},
     tracker::{EventType, track_event, track_url},
 };
@@ -123,8 +119,6 @@ pub fn Card(
         }
     };
 
-    let mut show_popup = use_signal(|| false);
-    let mut popup_card = use_signal(|| card.clone());
     let _card = card.clone();
     let is_selected = use_memo(move || {
         if let Some(card_detail) = card_detail {
@@ -151,8 +145,8 @@ pub fn Card(
                             },
                         );
                     } else {
-                        popup_card.set(card.clone());
-                        show_popup.set(true);
+                        *CARD_DETAILS.write() = Some((card.clone(), card_type));
+                        *SHOW_CARD_DETAILS.write() = true;
                         track_event(
                             EventType::EditDeck,
                             EventData {
@@ -246,22 +240,6 @@ pub fn Card(
                     }
                 }
             }
-        }
-
-        ModelPopup {
-            show_popup,
-            title: rsx! {
-                CardDetailsTitle { card: popup_card, db }
-            },
-            content: rsx! {
-                CardDetailsContent {
-                    card: popup_card,
-                    card_type,
-                    db,
-                    common_deck,
-                    prices,
-                }
-            },
         }
     }
 }

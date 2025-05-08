@@ -3,13 +3,12 @@ use std::vec;
 use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use itertools::Itertools;
-use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
 use crate::{
-    CardLanguage, CardType,
-    components::card::Card,
-    sources::{CommonCard, CommonDeck, price_check::PriceCache},
+    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, SHOW_CARD_DETAILS,
+    components::{card::Card, modal_popup::ModelPopup},
+    sources::{CommonCard, CommonDeck},
     tracker::{EventType, track_event},
 };
 
@@ -18,6 +17,36 @@ static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLan
 #[derive(Serialize)]
 struct EventData {
     action: String,
+}
+
+#[component]
+pub fn CardDetailsPopup(card: CommonCard, card_type: CardType) -> Element {
+    let mut popup_card = use_signal(|| card.clone());
+
+    // update the card when the popup is opened
+    let _ = use_effect(move || {
+        if *SHOW_CARD_DETAILS.read() {
+            popup_card.write().clone_from(&card);
+        }
+    });
+
+    rsx! {
+        ModelPopup {
+            show_popup: SHOW_CARD_DETAILS.signal(),
+            title: rsx! {
+                CardDetailsTitle { card: popup_card, db: CARDS_DB.signal() }
+            },
+            content: rsx! {
+                CardDetailsContent {
+                    card: popup_card,
+                    card_type,
+                    db: CARDS_DB.signal(),
+                    common_deck: COMMON_DECK.signal(),
+                    is_edit: EDIT_DECK.signal(),
+                }
+            },
+        }
+    }
 }
 
 #[component]
@@ -98,7 +127,7 @@ pub fn CardDetailsContent(
     card_type: CardType,
     db: Signal<CardsDatabase>,
     common_deck: Option<Signal<CommonDeck>>,
-    prices: Option<Signal<PriceCache>>,
+    is_edit: Signal<bool>,
 ) -> Element {
     let error_img_path: &str = match card_type {
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
@@ -120,6 +149,7 @@ pub fn CardDetailsContent(
     });
 
     let _db = db.read();
+    let card_lang = use_signal(|| CardLanguage::Japanese);
     let alt_cards = card
         .read()
         .alt_cards(&_db)
@@ -140,11 +170,11 @@ pub fn CardDetailsContent(
                     Card {
                         card: cc,
                         card_type: CardType::Main,
-                        card_lang: use_signal(|| CardLanguage::Japanese),
+                        card_lang,
                         is_preview: false,
                         db,
                         common_deck,
-                        is_edit: use_signal(|| false),
+                        is_edit,
                         card_detail: Some(card),
                     }
                 }
@@ -343,54 +373,6 @@ pub fn CardDetailsContent(
         }
     });
 
-    // TODO not only yuyutei
-    let price_url = use_memo(move || {
-        let db = db.read();
-        let card = card.read().card_illustration(&db)?;
-
-        card.yuyutei_sell_url.clone()
-    });
-    let price = use_memo(move || {
-        if let Some(prices) = prices {
-            card.read()
-                .price(&db.read(), &prices.read())
-                .map(|p| p.to_formatted_string(&Locale::en))
-                .unwrap_or("?".into())
-        } else {
-            "?".into()
-        }
-    });
-
-    // verify card amount
-    let total_amount = use_memo(move || {
-        if let Some(common_deck) = common_deck {
-            common_deck
-                .read()
-                .all_cards()
-                .filter(|c| c.card_number == card.read().card_number)
-                .map(|c| c.amount)
-                .sum::<u32>()
-        } else {
-            0
-        }
-    });
-    let max_amount = use_memo(move || {
-        let db = db.read();
-        let Some(card) = card.read().card_info(&db) else {
-            return 0;
-        };
-
-        card.max_amount
-    });
-    let warning_amount = use_memo(move || *total_amount.read() > *max_amount.read());
-    let warning_class = use_memo(move || {
-        if *warning_amount.read() {
-            "is-warning"
-        } else {
-            "is-dark"
-        }
-    });
-
     rsx! {
         div { class: "block is-flex is-justify-content-center",
             a {
@@ -428,9 +410,6 @@ pub fn CardDetailsContent(
             }
         }
 
-
-        // TODO add left and right arrows to navigate between cards
-        // TODO add/remove card buttons (max amount)
         div { class: "is-flex is-justify-content-space-between",
             div { class: "title is-5", "{card_type}" }
             div { class: "is-flex-shrink-0",

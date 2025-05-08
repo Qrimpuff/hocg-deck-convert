@@ -4,7 +4,7 @@ mod components;
 mod sources;
 mod tracker;
 
-use components::deck_preview::DeckPreview;
+use components::{card_details::CardDetailsPopup, deck_preview::DeckPreview};
 use dioxus::{logger::tracing::debug, prelude::*};
 use gloo::{
     file::{Blob, BlobContents},
@@ -183,6 +183,11 @@ fn App() -> Element {
                 }
                 p { "Please support the official card game." }
             }
+
+            // card details popup
+            if let Some((card, card_type)) = CARD_DETAILS.read().as_ref() {
+                CardDetailsPopup { card: card.clone(), card_type: *card_type }
+            }
         }
     }
 }
@@ -194,6 +199,8 @@ static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
+static SHOW_CARD_DETAILS: GlobalSignal<bool> = Signal::global(|| false);
+static CARD_DETAILS: GlobalSignal<Option<(CommonCard, CardType)>> = Signal::global(|| None);
 
 #[component]
 fn Form(card_lang: Signal<CardLanguage>) -> Element {

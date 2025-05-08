@@ -252,6 +252,7 @@ pub fn CardSearch(
         }
     };
 
+    let card_lang = use_signal(|| CardLanguage::Japanese);
     let _ = use_effect(move || {
         debug!("update_cards called");
         let filter_text = cards_filter.read();
@@ -287,7 +288,7 @@ pub fn CardSearch(
                                 .unwrap_or(0),
                         },
                         card_type: CardType::Main,
-                        card_lang: use_signal(|| CardLanguage::Japanese),
+                        card_lang,
                         is_preview: false,
                         db,
                         common_deck,
