@@ -143,7 +143,7 @@ pub fn CardDetailsContent(
     let img_path = use_memo({
         move || {
             card.read()
-                .image_path(&db.read(), *lang.read(), false)
+                .image_path(&db.read(), *lang.read(), false, true)
                 .unwrap_or_else(|| _error_img_path.clone())
         }
     });

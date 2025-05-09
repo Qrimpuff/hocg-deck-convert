@@ -76,16 +76,6 @@ pub fn DeckPreview(
     });
 
     let db = db.read();
-    let mut warnings = deck.validate(&db);
-
-    // warn on missing english proxy
-    if *card_lang.read() == CardLanguage::English
-        && deck
-            .all_cards()
-            .any(|c| c.image_path(&db, *card_lang.read(), true).is_none())
-    {
-        warnings.push("Missing english proxy.".into());
-    }
 
     let show_price = *show_price.read();
     let approx_price = if show_price
@@ -108,20 +98,6 @@ pub fn DeckPreview(
     };
 
     rsx! {
-        if !warnings.is_empty() {
-            article { class: "message is-warning",
-                div { class: "message-header",
-                    p { "Warning" }
-                }
-                div { class: "message-body content",
-                    ul {
-                        for warn in warnings {
-                            li { "{warn}" }
-                        }
-                    }
-                }
-            }
-        }
         h2 { class: "title is-4", "Deck preview" }
         p { class: "subtitle is-6 is-spaced",
             if let Some(name) = &deck.name {

@@ -43,7 +43,7 @@ pub fn Card(
         format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
 
     let img_path = card
-        .image_path(&db.read(), *card_lang.read(), true)
+        .image_path(&db.read(), *card_lang.read(), true, true)
         .unwrap_or_else(|| error_img_path.clone());
 
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);

@@ -6,7 +6,8 @@ use dioxus::prelude::*;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use crate::{EventType, HOCG_DECK_CONVERT_API, track_event};
+use crate::components::deck_validation::DeckValidation;
+use crate::{CARD_LANG, EventType, HOCG_DECK_CONVERT_API, track_event};
 
 use super::{
     CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
@@ -404,6 +405,13 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
     };
 
     rsx! {
+        DeckValidation {
+            deck_check: true,
+            proxy_check: false,
+            card_lang: CARD_LANG.signal(),
+            db,
+            common_deck,
+        }
         div { class: "field",
             label { "for": "game_title_id", class: "label", "Deck Log language" }
             div { class: "control",

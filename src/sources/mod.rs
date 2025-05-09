@@ -216,6 +216,7 @@ impl CommonCard {
         db: &CardsDatabase,
         lang: CardLanguage,
         fallback_rarity: bool,
+        fallback_lang: bool,
     ) -> Option<String> {
         let card = self.card_illustration(db)?;
         if lang == CardLanguage::English {
@@ -243,8 +244,12 @@ impl CommonCard {
             if fallback_rarity {
                 let lower = self.to_lower_rarity(db);
                 if lower != *self {
-                    return lower.image_path(db, lang, false);
+                    return lower.image_path(db, lang, false, fallback_lang);
                 }
+            }
+
+            if !fallback_lang {
+                return None;
             }
         }
 

@@ -38,8 +38,6 @@ fn App() -> Element {
                 .unwrap()
     });
 
-    let card_lang = use_signal(|| CardLanguage::Japanese);
-
     rsx! {
         section { class: "section",
             div { class: "container",
@@ -120,11 +118,11 @@ fn App() -> Element {
                 }
                 div { class: "columns is-tablet",
                     div { class: "column is-two-fifths",
-                        Form { card_lang }
+                        Form { card_lang: CARD_LANG.signal() }
                     }
                     div { class: "column is-three-fifths",
                         DeckPreview {
-                            card_lang,
+                            card_lang: CARD_LANG.signal(),
                             db: CARDS_DB.signal(),
                             common_deck: COMMON_DECK.signal(),
                             is_edit: EDIT_DECK.signal(),
@@ -192,6 +190,7 @@ fn App() -> Element {
     }
 }
 
+static CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);

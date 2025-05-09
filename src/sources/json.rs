@@ -6,7 +6,9 @@ use dioxus::{
 };
 use serde::Serialize;
 
-use crate::{EventType, download_file, track_event};
+use crate::{
+    CARD_LANG, EventType, components::deck_validation::DeckValidation, download_file, track_event,
+};
 
 use super::{
     CardsDatabase, CommonDeck, CommonDeckConversion, DeckType, holodelta, holoduel, tabletop_sim,
@@ -321,6 +323,13 @@ pub fn JsonExport(
     };
 
     rsx! {
+        DeckValidation {
+            deck_check: true,
+            proxy_check: false,
+            card_lang: CARD_LANG.signal(),
+            db,
+            common_deck,
+        }
         div { class: "field",
             div { class: "control",
                 button {
