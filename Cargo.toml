@@ -9,23 +9,23 @@ edition = "2024"
 [dependencies]
 hocg-fan-sim-assets-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-assets" }
 
-dioxus = { version = "0.6.0", features = ["web", "router"] }
-serde = "1.0"
-serde_json = "1.0"
-reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
+futures = "0.3.31"
 gloo = "0.11.0"
-web-sys = { version = "0.3.70", features = ["Navigator", "Screen"] }
+image = { version = "0.25.2", features = ["png", "webp"] }
 indexmap = { version = "2.5.0", features = ["serde"] }
-# printpdf: the version on cargo is broken for wasm, and doesn't support reusing images
+itertools = "0.14.0"
+num-format = "0.4.4"
 printpdf = { git = "https://github.com/Qrimpuff/printpdf", branch = "reuse_image", features = [
     "embedded_images",
 ] }
-image = { version = "0.25.2", features = ["png", "webp"] }
-futures = "0.3.31"
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
+serde = "1.0"
+serde_json = "1.0"
+wana_kana = "4.0.0"
 wasm-bindgen = { version = "0.2.95", features = ["serde"] }
+web-sys = { version = "0.3.70", features = ["Navigator", "Screen"] }
 web-time = "1.1.0"
-itertools = "0.14.0"
-num-format = "0.4.4"
+dioxus = { version = "0.6.0", features = ["web", "router"] }
 
 [profile]
 

@@ -2,6 +2,7 @@ use dioxus::{document::document, logger::tracing::debug, prelude::*};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, SupportType};
 use itertools::Itertools;
 use serde::Serialize;
+use wana_kana::utils::katakana_to_hiragana;
 
 use crate::{
     CardLanguage, CardType,
@@ -63,8 +64,10 @@ fn filter_cards<'a>(
     tag: &FilterTag,
     db: &'a CardsDatabase,
 ) -> Vec<&'a hocg::CardIllustration> {
-    let filter = filter.trim().to_lowercase();
+    // normalize the filter to hiragana, lowercase and remove extra spaces
+    let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
     let filter = filter.split_whitespace().collect_vec();
+
     let mut cards = db
         .values()
         // filter by text
@@ -72,7 +75,7 @@ fn filter_cards<'a>(
             // check that all words matches
             filter.iter().all(|filter| {
                 card.card_number.to_lowercase().contains(filter)
-                    || card.name.japanese.to_lowercase().contains(filter)
+                    || katakana_to_hiragana(&card.name.japanese.to_lowercase()).contains(filter)
                     || card
                         .name
                         .english
@@ -98,17 +101,16 @@ fn filter_cards<'a>(
                         .then_some("limited")
                         .unwrap_or_default()
                         .contains(filter)
-                    || card.text.japanese.to_lowercase().contains(filter)
+                    || katakana_to_hiragana(&card.text.japanese.to_lowercase()).contains(filter)
                     || card
                         .text
                         .english
                         .as_ref()
                         .map(|t| t.to_lowercase().contains(filter))
                         .unwrap_or_default()
-                    || card
-                        .tags
-                        .iter()
-                        .any(|tag| tag.japanese.to_lowercase().contains(filter))
+                    || card.tags.iter().any(|tag| {
+                        katakana_to_hiragana(&tag.japanese.to_lowercase()).contains(filter)
+                    })
                     || card.tags.iter().any(|tag| {
                         tag.english
                             .as_ref()
