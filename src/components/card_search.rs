@@ -233,13 +233,13 @@ pub fn CardSearch(
 
     let mut show_filters = use_signal(|| false);
     let mut filter_card_type = use_signal(|| FilterCardType::All);
-    let disable_filter_card_type = use_signal(|| false);
+    let mut disable_filter_card_type = use_signal(|| false);
     let mut filter_color = use_signal(|| FilterColor::All);
     let mut disable_filter_color = use_signal(|| false);
     let mut filter_bloom_level = use_signal(|| FilterBloomLevel::All);
     let mut disable_filter_bloom_level = use_signal(|| false);
     let mut filter_tag = use_signal(|| FilterTag::All);
-    let disable_filter_tag = use_signal(|| false);
+    let mut disable_filter_tag = use_signal(|| false);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -647,9 +647,13 @@ pub fn CardSearch(
                             r#type: "button",
                             onclick: move |_| {
                                 *filter_card_type.write() = FilterCardType::All;
+                                *disable_filter_card_type.write() = false;
                                 *filter_color.write() = FilterColor::All;
+                                *disable_filter_color.write() = false;
                                 *filter_bloom_level.write() = FilterBloomLevel::All;
+                                *disable_filter_bloom_level.write() = false;
                                 *filter_tag.write() = FilterTag::All;
+                                *disable_filter_tag.write() = false;
                                 *cards_filter.write() = String::new();
                                 *card_amount.write() = CARD_INCREMENT;
                                 scroll_to_top();
