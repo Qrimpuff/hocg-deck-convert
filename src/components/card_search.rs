@@ -233,9 +233,13 @@ pub fn CardSearch(
 
     let mut show_filters = use_signal(|| false);
     let mut filter_card_type = use_signal(|| FilterCardType::All);
+    let disable_filter_card_type = use_signal(|| false);
     let mut filter_color = use_signal(|| FilterColor::All);
+    let mut disable_filter_color = use_signal(|| false);
     let mut filter_bloom_level = use_signal(|| FilterBloomLevel::All);
+    let mut disable_filter_bloom_level = use_signal(|| false);
     let mut filter_tag = use_signal(|| FilterTag::All);
+    let disable_filter_tag = use_signal(|| false);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -346,6 +350,7 @@ pub fn CardSearch(
                         div { class: "select",
                             select {
                                 id: "card_language",
+                                disabled: *disable_filter_card_type.read(),
                                 oninput: move |ev| {
                                     *filter_card_type.write() = match ev.value().as_str() {
                                         "oshi" => FilterCardType::OshiHoloMember,
@@ -362,6 +367,32 @@ pub fn CardSearch(
                                         _ => FilterCardType::All,
                                     };
                                     scroll_to_top();
+                                    match *filter_card_type.read() {
+                                        FilterCardType::All => {
+                                            *disable_filter_color.write() = false;
+                                            *disable_filter_bloom_level.write() = false;
+                                        }
+                                        FilterCardType::OshiHoloMember => {
+                                            *disable_filter_color.write() = false;
+                                            *disable_filter_bloom_level.write() = true;
+                                            *filter_bloom_level.write() = FilterBloomLevel::All;
+                                        }
+                                        FilterCardType::HoloMember => {
+                                            *disable_filter_color.write() = false;
+                                            *disable_filter_bloom_level.write() = false;
+                                        }
+                                        FilterCardType::Cheer => {
+                                            *disable_filter_color.write() = false;
+                                            *disable_filter_bloom_level.write() = true;
+                                            *filter_bloom_level.write() = FilterBloomLevel::All;
+                                        }
+                                        _ => {
+                                            *disable_filter_color.write() = true;
+                                            *filter_color.write() = FilterColor::All;
+                                            *disable_filter_bloom_level.write() = true;
+                                            *filter_bloom_level.write() = FilterBloomLevel::All;
+                                        }
+                                    }
                                     if *filter_card_type.read() != FilterCardType::All {
                                         track_event(
                                             EventType::EditDeck,
@@ -442,6 +473,7 @@ pub fn CardSearch(
                         div { class: "select",
                             select {
                                 id: "card_color",
+                                disabled: *disable_filter_color.read(),
                                 oninput: move |ev| {
                                     *filter_color.write() = match ev.value().as_str() {
                                         "white" => FilterColor::White,
@@ -514,6 +546,7 @@ pub fn CardSearch(
                         div { class: "select",
                             select {
                                 id: "card_bloom_level",
+                                disabled: *disable_filter_bloom_level.read(),
                                 oninput: move |ev| {
                                     *filter_bloom_level.write() = match ev.value().as_str() {
                                         "debut" => FilterBloomLevel::Debut,
@@ -574,6 +607,7 @@ pub fn CardSearch(
                         div { class: "select",
                             select {
                                 id: "card_tag",
+                                disabled: *disable_filter_tag.read(),
                                 oninput: move |ev| {
                                     *filter_tag.write() = match ev.value().as_str() {
                                         "all" => FilterTag::All,
