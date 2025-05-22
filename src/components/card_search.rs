@@ -243,7 +243,7 @@ pub fn CardSearch(
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
-        *cards_filter.write() = filter.trim().to_lowercase();
+        *cards_filter.write() = filter.clone();
         *card_amount.write() = CARD_INCREMENT;
         // scroll to top, after updating the filter, to show the first cards
         scroll_to_top();
