@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::iter;
 use std::{collections::HashMap, sync::Arc};
 
 use ::image::ImageFormat;
@@ -61,7 +60,7 @@ async fn generate_pdf(
     };
     let cards: Vec<_> = cards
         .filter(|c| c.image_path(db, card_lang, true, true).is_some())
-        .flat_map(|c| iter::repeat(c.clone()).take(c.amount as usize))
+        .flat_map(|c| std::iter::repeat_n(c.clone(), c.amount as usize))
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
 

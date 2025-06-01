@@ -9,8 +9,6 @@ use crate::{
     tracker::{EventType, track_event, track_url},
 };
 
-// TODO add popup for card info (allow adding and removing cards)
-
 #[component]
 pub fn Card(
     card: CommonCard,

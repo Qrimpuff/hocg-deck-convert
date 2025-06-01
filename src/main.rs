@@ -35,7 +35,7 @@ fn App() -> Element {
                 .unwrap()
                 .json()
                 .await
-                .unwrap()
+                .unwrap();
     });
 
     rsx! {

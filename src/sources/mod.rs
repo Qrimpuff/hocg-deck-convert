@@ -137,14 +137,13 @@ impl CommonCard {
             }
 
             // fallback to a possible future art index
-            let next_delta_art_index = db
-                .values()
+
+            db.values()
                 .flat_map(|c| &c.illustrations)
                 .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
                 .filter_map(|c| Some(c.delta_art_index? + 1))
                 .max()
-                .unwrap_or(0);
-            next_delta_art_index
+                .unwrap_or(0)
         } else {
             0
         }

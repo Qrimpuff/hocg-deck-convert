@@ -36,3 +36,61 @@
     line-height: 0.8 !important;
     height: unset !important;
 }
+
+
+.oshi-skill-keyword {
+    font-style: italic !important;
+    color: #ED798D !important;
+}
+
+.oshi-skill-special-keyword {
+    font-style: italic !important;
+    background-image: linear-gradient(110deg, rgb(123, 90, 163), rgb(95, 182, 231) 55%, rgb(229, 51, 122)) !important;
+    color: transparent !important;
+    background-clip: text !important;
+}
+
+.collab-keyword {
+    font-style: italic !important;
+    color: #CA101B !important;
+}
+
+.bloom-keyword {
+    font-style: italic !important;
+    color: #007EC5 !important;
+}
+
+.gift-keyword {
+    font-style: italic !important;
+    color: #10A139 !important;
+}
+
+.extra-keyword {
+    font-style: italic !important;
+    color: #bd880d !important;
+}
+
+
+.white-advantage {
+    color: var(--bulma-title-color) !important;
+}
+
+.green-advantage {
+    color: #10A139 !important;
+}
+
+.red-advantage {
+    color: #CA101B !important;
+}
+
+.blue-advantage {
+    color: #007EC5 !important;
+}
+
+.purple-advantage {
+    color: #946ab4 !important;
+}
+
+.yellow-advantage {
+    color: #bd880d !important;
+}

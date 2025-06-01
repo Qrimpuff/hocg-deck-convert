@@ -1,5 +1,5 @@
 use dioxus::{document::document, logger::tracing::debug, prelude::*};
-use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, SupportType};
+use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, Localized, SupportType};
 use itertools::Itertools;
 use serde::Serialize;
 use wana_kana::utils::katakana_to_hiragana;
@@ -68,20 +68,28 @@ fn filter_cards<'a>(
     let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
     let filter = filter.split_whitespace().collect_vec();
 
+    fn check_filter(filter: &str, text: &Localized<String>) -> bool {
+        if filter.is_empty() {
+            return true; // if the filter is empty, we match everything
+        }
+
+        katakana_to_hiragana(&text.japanese.to_lowercase()).contains(filter)
+            || text
+                .english
+                .as_ref()
+                .map(|t| t.to_lowercase().contains(filter))
+                .unwrap_or_default()
+    }
+
     let mut cards = db
         .values()
+        .flat_map(|card| card.illustrations.iter().map(move |i| (card, i)))
         // filter by text
-        .filter(|card| {
+        .filter(|(card, illust)| {
             // check that all words matches
             filter.iter().all(|filter| {
                 card.card_number.to_lowercase().contains(filter)
-                    || katakana_to_hiragana(&card.name.japanese.to_lowercase()).contains(filter)
-                    || card
-                        .name
-                        .english
-                        .as_ref()
-                        .map(|t| t.to_lowercase().contains(filter))
-                        .unwrap_or_default()
+                    || check_filter(filter, &card.name)
                     || format!("{:?}", card.card_type)
                         .to_lowercase()
                         .contains(filter)
@@ -101,26 +109,28 @@ fn filter_cards<'a>(
                         .then_some("limited")
                         .unwrap_or_default()
                         .contains(filter)
-                    || katakana_to_hiragana(&card.text.japanese.to_lowercase()).contains(filter)
-                    || card
-                        .text
-                        .english
-                        .as_ref()
-                        .map(|t| t.to_lowercase().contains(filter))
-                        .unwrap_or_default()
-                    || card.tags.iter().any(|tag| {
-                        katakana_to_hiragana(&tag.japanese.to_lowercase()).contains(filter)
-                    })
-                    || card.tags.iter().any(|tag| {
-                        tag.english
-                            .as_ref()
-                            .map(|t| t.to_lowercase().contains(filter))
-                            .unwrap_or_default()
-                    })
+                    // Oshi skills
+                    || card.oshi_skills.iter().any(|skill| check_filter(filter, &skill.name))
+                    || card.oshi_skills.iter().any(|skill| check_filter(filter, &skill.ability_text))
+                    // Arts
+                    || card.arts.iter().any(|art| check_filter(filter, &art.name))
+                    || card.arts.iter().flat_map(|art| art.ability_text.as_ref()).any(|text| check_filter(filter, text))
+                    // Keywords
+                    || card.keywords.iter().any(|keyword| format!("{:?}", keyword.effect).to_lowercase().contains(filter))
+                    || card.keywords.iter().any(|keyword| check_filter(filter, &keyword.name))
+                    || card.keywords.iter().any(|keyword| check_filter(filter, &keyword.ability_text))
+                    // Ability text
+                    || check_filter(filter, &card.ability_text)
+                    // Extra
+                    || card.extra.iter().any(|extra| check_filter(filter, extra))
+                    // Tags
+                    || card.tags.iter().any(|tag| check_filter(filter, tag))
+                    // Illustrator
+                    || illust.illustrator.iter().any(|illustrator| check_filter(filter, &Localized::jp(illustrator.clone())))
             })
         })
         // filter by card type
-        .filter(|card| match (card_type, card.card_type) {
+        .filter(|(card, _)| match (card_type, card.card_type) {
             (FilterCardType::All, _) => true,
             (FilterCardType::OshiHoloMember, hocg::CardType::OshiHoloMember) => true,
             (FilterCardType::HoloMember, hocg::CardType::HoloMember) => true,
@@ -136,7 +146,7 @@ fn filter_cards<'a>(
             _ => false,
         })
         // filter by color
-        .filter(|card| match color {
+        .filter(|(card, _)| match color {
             FilterColor::All => true,
             FilterColor::White => card.colors.contains(&hocg::Color::White),
             FilterColor::Green => card.colors.contains(&hocg::Color::Green),
@@ -147,7 +157,7 @@ fn filter_cards<'a>(
             FilterColor::Colorless => card.colors.contains(&hocg::Color::Colorless),
         })
         // filter by bloom level
-        .filter(|card| match (bloom_level, card.bloom_level) {
+        .filter(|(card, _)| match (bloom_level, card.bloom_level) {
             (FilterBloomLevel::All, _) => true,
             (FilterBloomLevel::Debut, Some(hocg::BloomLevel::Debut)) => true,
             (FilterBloomLevel::First, Some(hocg::BloomLevel::First)) => true,
@@ -157,7 +167,7 @@ fn filter_cards<'a>(
             _ => false,
         })
         // filter by tag
-        .filter(|card| match tag {
+        .filter(|(card,_)| match tag {
             FilterTag::All => true,
             FilterTag::Tag(tag) => {
                 card.tags
@@ -174,11 +184,11 @@ fn filter_cards<'a>(
         .collect_vec();
 
     // TODO sort by relevance
-    cards.sort();
+    cards.sort_by_cached_key(|(card, _)| *card);
 
     cards
         .into_iter()
-        .flat_map(|card| &card.illustrations)
+        .map(|(_, illustration)| illustration)
         .collect()
 }
 
