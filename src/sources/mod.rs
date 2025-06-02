@@ -253,10 +253,25 @@ impl CommonCard {
         }
 
         // we always have a japanese image
-        Some(format!(
-            "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{}",
-            card.img_path.japanese
-        ))
+        if let Some(img_jp) = &card.img_path.japanese {
+            Some(format!(
+                "https://qrimpuff.github.io/hocg-fan-sim-assets/img/{img_jp}",
+            ))
+        } else {
+            let error_img_path: &str = match self.card_type(db).unwrap_or(CardType::Main) {
+                CardType::Oshi | CardType::Cheer => "cheer-back.webp",
+                CardType::Main => "card-back.webp",
+            };
+            Some(format!("/hocg-deck-convert/assets/{error_img_path}"))
+        }
+    }
+
+    pub fn is_unknown(&self, db: &CardsDatabase) -> bool {
+        self.card_info(db).is_none()
+    }
+
+    pub fn is_unreleased(&self, db: &CardsDatabase) -> bool {
+        self.manage_id.is_none() && !self.is_unknown(db)
     }
 }
 
@@ -343,8 +358,9 @@ impl CommonDeck {
                 let name = oshi
                     .name
                     .english
-                    .as_ref()
-                    .unwrap_or(&oshi.name.japanese)
+                    .as_deref()
+                    .and(oshi.name.japanese.as_deref())
+                    .unwrap_or("Unknown")
                     .to_string();
                 let name = format!("Custom deck - {}", name);
                 if name.len() <= max_length {
@@ -397,15 +413,22 @@ impl CommonDeck {
         self.oshi.is_none() && self.main_deck.is_empty() && self.cheer_deck.is_empty()
     }
 
-    pub fn validate(&self, db: &CardsDatabase) -> Vec<String> {
+    pub fn validate(&self, db: &CardsDatabase, allow_unreleased: bool) -> Vec<String> {
         let mut errors = vec![];
 
         // check for unreleased or invalid cards
-        if self.oshi.iter().any(|c| c.manage_id.is_none())
-            || self.main_deck.iter().any(|c| c.manage_id.is_none())
-            || self.cheer_deck.iter().any(|c| c.manage_id.is_none())
+        if self.oshi.iter().any(|c| c.is_unknown(db))
+            || self.main_deck.iter().any(|c| c.is_unknown(db))
+            || self.cheer_deck.iter().any(|c| c.is_unknown(db))
         {
             errors.push("Contains unknown cards.".into());
+        }
+        if !allow_unreleased
+            && (self.oshi.iter().any(|c| c.is_unreleased(db))
+                || self.main_deck.iter().any(|c| c.is_unreleased(db))
+                || self.cheer_deck.iter().any(|c| c.is_unreleased(db)))
+        {
+            errors.push("Contains unreleased cards.".into());
         }
 
         // check for card amount

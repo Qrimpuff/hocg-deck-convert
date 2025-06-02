@@ -140,6 +140,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::TabletopSim,
             export_name: "Tabletop Sim",
             export_id: "hocg_tts",
+            allow_unreleased: false,
             common_deck,
             db,
         }

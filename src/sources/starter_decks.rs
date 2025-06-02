@@ -359,7 +359,7 @@ pub fn Import(
                             for (idx , oshi) in oshi_options.iter().enumerate() {
                                 if let Some(oshi) = oshi.card_info(&db.read()) {
                                     option { value: "{idx}",
-                                        "{oshi.card_number} - {oshi.name.english.as_ref().unwrap_or(&oshi.name.japanese)}"
+                                        "{oshi.card_number} - {oshi.name.english.as_deref().and(oshi.name.japanese.as_deref()).unwrap_or(\"Unknown\")}"
                                     }
                                 } else {
                                     option { value: "{idx}", "{oshi.card_number}" }

@@ -4,8 +4,8 @@ use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
 use crate::{
-    CARD_DETAILS, CardLanguage, CardType, SHOW_CARD_DETAILS,
-    sources::{CommonCard, CommonDeck, price_check::PriceCache},
+    CARD_DETAILS, CardLanguage, CardType, EXPORT_FORMAT, SHOW_CARD_DETAILS,
+    sources::{CommonCard, CommonDeck, DeckType, price_check::PriceCache},
     tracker::{EventType, track_event, track_url},
 };
 
@@ -37,8 +37,7 @@ pub fn Card(
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
         CardType::Main => "card-back.webp",
     };
-    let error_img_path =
-        format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
+    let error_img_path = format!("/hocg-deck-convert/assets/{error_img_path}");
 
     let img_path = card
         .image_path(&db.read(), *card_lang.read(), true, true)
@@ -73,10 +72,35 @@ pub fn Card(
         .map(|i| i.max_amount)
         .unwrap_or(50);
     let warning_amount = total_amount > max_amount;
-    let warning_class = if warning_amount {
+    let warning_amount_class = if warning_amount {
         "is-warning"
     } else {
         "is-dark"
+    };
+
+    // highlight cards that cause the warnings
+    let is_unknown = card.is_unknown(&db.read());
+    let is_unreleased = card.is_unreleased(&db.read());
+    let is_warning_card = if is_preview {
+        let export = *EXPORT_FORMAT.read();
+        if is_unknown {
+            matches!(
+                export,
+                Some(DeckType::DeckLog)
+                    | Some(DeckType::HoloDelta)
+                    | Some(DeckType::HoloDuel)
+                    | Some(DeckType::TabletopSim)
+            )
+        } else if is_unreleased {
+            matches!(
+                export,
+                Some(DeckType::DeckLog) | Some(DeckType::HoloDuel) | Some(DeckType::TabletopSim)
+            )
+        } else {
+            false
+        }
+    } else {
+        false
     };
 
     let tooltip = card
@@ -156,6 +180,7 @@ pub fn Card(
                 figure {
                     class: "image {img_class}",
                     class: if *is_selected.read() { "selected" },
+                    class: if is_warning_card { "warning" },
                     img {
                         border_radius: "3.7%",
                         src: "{img_path}",
@@ -163,7 +188,7 @@ pub fn Card(
                     }
                     if show_price {
                         span {
-                            class: "badge is-bottom {warning_class} card-amount",
+                            class: "badge is-bottom {warning_amount_class} card-amount",
                             style: "z-index: 10",
                             " ¥{price} × {card.amount} "
                             if let Some(price_url) = price_url {
@@ -178,7 +203,7 @@ pub fn Card(
                         }
                     } else if card_type != CardType::Oshi && card.amount > 0 {
                         span {
-                            class: "badge is-bottom {warning_class} card-amount",
+                            class: "badge is-bottom {warning_amount_class} card-amount",
                             style: "z-index: 10",
                             "{card.amount}"
                         }

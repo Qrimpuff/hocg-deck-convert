@@ -144,6 +144,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::HoloDelta,
             export_name: "holoDelta",
             export_id: "holodelta",
+            allow_unreleased: true,
             common_deck,
             db,
         }

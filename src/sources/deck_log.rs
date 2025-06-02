@@ -351,7 +351,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
     let mut deck_log_url = use_signal(String::new);
     let mut loading = use_signal(|| false);
 
-    let warnings = common_deck.read().validate(&db.read());
+    let warnings = common_deck.read().validate(&db.read(), false);
 
     let publish_deck = move |_| async move {
         let common_deck = common_deck.read();
@@ -408,6 +408,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
         DeckValidation {
             deck_check: true,
             proxy_check: false,
+            allow_unreleased: false,
             card_lang: CARD_LANG.signal(),
             db,
             common_deck,

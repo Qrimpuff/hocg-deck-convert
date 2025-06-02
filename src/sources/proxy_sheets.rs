@@ -234,6 +234,7 @@ pub fn Export(
         DeckValidation {
             deck_check: false,
             proxy_check: true,
+            allow_unreleased: true,
             card_lang,
             db,
             common_deck,

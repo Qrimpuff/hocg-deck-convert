@@ -255,6 +255,7 @@ pub fn JsonExport(
     deck_type: DeckType,
     export_name: String,
     export_id: String,
+    allow_unreleased: bool,
     mut common_deck: Signal<CommonDeck>,
     db: Signal<CardsDatabase>,
 ) -> Element {
@@ -326,6 +327,7 @@ pub fn JsonExport(
         DeckValidation {
             deck_check: true,
             proxy_check: false,
+            allow_unreleased,
             card_lang: CARD_LANG.signal(),
             db,
             common_deck,

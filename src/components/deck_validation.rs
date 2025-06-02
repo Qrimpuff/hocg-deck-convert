@@ -7,6 +7,7 @@ use crate::{CardLanguage, sources::CommonDeck};
 pub fn DeckValidation(
     deck_check: bool,
     proxy_check: bool,
+    allow_unreleased: bool,
     card_lang: Signal<CardLanguage>,
     db: Signal<CardsDatabase>,
     common_deck: Signal<CommonDeck>,
@@ -22,7 +23,7 @@ pub fn DeckValidation(
     let mut warnings = vec![];
 
     if deck_check {
-        warnings.extend(deck.validate(&db));
+        warnings.extend(deck.validate(&db, allow_unreleased));
     }
 
     // warn on missing english proxy

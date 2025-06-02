@@ -73,7 +73,10 @@ fn filter_cards<'a>(
             return true; // if the filter is empty, we match everything
         }
 
-        katakana_to_hiragana(&text.japanese.to_lowercase()).contains(filter)
+        text.japanese
+            .as_ref()
+            .map(|t| katakana_to_hiragana(&t.to_lowercase()).contains(filter))
+            .unwrap_or_default()
             || text
                 .english
                 .as_ref()
@@ -170,15 +173,17 @@ fn filter_cards<'a>(
         .filter(|(card,_)| match tag {
             FilterTag::All => true,
             FilterTag::Tag(tag) => {
-                card.tags
-                    .iter()
-                    .any(|t| t.japanese.to_lowercase() == tag.to_lowercase())
-                    || card.tags.iter().any(|t| {
-                        t.english
-                            .as_ref()
-                            .map(|t| t.to_lowercase() == tag.to_lowercase())
-                            .unwrap_or_default()
-                    })
+                card.tags.iter().any(|t| {
+                    t.japanese
+                        .as_ref()
+                        .map(|t| t.to_lowercase() == tag.to_lowercase())
+                        .unwrap_or_default()
+                }) || card.tags.iter().any(|t| {
+                    t.english
+                        .as_ref()
+                        .map(|t| t.to_lowercase() == tag.to_lowercase())
+                        .unwrap_or_default()
+                })
             }
         })
         .collect_vec();

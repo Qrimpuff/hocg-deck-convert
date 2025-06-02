@@ -62,7 +62,10 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
         };
 
         if *lang.read() == CardLanguage::Japanese {
-            card.name.japanese.clone()
+            card.name
+                .japanese
+                .clone()
+                .unwrap_or("<No Japanese name>".to_string())
         } else {
             card.name
                 .english
@@ -135,8 +138,7 @@ pub fn CardDetailsContent(
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
         CardType::Main => "card-back.webp",
     };
-    let error_img_path =
-        format!("https://qrimpuff.github.io/hocg-fan-sim-assets/img/{error_img_path}");
+    let error_img_path = format!("/hocg-deck-convert/assets/{error_img_path}");
 
     let lang = CARD_DETAILS_LANG.signal();
     let mut big_card = use_signal(|| false);
@@ -381,7 +383,10 @@ pub fn CardDetailsContent(
         }
 
         if *lang.read() == CardLanguage::Japanese {
-            card.ability_text.japanese.clone()
+            card.ability_text
+                .japanese
+                .clone()
+                .unwrap_or("<No Japanese text>".to_string())
         } else {
             card.ability_text
                 .english
@@ -401,7 +406,10 @@ pub fn CardDetailsContent(
 
         card.extra.as_ref().map(|extra| {
             if *lang.read() == CardLanguage::Japanese {
-                extra.japanese.clone()
+                extra
+                    .japanese
+                    .clone()
+                    .unwrap_or("<No Japanese text>".to_string())
             } else {
                 extra
                     .english
@@ -421,7 +429,9 @@ pub fn CardDetailsContent(
             .iter()
             .map(|t| {
                 if *lang.read() == CardLanguage::Japanese {
-                    t.japanese.clone()
+                    t.japanese
+                        .clone()
+                        .unwrap_or("<No Japanese tag>".to_string())
                 } else {
                     t.english.clone().unwrap_or("<No English tag>".to_string())
                 }
@@ -593,7 +603,11 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
     let holo_power = format!("-{}", String::from(skill.holo_power).to_uppercase());
 
     let name = if *lang.read() == CardLanguage::Japanese {
-        skill.name.japanese.clone()
+        skill
+            .name
+            .japanese
+            .clone()
+            .unwrap_or("<No Japanese name>".to_string())
     } else {
         skill
             .name
@@ -603,7 +617,11 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
     };
 
     let text = if *lang.read() == CardLanguage::Japanese {
-        skill.ability_text.japanese.clone()
+        skill
+            .ability_text
+            .japanese
+            .clone()
+            .unwrap_or("<No Japanese text>".to_string())
     } else {
         skill
             .ability_text
@@ -653,7 +671,11 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
     };
 
     let name = if *lang.read() == CardLanguage::Japanese {
-        keyword.name.japanese.clone()
+        keyword
+            .name
+            .japanese
+            .clone()
+            .unwrap_or("<No Japanese name>".to_string())
     } else {
         keyword
             .name
@@ -663,7 +685,11 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
     };
 
     let text = if *lang.read() == CardLanguage::Japanese {
-        keyword.ability_text.japanese.clone()
+        keyword
+            .ability_text
+            .japanese
+            .clone()
+            .unwrap_or("<No Japanese text>".to_string())
     } else {
         keyword
             .ability_text
@@ -722,7 +748,10 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
     });
 
     let name = if *lang.read() == CardLanguage::Japanese {
-        art.name.japanese.clone()
+        art.name
+            .japanese
+            .clone()
+            .unwrap_or("<No Japanese name>".to_string())
     } else {
         art.name
             .english
@@ -762,7 +791,11 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
     });
 
     let text = if *lang.read() == CardLanguage::Japanese {
-        art.ability_text.map(|text| text.japanese.clone())
+        art.ability_text.map(|text| {
+            text.japanese
+                .clone()
+                .unwrap_or("<No Japanese text>".to_string())
+        })
     } else {
         art.ability_text.map(|text| {
             text.english
