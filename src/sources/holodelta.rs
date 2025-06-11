@@ -82,7 +82,7 @@ impl CommonCardConversion for DeckCard {
 
     fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck {
         cards
-            .merge()
+            .merge_delta(db)
             .into_iter()
             .map(|c| DeckCard::from_common_card(c, db))
             .collect()

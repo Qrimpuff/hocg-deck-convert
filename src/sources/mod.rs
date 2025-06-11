@@ -277,6 +277,7 @@ impl CommonCard {
 
 trait MergeCommonCards {
     fn merge(self) -> Self;
+    fn merge_delta(self, db: &CardsDatabase) -> Self;
     fn merge_without_rarity(self) -> Self;
 }
 impl MergeCommonCards for Vec<CommonCard> {
@@ -291,6 +292,19 @@ impl MergeCommonCards for Vec<CommonCard> {
 
             // merge cards with the same manage_id
             map.entry((card.card_number.clone(), card.manage_id))
+                .and_modify(|c: &mut CommonCard| c.amount += card.amount)
+                .or_insert(card);
+        }
+
+        map.into_values().collect()
+    }
+
+    fn merge_delta(self, db: &CardsDatabase) -> Self {
+        let mut map = IndexMap::with_capacity(self.len());
+
+        for card in self {
+            // merge cards with the same delta_art_index
+            map.entry((card.card_number.clone(), card.delta_art_index(db)))
                 .and_modify(|c: &mut CommonCard| c.amount += card.amount)
                 .or_insert(card);
         }
