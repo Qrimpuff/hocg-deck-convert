@@ -56,14 +56,14 @@ enum FilterTag {
 }
 
 // return a list of cards that match the filters
-fn filter_cards<'a>(
+fn filter_cards(
     filter: &str,
     card_type: &FilterCardType,
     color: &FilterColor,
     bloom_level: &FilterBloomLevel,
     tag: &FilterTag,
-    db: &'a CardsDatabase,
-) -> Vec<&'a hocg::CardIllustration> {
+    db: &CardsDatabase,
+) -> Vec<hocg::CardIllustration> {
     // normalize the filter to hiragana, lowercase and remove extra spaces
     let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
     let filter = filter.split_whitespace().collect_vec();
@@ -194,6 +194,7 @@ fn filter_cards<'a>(
     cards
         .into_iter()
         .map(|(_, illustration)| illustration)
+        .cloned()
         .collect()
 }
 
@@ -273,27 +274,31 @@ pub fn CardSearch(
         }
     };
 
-    let card_lang = use_signal(|| CardLanguage::Japanese);
-    let _ = use_effect(move || {
-        debug!("update_cards called");
+    let filtered_cards = use_memo(move || {
         let filter_text = cards_filter.read();
         let filter_type = filter_card_type.read();
         let filter_color = filter_color.read();
         let filter_bloom_level = filter_bloom_level.read();
         let filter_tag = filter_tag.read();
         let _db = db.read();
-        let _common_deck = common_deck.read();
-        let filtered_cards = filter_cards(
+        filter_cards(
             &filter_text,
             &filter_type,
             &filter_color,
             &filter_bloom_level,
             &filter_tag,
             &_db,
-        );
-        *max_card_amount.write() = filtered_cards.len();
-        *cards.write() = filtered_cards
-            .into_iter()
+        )
+    });
+
+    let card_lang = use_signal(|| CardLanguage::Japanese);
+    let _ = use_effect(move || {
+        debug!("update_cards called");
+        let _common_deck = common_deck.read();
+        let _filtered_cards = filtered_cards.read();
+        *max_card_amount.write() = _filtered_cards.len();
+        *cards.write() = _filtered_cards
+            .iter()
             // limit the number of cards shown
             .take(*card_amount.read())
             .map(move |card| {
