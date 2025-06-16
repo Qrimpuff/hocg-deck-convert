@@ -7,6 +7,7 @@ edition = "2024"
 [dependencies]
 hocg-fan-sim-assets-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-assets" }
 
+base64 = "0.22.1"
 futures = "0.3.31"
 gloo = "0.11.0"
 image = { version = "0.25.2", features = ["png", "webp"] }

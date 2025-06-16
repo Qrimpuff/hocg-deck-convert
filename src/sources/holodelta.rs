@@ -147,6 +147,9 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             allow_unreleased: true,
             common_deck,
             db,
+            base64_direct_import_url: Some(
+                "https://holodelta.azurewebsites.net/game/index.html?imported_deck=".to_string(),
+            ),
         }
     }
 }

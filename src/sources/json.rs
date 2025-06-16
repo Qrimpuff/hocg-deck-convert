@@ -1,9 +1,11 @@
 use std::error::Error;
 
+use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
 use dioxus::{
     logger::tracing::{debug, info},
     prelude::*,
 };
+use gloo::utils::window;
 use serde::Serialize;
 
 use crate::{
@@ -258,11 +260,14 @@ pub fn JsonExport(
     allow_unreleased: bool,
     mut common_deck: Signal<CommonDeck>,
     db: Signal<CardsDatabase>,
+    base64_direct_import_url: Option<String>,
 ) -> Element {
     #[derive(Serialize)]
     enum ExportKind {
         Download,
         Copy,
+        #[serde(rename = "Direct import")]
+        DirectImport,
     }
     #[derive(Serialize)]
     struct EventData {
@@ -274,6 +279,7 @@ pub fn JsonExport(
 
     let export_name = use_signal(|| export_name);
     let export_id = use_signal(|| export_id);
+    let base64_direct_import_url = use_signal(|| base64_direct_import_url);
     let mut deck_error = use_signal(String::new);
 
     let deck: Option<Deck> =
@@ -323,6 +329,43 @@ pub fn JsonExport(
         }
     };
 
+    let direct_import = move |_| {
+        if let Some(base64_direct_import_url) = base64_direct_import_url.read().as_ref() {
+            let deck: Option<_> =
+                Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read());
+            if let Some(deck) = deck {
+                match deck.to_file() {
+                    Ok(file) => {
+                        let base64_text = BASE64_URL_SAFE_NO_PAD.encode(file.as_slice());
+                        let _ = window().open_with_url_and_target(
+                            &format!("{base64_direct_import_url}{base64_text}"),
+                            "_blank",
+                        );
+                        track_event(
+                            EventType::Export(export_name.read().clone()),
+                            EventData {
+                                format: export_name.read().clone(),
+                                export_kind: ExportKind::DirectImport,
+                                error: None,
+                            },
+                        );
+                    }
+                    Err(e) => {
+                        *deck_error.write() = e.to_string();
+                        track_event(
+                            EventType::Export(export_name.read().clone()),
+                            EventData {
+                                format: export_name.read().clone(),
+                                export_kind: ExportKind::DirectImport,
+                                error: Some(e.to_string()),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    };
+
     rsx! {
         DeckValidation {
             deck_check: true,
@@ -331,6 +374,22 @@ pub fn JsonExport(
             card_lang: CARD_LANG.signal(),
             db,
             common_deck,
+        }
+        if base64_direct_import_url.read().is_some() {
+            div { class: "field",
+                div { class: "control",
+                    button {
+                        class: "button",
+                        disabled: text.is_empty(),
+                        r#type: "button",
+                        onclick: direct_import,
+                        span { class: "icon",
+                            i { class: "fa-solid fa-arrow-up-right-from-square" }
+                        }
+                        span { "Directly import into {export_name}" }
+                    }
+                }
+            }
         }
         div { class: "field",
             div { class: "control",

@@ -1440,6 +1440,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 name = "hocg-deck-convert"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "dioxus",
  "futures",
  "gloo",
