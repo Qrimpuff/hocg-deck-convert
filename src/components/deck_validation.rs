@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::CardsDatabase;
 
-use crate::{CardLanguage, sources::CommonDeck};
+use crate::{CardLanguage, CardType, sources::CommonDeck};
 
 #[component]
 pub fn DeckValidation(
@@ -31,6 +31,7 @@ pub fn DeckValidation(
         && *card_lang.read() == CardLanguage::English
         && deck
             .all_cards()
+            .filter(|c| c.card_type(&db) != Some(CardType::Cheer))
             .any(|c| c.image_path(&db, *card_lang.read(), true, false).is_none())
     {
         warnings.push("Missing english proxy.".into());
