@@ -152,112 +152,112 @@ pub fn Card(
 
     rsx! {
         div { class: "m-2",
-            a {
-                href: "#",
-                role: "button",
-                title: "Show card details for {tooltip}",
-                onclick: move |evt| {
-                    evt.prevent_default();
-                    if let Some(mut card_detail) = card_detail {
-                        card_detail.set(card.clone());
-                        track_event(
-                            EventType::EditDeck,
-                            EventData {
-                                action: "Card illustration".into(),
-                            },
-                        );
-                    } else {
-                        *CARD_DETAILS.write() = Some((card.clone(), card_type));
-                        *SHOW_CARD_DETAILS.write() = true;
-                        track_event(
-                            EventType::EditDeck,
-                            EventData {
-                                action: "Card details".into(),
-                            },
-                        );
-                    }
-                },
-                figure {
-                    class: "image {img_class}",
-                    class: if *is_selected.read() { "selected" },
-                    class: if is_warning_card { "warning" },
+            figure {
+                class: "image {img_class}",
+                class: if *is_selected.read() { "selected" },
+                class: if is_warning_card { "warning" },
+                a {
+                    href: "#",
+                    role: "button",
+                    title: "Show card details for {tooltip}",
+                    onclick: move |evt| {
+                        evt.prevent_default();
+                        if let Some(mut card_detail) = card_detail {
+                            card_detail.set(card.clone());
+                            track_event(
+                                EventType::EditDeck,
+                                EventData {
+                                    action: "Card illustration".into(),
+                                },
+                            );
+                        } else {
+                            *CARD_DETAILS.write() = Some((card.clone(), card_type));
+                            *SHOW_CARD_DETAILS.write() = true;
+                            track_event(
+                                EventType::EditDeck,
+                                EventData {
+                                    action: "Card details".into(),
+                                },
+                            );
+                        }
+                    },
                     img {
                         border_radius: "3.7%",
                         src: "{img_path}",
                         "onerror": "this.src='{error_img_path}'",
                     }
-                    if show_price {
-                        span {
-                            class: "badge is-bottom {warning_amount_class} card-amount",
-                            style: "z-index: 10",
-                            " ¥{price} × {card.amount} "
-                            if let Some(price_url) = price_url {
-                                a {
-                                    title: "Go to Yuyutei for {card.card_number}",
-                                    href: "{price_url}",
-                                    target: "_blank",
-                                    onclick: |_| { track_url("Yuyutei") },
-                                    i { class: "fa-solid fa-arrow-up-right-from-square" }
-                                }
+                }
+                if show_price {
+                    span {
+                        class: "badge is-bottom {warning_amount_class} card-amount",
+                        style: "z-index: 10",
+                        " ¥{price} × {card.amount} "
+                        if let Some(price_url) = price_url {
+                            a {
+                                title: "Go to Yuyutei for {card.card_number}",
+                                href: "{price_url}",
+                                target: "_blank",
+                                onclick: |_| { track_url("Yuyutei") },
+                                i { class: "fa-solid fa-arrow-up-right-from-square" }
                             }
                         }
-                    } else if card_type != CardType::Oshi && card.amount > 0 {
-                        span {
-                            class: "badge is-bottom {warning_amount_class} card-amount",
-                            style: "z-index: 10",
-                            "{card.amount}"
-                        }
+                    }
+                } else if card_type != CardType::Oshi && card.amount > 0 {
+                    span {
+                        class: "badge is-bottom {warning_amount_class} card-amount",
+                        style: "z-index: 10",
+                        "{card.amount}"
                     }
                 }
             }
-            if *is_edit.read() {
-                div { class: "mt-1 is-flex is-justify-content-center",
-                    if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
-                        if card.amount > 0 {
-                            button {
-                                r#type: "button",
-                                class: "button is-small has-text-danger",
-                                title: "Remove oshi {tooltip}",
-                                onclick: remove_card,
-                                "Remove"
-                            }
-                        } else {
-                            button {
-                                r#type: "button",
-                                class: "button is-small has-text-success",
-                                title: "Select oshi {tooltip}",
-                                onclick: add_card,
-                                "Select"
-                            }
+        }
+        if *is_edit.read() {
+            div { class: "mt-1 is-flex is-justify-content-center",
+                if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
+                    if card.amount > 0 {
+                        button {
+                            r#type: "button",
+                            class: "button is-small has-text-danger",
+                            title: "Remove oshi {tooltip}",
+                            onclick: remove_card,
+                            "Remove"
                         }
                     } else {
-                        div { class: "buttons has-addons",
-                            button {
-                                r#type: "button",
-                                class: "button is-small",
-                                title: "Remove 1 {tooltip}",
-                                // disable when no more to remove
-                                disabled: card.amount == 0,
-                                onclick: remove_card,
-                                span { class: "icon is-small has-text-danger",
-                                    if card.amount == 1 && is_preview {
-                                        // only for deck preview
-                                        i { class: "fas fa-trash" }
-                                    } else {
-                                        i { class: "fas fa-minus" }
-                                    }
+                        button {
+                            r#type: "button",
+                            class: "button is-small has-text-success",
+                            title: "Select oshi {tooltip}",
+                            onclick: add_card,
+                            "Select"
+                        }
+                    }
+                } else {
+                    div { class: "buttons has-addons",
+                        button {
+                            r#type: "button",
+                            class: "button is-small",
+                            title: "Remove 1 {tooltip}",
+                            // disable when no more to remove
+                            disabled: card.amount == 0,
+                            onclick: remove_card,
+                            span { class: "icon is-small has-text-danger",
+                                if card.amount == 1 && is_preview {
+                                    // only for deck preview
+                                    i { class: "fas fa-trash" }
+                                } else {
+                                    i { class: "fas fa-minus" }
                                 }
                             }
-                            button {
-                                r#type: "button",
-                                class: "button is-small",
-                                title: "Add 1 {tooltip}",
-                                // disable when reaching max amount. not total amount. allows some buffer for deck building
-                                disabled: card.amount >= max_amount,
-                                onclick: add_card,
-                                span { class: "icon is-small has-text-success",
-                                    i { class: "fas fa-plus" }
-                                }
+                        }
+                        button {
+                            r#type: "button",
+                            class: "button is-small",
+                            title: "Add 1 {tooltip}",
+                            // disable when reaching max amount. not total amount. allows some buffer for deck building
+                            disabled: card.amount >= max_amount,
+                            onclick: add_card,
+                            span { class: "icon is-small has-text-success",
+                                i { class: "fas fa-plus" }
                             }
                         }
                     }
