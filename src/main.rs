@@ -156,6 +156,19 @@ fn App() -> Element {
                     "."
                 }
                 p {
+                    "For any comment or suggestion, please leave a message on the "
+                    a {
+                        href: "https://discord.com/channels/1251891737530601583/1289739439517470730",
+                        target: "_blank",
+                        onclick: |_| { track_url("Discord - hololive OCG Deck Converter post") },
+                        span { class: "icon",
+                            i { class: "fa-brands fa-discord" }
+                        }
+                        "hololive OCG Deck Converter post"
+                    }
+                    " on Discord."
+                }
+                p {
                     "This is a fan website for the hololive Official Card Game and not affiliated with COVER Corp. "
                     "This project was made while following all guidelines under the "
                     a {
