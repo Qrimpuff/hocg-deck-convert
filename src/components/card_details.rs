@@ -1,4 +1,4 @@
-use std::vec;
+use std::{ops::Not, vec};
 
 use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{
@@ -11,7 +11,7 @@ use crate::{
     CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, SHOW_CARD_DETAILS,
     components::{card::Card, modal_popup::ModelPopup},
     sources::{CommonCard, CommonDeck},
-    tracker::{EventType, track_event},
+    tracker::{EventType, track_event, track_url},
 };
 
 static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
@@ -470,6 +470,55 @@ pub fn CardDetailsContent(
             })
     });
 
+    let urls = use_memo(move || {
+        let db = db.read();
+        let card = card.read().card_illustration(&db)?;
+
+        let mut urls = Vec::with_capacity(2);
+
+        // Official hOCG site
+        if let Some(manage_id) = card.manage_id.as_ref() {
+            urls.push(rsx! {
+                a {
+                    title: "Go to the official hOCG site for {card.card_number}",
+                    href: "https://hololive-official-cardgame.com/cardlist/?id={manage_id}",
+                    target: "_blank",
+                    onclick: |_| { track_url("Official hOCG site") },
+                    span { class: "icon",
+                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "公式サイト"
+                    } else {
+                        "Official hOCG site"
+                    }
+                }
+            });
+        }
+
+        // Yuyutei
+        if let Some(yuyutei_sell_url) = card.yuyutei_sell_url.as_ref() {
+            urls.push(rsx! {
+                a {
+                    title: "Go to Yuyutei for {card.card_number}",
+                    href: "{yuyutei_sell_url}",
+                    target: "_blank",
+                    onclick: |_| { track_url("Yuyutei") },
+                    span { class: "icon",
+                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "遊々亭"
+                    } else {
+                        "Yuyutei"
+                    }
+                }
+            });
+        }
+
+        urls.is_empty().not().then_some(urls)
+    });
+
     rsx! {
         div { class: "block is-flex is-justify-content-center",
             a {
@@ -572,6 +621,14 @@ pub fn CardDetailsContent(
 
         if let Some(illustrator) = illustrator.read().as_ref() {
             div { class: "block", "{illustrator}" }
+        }
+
+        if let Some(urls) = urls.read().as_ref() {
+            ul {
+                for url in urls {
+                    li { {url} }
+                }
+            }
         }
     }
 }
