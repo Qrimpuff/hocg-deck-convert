@@ -55,6 +55,12 @@ enum FilterTag {
     Tag(String),
 }
 
+#[derive(PartialEq, Eq, Clone)]
+enum FilterRarity {
+    All,
+    Rarity(String),
+}
+
 // return a list of cards that match the filters
 fn filter_cards(
     all_cards: &[hocg::Card],
@@ -63,6 +69,7 @@ fn filter_cards(
     color: &FilterColor,
     bloom_level: &FilterBloomLevel,
     tag: &FilterTag,
+    rarity: &FilterRarity,
 ) -> Vec<hocg::CardIllustration> {
     // normalize the filter to hiragana, lowercase and remove extra spaces
     let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
@@ -211,6 +218,11 @@ fn filter_cards(
                 })
             }
         })
+        // filter by rarity
+        .filter(|(_, illust)| match rarity {
+            FilterRarity::All => true,
+            FilterRarity::Rarity(rarity) => illust.rarity.eq_ignore_ascii_case(rarity),
+        })
         // remove duplicate looking cards in search
         .enumerate()
         .unique_by(|(n, (_, i))| {
@@ -273,6 +285,18 @@ pub fn CardSearch(
         tags.sort();
         tags
     });
+    let all_rarities = use_memo(move || {
+        let db = db.read();
+        let mut rarities = db
+            .values()
+            .flat_map(|card| card.illustrations.iter())
+            .map(|i| i.rarity.clone())
+            .unique()
+            .collect::<Vec<_>>();
+        // TODO not sure about sort
+        rarities.sort();
+        rarities
+    });
     let mut loading = use_signal(|| false);
 
     let mut show_filters = use_signal(|| false);
@@ -284,6 +308,8 @@ pub fn CardSearch(
     let mut disable_filter_bloom_level = use_signal(|| false);
     let mut filter_tag = use_signal(|| FilterTag::All);
     let mut disable_filter_tag = use_signal(|| false);
+    let mut filter_rarity = use_signal(|| FilterRarity::All);
+    let mut disable_filter_rarity = use_signal(|| false);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -309,6 +335,7 @@ pub fn CardSearch(
         let filter_color = filter_color.read();
         let filter_bloom_level = filter_bloom_level.read();
         let filter_tag = filter_tag.read();
+        let filter_rarity = filter_rarity.read();
         filter_cards(
             &all_cards,
             &filter_text,
@@ -316,6 +343,7 @@ pub fn CardSearch(
             &filter_color,
             &filter_bloom_level,
             &filter_tag,
+            &filter_rarity,
         )
     });
 
@@ -687,6 +715,45 @@ pub fn CardSearch(
                         }
                     }
                 }
+                // Rarity
+                div { class: "field",
+                    label { "for": "card_rarity", class: "label", "Rarity" }
+                    div { class: "control",
+                        div { class: "select",
+                            select {
+                                id: "card_rarity",
+                                disabled: *disable_filter_rarity.read(),
+                                oninput: move |ev| {
+                                    *filter_rarity.write() = match ev.value().as_str() {
+                                        "all" => FilterRarity::All,
+                                        _ => FilterRarity::Rarity(ev.value()),
+                                    };
+                                    scroll_to_top();
+                                    if *filter_rarity.read() != FilterRarity::All {
+                                        track_event(
+                                            EventType::EditDeck,
+                                            EventData {
+                                                action: "Advanced filtering".into(),
+                                            },
+                                        );
+                                    }
+                                },
+                                option {
+                                    value: "all",
+                                    selected: *filter_rarity.read() == FilterRarity::All,
+                                    "All"
+                                }
+                                for rarity in all_rarities.iter() {
+                                    option {
+                                        value: rarity.clone(),
+                                        selected: *filter_rarity.read() == FilterRarity::Rarity(rarity.clone()),
+                                        "{rarity}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 // Reset
                 div { class: "field",
                     div { class: "control",
@@ -702,6 +769,8 @@ pub fn CardSearch(
                                 *disable_filter_bloom_level.write() = false;
                                 *filter_tag.write() = FilterTag::All;
                                 *disable_filter_tag.write() = false;
+                                *filter_rarity.write() = FilterRarity::All;
+                                *disable_filter_rarity.write() = false;
                                 *cards_filter.write() = String::new();
                                 *card_amount.write() = CARD_INCREMENT;
                                 scroll_to_top();
