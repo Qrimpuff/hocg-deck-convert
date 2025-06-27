@@ -419,335 +419,337 @@ pub fn CardSearch(
         }
         if *show_filters.read() {
             div { class: "block",
-                // Card type
-                div { class: "field",
-                    label { "for": "card_type", class: "label", "Card type" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "card_language",
-                                disabled: *disable_filter_card_type.read(),
-                                oninput: move |ev| {
-                                    *filter_card_type.write() = match ev.value().as_str() {
-                                        "oshi" => FilterCardType::OshiHoloMember,
-                                        "member" => FilterCardType::HoloMember,
-                                        "support" => FilterCardType::Support,
-                                        "support_staff" => FilterCardType::SupportStaff,
-                                        "support_item" => FilterCardType::SupportItem,
-                                        "support_event" => FilterCardType::SupportEvent,
-                                        "support_tool" => FilterCardType::SupportTool,
-                                        "support_mascot" => FilterCardType::SupportMascot,
-                                        "support_fan" => FilterCardType::SupportFan,
-                                        "support_limited" => FilterCardType::SupportLimited,
-                                        "cheer" => FilterCardType::Cheer,
-                                        _ => FilterCardType::All,
-                                    };
-                                    scroll_to_top();
-                                    match *filter_card_type.read() {
-                                        FilterCardType::All => {
-                                            *disable_filter_color.write() = false;
-                                            *disable_filter_bloom_level.write() = false;
+                div { class: "grid",
+                    // Card type
+                    div { class: "field cell",
+                        label { "for": "card_type", class: "label", "Card type" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_language",
+                                    disabled: *disable_filter_card_type.read(),
+                                    oninput: move |ev| {
+                                        *filter_card_type.write() = match ev.value().as_str() {
+                                            "oshi" => FilterCardType::OshiHoloMember,
+                                            "member" => FilterCardType::HoloMember,
+                                            "support" => FilterCardType::Support,
+                                            "support_staff" => FilterCardType::SupportStaff,
+                                            "support_item" => FilterCardType::SupportItem,
+                                            "support_event" => FilterCardType::SupportEvent,
+                                            "support_tool" => FilterCardType::SupportTool,
+                                            "support_mascot" => FilterCardType::SupportMascot,
+                                            "support_fan" => FilterCardType::SupportFan,
+                                            "support_limited" => FilterCardType::SupportLimited,
+                                            "cheer" => FilterCardType::Cheer,
+                                            _ => FilterCardType::All,
+                                        };
+                                        scroll_to_top();
+                                        match *filter_card_type.read() {
+                                            FilterCardType::All => {
+                                                *disable_filter_color.write() = false;
+                                                *disable_filter_bloom_level.write() = false;
+                                            }
+                                            FilterCardType::OshiHoloMember => {
+                                                *disable_filter_color.write() = false;
+                                                *disable_filter_bloom_level.write() = true;
+                                                *filter_bloom_level.write() = FilterBloomLevel::All;
+                                            }
+                                            FilterCardType::HoloMember => {
+                                                *disable_filter_color.write() = false;
+                                                *disable_filter_bloom_level.write() = false;
+                                            }
+                                            FilterCardType::Cheer => {
+                                                *disable_filter_color.write() = false;
+                                                *disable_filter_bloom_level.write() = true;
+                                                *filter_bloom_level.write() = FilterBloomLevel::All;
+                                            }
+                                            _ => {
+                                                *disable_filter_color.write() = true;
+                                                *filter_color.write() = FilterColor::All;
+                                                *disable_filter_bloom_level.write() = true;
+                                                *filter_bloom_level.write() = FilterBloomLevel::All;
+                                            }
                                         }
-                                        FilterCardType::OshiHoloMember => {
-                                            *disable_filter_color.write() = false;
-                                            *disable_filter_bloom_level.write() = true;
-                                            *filter_bloom_level.write() = FilterBloomLevel::All;
+                                        if *filter_card_type.read() != FilterCardType::All {
+                                            track_event(
+                                                EventType::EditDeck,
+                                                EventData {
+                                                    action: "Advanced filtering".into(),
+                                                },
+                                            );
                                         }
-                                        FilterCardType::HoloMember => {
-                                            *disable_filter_color.write() = false;
-                                            *disable_filter_bloom_level.write() = false;
-                                        }
-                                        FilterCardType::Cheer => {
-                                            *disable_filter_color.write() = false;
-                                            *disable_filter_bloom_level.write() = true;
-                                            *filter_bloom_level.write() = FilterBloomLevel::All;
-                                        }
-                                        _ => {
-                                            *disable_filter_color.write() = true;
-                                            *filter_color.write() = FilterColor::All;
-                                            *disable_filter_bloom_level.write() = true;
-                                            *filter_bloom_level.write() = FilterBloomLevel::All;
-                                        }
-                                    }
-                                    if *filter_card_type.read() != FilterCardType::All {
-                                        track_event(
-                                            EventType::EditDeck,
-                                            EventData {
-                                                action: "Advanced filtering".into(),
-                                            },
-                                        );
-                                    }
-                                },
-                                option {
-                                    value: "all",
-                                    selected: *filter_card_type.read() == FilterCardType::All,
-                                    "All"
-                                }
-                                option {
-                                    value: "oshi",
-                                    selected: *filter_card_type.read() == FilterCardType::OshiHoloMember,
-                                    "Oshi Holo Member"
-                                }
-                                option {
-                                    value: "member",
-                                    selected: *filter_card_type.read() == FilterCardType::HoloMember,
-                                    "Holo Member"
-                                }
-                                option {
-                                    value: "support",
-                                    selected: *filter_card_type.read() == FilterCardType::Support,
-                                    "Support"
-                                }
-                                option {
-                                    value: "support_staff",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportStaff,
-                                    "Support - Staff"
-                                }
-                                option {
-                                    value: "support_item",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportItem,
-                                    "Support - Item"
-                                }
-                                option {
-                                    value: "support_event",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportEvent,
-                                    "Support - Event"
-                                }
-                                option {
-                                    value: "support_tool",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportTool,
-                                    "Support - Tool"
-                                }
-                                option {
-                                    value: "support_mascot",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportMascot,
-                                    "Support - Mascot"
-                                }
-                                option {
-                                    value: "support_fan",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportFan,
-                                    "Support - Fan"
-                                }
-                                option {
-                                    value: "support_limited",
-                                    selected: *filter_card_type.read() == FilterCardType::SupportLimited,
-                                    "Support - Limited"
-                                }
-                                option {
-                                    value: "cheer",
-                                    selected: *filter_card_type.read() == FilterCardType::Cheer,
-                                    "Cheer"
-                                }
-                            }
-                        }
-                    }
-                }
-                // Color
-                div { class: "field",
-                    label { "for": "card_color", class: "label", "Color" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "card_color",
-                                disabled: *disable_filter_color.read(),
-                                oninput: move |ev| {
-                                    *filter_color.write() = match ev.value().as_str() {
-                                        "white" => FilterColor::White,
-                                        "green" => FilterColor::Green,
-                                        "red" => FilterColor::Red,
-                                        "blue" => FilterColor::Blue,
-                                        "purple" => FilterColor::Purple,
-                                        "yellow" => FilterColor::Yellow,
-                                        "colorless" => FilterColor::Colorless,
-                                        _ => FilterColor::All,
-                                    };
-                                    scroll_to_top();
-                                    if *filter_color.read() != FilterColor::All {
-                                        track_event(
-                                            EventType::EditDeck,
-                                            EventData {
-                                                action: "Advanced filtering".into(),
-                                            },
-                                        );
-                                    }
-                                },
-                                option {
-                                    value: "all",
-                                    selected: *filter_color.read() == FilterColor::All,
-                                    "All"
-                                }
-                                option {
-                                    value: "white",
-                                    selected: *filter_color.read() == FilterColor::White,
-                                    "White"
-                                }
-                                option {
-                                    value: "green",
-                                    selected: *filter_color.read() == FilterColor::Green,
-                                    "Green"
-                                }
-                                option {
-                                    value: "red",
-                                    selected: *filter_color.read() == FilterColor::Red,
-                                    "Red"
-                                }
-                                option {
-                                    value: "blue",
-                                    selected: *filter_color.read() == FilterColor::Blue,
-                                    "Blue"
-                                }
-                                option {
-                                    value: "purple",
-                                    selected: *filter_color.read() == FilterColor::Purple,
-                                    "Purple"
-                                }
-                                option {
-                                    value: "yellow",
-                                    selected: *filter_color.read() == FilterColor::Yellow,
-                                    "Yellow"
-                                }
-                                option {
-                                    value: "colorless",
-                                    selected: *filter_color.read() == FilterColor::Colorless,
-                                    "Colorless"
-                                }
-                            }
-                        }
-                    }
-                }
-                // Bloom level
-                div { class: "field",
-                    label { "for": "card_bloom_level", class: "label", "Bloom level" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "card_bloom_level",
-                                disabled: *disable_filter_bloom_level.read(),
-                                oninput: move |ev| {
-                                    *filter_bloom_level.write() = match ev.value().as_str() {
-                                        "debut" => FilterBloomLevel::Debut,
-                                        "first" => FilterBloomLevel::First,
-                                        "first_buzz" => FilterBloomLevel::FirstBuzz,
-                                        "second" => FilterBloomLevel::Second,
-                                        "spot" => FilterBloomLevel::Spot,
-                                        _ => FilterBloomLevel::All,
-                                    };
-                                    scroll_to_top();
-                                    if *filter_bloom_level.read() != FilterBloomLevel::All {
-                                        track_event(
-                                            EventType::EditDeck,
-                                            EventData {
-                                                action: "Advanced filtering".into(),
-                                            },
-                                        );
-                                    }
-                                },
-                                option {
-                                    value: "all",
-                                    selected: *filter_bloom_level.read() == FilterBloomLevel::All,
-                                    "All"
-                                }
-                                option {
-                                    value: "debut",
-                                    selected: *filter_bloom_level.read() == FilterBloomLevel::Debut,
-                                    "Debut"
-                                }
-                                option {
-                                    value: "first",
-                                    selected: *filter_bloom_level.read() == FilterBloomLevel::First,
-                                    "First"
-                                }
-                                option {
-                                    value: "first_buzz",
-                                    selected: *filter_bloom_level.read() == FilterBloomLevel::FirstBuzz,
-                                    "First - Buzz"
-                                }
-                                option {
-                                    value: "second",
-                                    selected: *filter_bloom_level.read() == FilterBloomLevel::Second,
-                                    "Second"
-                                }
-                                option {
-                                    value: "spot",
-                                    selected: *filter_bloom_level.read() == FilterBloomLevel::Spot,
-                                    "Spot"
-                                }
-                            }
-                        }
-                    }
-                }
-                // Tag
-                div { class: "field",
-                    label { "for": "card_tag", class: "label", "Tag" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "card_tag",
-                                disabled: *disable_filter_tag.read(),
-                                oninput: move |ev| {
-                                    *filter_tag.write() = match ev.value().as_str() {
-                                        "all" => FilterTag::All,
-                                        _ => FilterTag::Tag(ev.value()),
-                                    };
-                                    scroll_to_top();
-                                    if *filter_tag.read() != FilterTag::All {
-                                        track_event(
-                                            EventType::EditDeck,
-                                            EventData {
-                                                action: "Advanced filtering".into(),
-                                            },
-                                        );
-                                    }
-                                },
-                                option {
-                                    value: "all",
-                                    selected: *filter_tag.read() == FilterTag::All,
-                                    "All"
-                                }
-                                for tag in all_tags.iter() {
+                                    },
                                     option {
-                                        value: tag.clone(),
-                                        selected: *filter_tag.read() == FilterTag::Tag(tag.clone()),
-                                        "{tag}"
+                                        value: "all",
+                                        selected: *filter_card_type.read() == FilterCardType::All,
+                                        "All"
+                                    }
+                                    option {
+                                        value: "oshi",
+                                        selected: *filter_card_type.read() == FilterCardType::OshiHoloMember,
+                                        "Oshi Holo Member"
+                                    }
+                                    option {
+                                        value: "member",
+                                        selected: *filter_card_type.read() == FilterCardType::HoloMember,
+                                        "Holo Member"
+                                    }
+                                    option {
+                                        value: "support",
+                                        selected: *filter_card_type.read() == FilterCardType::Support,
+                                        "Support"
+                                    }
+                                    option {
+                                        value: "support_staff",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportStaff,
+                                        "Support - Staff"
+                                    }
+                                    option {
+                                        value: "support_item",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportItem,
+                                        "Support - Item"
+                                    }
+                                    option {
+                                        value: "support_event",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportEvent,
+                                        "Support - Event"
+                                    }
+                                    option {
+                                        value: "support_tool",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportTool,
+                                        "Support - Tool"
+                                    }
+                                    option {
+                                        value: "support_mascot",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportMascot,
+                                        "Support - Mascot"
+                                    }
+                                    option {
+                                        value: "support_fan",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportFan,
+                                        "Support - Fan"
+                                    }
+                                    option {
+                                        value: "support_limited",
+                                        selected: *filter_card_type.read() == FilterCardType::SupportLimited,
+                                        "Support - Limited"
+                                    }
+                                    option {
+                                        value: "cheer",
+                                        selected: *filter_card_type.read() == FilterCardType::Cheer,
+                                        "Cheer"
                                     }
                                 }
                             }
                         }
                     }
-                }
-                // Rarity
-                div { class: "field",
-                    label { "for": "card_rarity", class: "label", "Rarity" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "card_rarity",
-                                disabled: *disable_filter_rarity.read(),
-                                oninput: move |ev| {
-                                    *filter_rarity.write() = match ev.value().as_str() {
-                                        "all" => FilterRarity::All,
-                                        _ => FilterRarity::Rarity(ev.value()),
-                                    };
-                                    scroll_to_top();
-                                    if *filter_rarity.read() != FilterRarity::All {
-                                        track_event(
-                                            EventType::EditDeck,
-                                            EventData {
-                                                action: "Advanced filtering".into(),
-                                            },
-                                        );
-                                    }
-                                },
-                                option {
-                                    value: "all",
-                                    selected: *filter_rarity.read() == FilterRarity::All,
-                                    "All"
-                                }
-                                for rarity in all_rarities.iter() {
+                    // Color
+                    div { class: "field cell",
+                        label { "for": "card_color", class: "label", "Color" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_color",
+                                    disabled: *disable_filter_color.read(),
+                                    oninput: move |ev| {
+                                        *filter_color.write() = match ev.value().as_str() {
+                                            "white" => FilterColor::White,
+                                            "green" => FilterColor::Green,
+                                            "red" => FilterColor::Red,
+                                            "blue" => FilterColor::Blue,
+                                            "purple" => FilterColor::Purple,
+                                            "yellow" => FilterColor::Yellow,
+                                            "colorless" => FilterColor::Colorless,
+                                            _ => FilterColor::All,
+                                        };
+                                        scroll_to_top();
+                                        if *filter_color.read() != FilterColor::All {
+                                            track_event(
+                                                EventType::EditDeck,
+                                                EventData {
+                                                    action: "Advanced filtering".into(),
+                                                },
+                                            );
+                                        }
+                                    },
                                     option {
-                                        value: rarity.clone(),
-                                        selected: *filter_rarity.read() == FilterRarity::Rarity(rarity.clone()),
-                                        "{rarity}"
+                                        value: "all",
+                                        selected: *filter_color.read() == FilterColor::All,
+                                        "All"
+                                    }
+                                    option {
+                                        value: "white",
+                                        selected: *filter_color.read() == FilterColor::White,
+                                        "White"
+                                    }
+                                    option {
+                                        value: "green",
+                                        selected: *filter_color.read() == FilterColor::Green,
+                                        "Green"
+                                    }
+                                    option {
+                                        value: "red",
+                                        selected: *filter_color.read() == FilterColor::Red,
+                                        "Red"
+                                    }
+                                    option {
+                                        value: "blue",
+                                        selected: *filter_color.read() == FilterColor::Blue,
+                                        "Blue"
+                                    }
+                                    option {
+                                        value: "purple",
+                                        selected: *filter_color.read() == FilterColor::Purple,
+                                        "Purple"
+                                    }
+                                    option {
+                                        value: "yellow",
+                                        selected: *filter_color.read() == FilterColor::Yellow,
+                                        "Yellow"
+                                    }
+                                    option {
+                                        value: "colorless",
+                                        selected: *filter_color.read() == FilterColor::Colorless,
+                                        "Colorless"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Bloom level
+                    div { class: "field cell",
+                        label { "for": "card_bloom_level", class: "label", "Bloom level" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_bloom_level",
+                                    disabled: *disable_filter_bloom_level.read(),
+                                    oninput: move |ev| {
+                                        *filter_bloom_level.write() = match ev.value().as_str() {
+                                            "debut" => FilterBloomLevel::Debut,
+                                            "first" => FilterBloomLevel::First,
+                                            "first_buzz" => FilterBloomLevel::FirstBuzz,
+                                            "second" => FilterBloomLevel::Second,
+                                            "spot" => FilterBloomLevel::Spot,
+                                            _ => FilterBloomLevel::All,
+                                        };
+                                        scroll_to_top();
+                                        if *filter_bloom_level.read() != FilterBloomLevel::All {
+                                            track_event(
+                                                EventType::EditDeck,
+                                                EventData {
+                                                    action: "Advanced filtering".into(),
+                                                },
+                                            );
+                                        }
+                                    },
+                                    option {
+                                        value: "all",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::All,
+                                        "All"
+                                    }
+                                    option {
+                                        value: "debut",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::Debut,
+                                        "Debut"
+                                    }
+                                    option {
+                                        value: "first",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::First,
+                                        "First"
+                                    }
+                                    option {
+                                        value: "first_buzz",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::FirstBuzz,
+                                        "First - Buzz"
+                                    }
+                                    option {
+                                        value: "second",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::Second,
+                                        "Second"
+                                    }
+                                    option {
+                                        value: "spot",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::Spot,
+                                        "Spot"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Tag
+                    div { class: "field cell",
+                        label { "for": "card_tag", class: "label", "Tag" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_tag",
+                                    disabled: *disable_filter_tag.read(),
+                                    oninput: move |ev| {
+                                        *filter_tag.write() = match ev.value().as_str() {
+                                            "all" => FilterTag::All,
+                                            _ => FilterTag::Tag(ev.value()),
+                                        };
+                                        scroll_to_top();
+                                        if *filter_tag.read() != FilterTag::All {
+                                            track_event(
+                                                EventType::EditDeck,
+                                                EventData {
+                                                    action: "Advanced filtering".into(),
+                                                },
+                                            );
+                                        }
+                                    },
+                                    option {
+                                        value: "all",
+                                        selected: *filter_tag.read() == FilterTag::All,
+                                        "All"
+                                    }
+                                    for tag in all_tags.iter() {
+                                        option {
+                                            value: tag.clone(),
+                                            selected: *filter_tag.read() == FilterTag::Tag(tag.clone()),
+                                            "{tag}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Rarity
+                    div { class: "field cell",
+                        label { "for": "card_rarity", class: "label", "Rarity" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_rarity",
+                                    disabled: *disable_filter_rarity.read(),
+                                    oninput: move |ev| {
+                                        *filter_rarity.write() = match ev.value().as_str() {
+                                            "all" => FilterRarity::All,
+                                            _ => FilterRarity::Rarity(ev.value()),
+                                        };
+                                        scroll_to_top();
+                                        if *filter_rarity.read() != FilterRarity::All {
+                                            track_event(
+                                                EventType::EditDeck,
+                                                EventData {
+                                                    action: "Advanced filtering".into(),
+                                                },
+                                            );
+                                        }
+                                    },
+                                    option {
+                                        value: "all",
+                                        selected: *filter_rarity.read() == FilterRarity::All,
+                                        "All"
+                                    }
+                                    for rarity in all_rarities.iter() {
+                                        option {
+                                            value: rarity.clone(),
+                                            selected: *filter_rarity.read() == FilterRarity::Rarity(rarity.clone()),
+                                            "{rarity}"
+                                        }
                                     }
                                 }
                             }
@@ -793,7 +795,7 @@ pub fn CardSearch(
         div {
             id: "card_search_cards",
             class: "block is-flex is-flex-wrap-wrap is-justify-content-center",
-            style: "max-height: 50vh; overflow: scroll;",
+            style: "max-height: 65vh; overflow: scroll;",
             // automatically load more cards when scrolled to the bottom
             onscroll: move |_| {
                 if is_scrolled_to_bottom() {

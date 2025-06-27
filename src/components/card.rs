@@ -151,7 +151,7 @@ pub fn Card(
     });
 
     rsx! {
-        div { class: "m-2",
+        div { class: "m-1 my-2",
             figure {
                 class: "image {img_class}",
                 class: if *is_selected.read() { "selected" },
