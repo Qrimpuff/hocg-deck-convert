@@ -84,51 +84,77 @@ fn filter_cards(
                 .unwrap_or_default()
     }
 
-    let cards = all_cards.iter()
+    all_cards
+        .iter()
         .flat_map(|card| card.illustrations.iter().map(move |i| (card, i)))
         // filter by text
         .filter(|(card, illust)| {
             // check that all words matches
             filter.iter().all(|filter| {
-                card.card_number.to_lowercase().contains(filter)
-                    || check_filter(filter, &card.name)
-                    || format!("{:?}", card.card_type)
+                let mut found = false;
+                found |= card.card_number.to_lowercase().contains(filter);
+                found |= check_filter(filter, &card.name);
+                found |= format!("{:?}", card.card_type)
+                    .to_lowercase()
+                    .contains(filter);
+                found |= format!("{:?}", card.colors).to_lowercase().contains(filter);
+                found |= card.life.to_string().contains(filter);
+                found |= card.hp.to_string().contains(filter);
+                found |= format!("{:?}", card.bloom_level)
+                    .to_lowercase()
+                    .contains(filter);
+                found |= card
+                    .buzz
+                    .then_some("buzz")
+                    .unwrap_or_default()
+                    .contains(filter);
+                found |= card
+                    .limited
+                    .then_some("limited")
+                    .unwrap_or_default()
+                    .contains(filter);
+                // Oshi skills
+                found |= card
+                    .oshi_skills
+                    .iter()
+                    .any(|skill| check_filter(filter, &skill.name));
+                found |= card
+                    .oshi_skills
+                    .iter()
+                    .any(|skill| check_filter(filter, &skill.ability_text));
+                // Arts
+                found |= card.arts.iter().any(|art| check_filter(filter, &art.name));
+                found |= card
+                    .arts
+                    .iter()
+                    .flat_map(|art| art.ability_text.as_ref())
+                    .any(|text| check_filter(filter, text));
+                // Keywords
+                found |= card.keywords.iter().any(|keyword| {
+                    format!("{:?}", keyword.effect)
                         .to_lowercase()
                         .contains(filter)
-                    || format!("{:?}", card.colors).to_lowercase().contains(filter)
-                    || card.life.to_string().contains(filter)
-                    || card.hp.to_string().contains(filter)
-                    || format!("{:?}", card.bloom_level)
-                        .to_lowercase()
-                        .contains(filter)
-                    || card
-                        .buzz
-                        .then_some("buzz")
-                        .unwrap_or_default()
-                        .contains(filter)
-                    || card
-                        .limited
-                        .then_some("limited")
-                        .unwrap_or_default()
-                        .contains(filter)
-                    // Oshi skills
-                    || card.oshi_skills.iter().any(|skill| check_filter(filter, &skill.name))
-                    || card.oshi_skills.iter().any(|skill| check_filter(filter, &skill.ability_text))
-                    // Arts
-                    || card.arts.iter().any(|art| check_filter(filter, &art.name))
-                    || card.arts.iter().flat_map(|art| art.ability_text.as_ref()).any(|text| check_filter(filter, text))
-                    // Keywords
-                    || card.keywords.iter().any(|keyword| format!("{:?}", keyword.effect).to_lowercase().contains(filter))
-                    || card.keywords.iter().any(|keyword| check_filter(filter, &keyword.name))
-                    || card.keywords.iter().any(|keyword| check_filter(filter, &keyword.ability_text))
-                    // Ability text
-                    || check_filter(filter, &card.ability_text)
-                    // Extra
-                    || card.extra.iter().any(|extra| check_filter(filter, extra))
-                    // Tags
-                    || card.tags.iter().any(|tag| check_filter(filter, tag))
-                    // Illustrator
-                    || illust.illustrator.iter().any(|illustrator| check_filter(filter, &Localized::jp(illustrator.clone())))
+                });
+                found |= card
+                    .keywords
+                    .iter()
+                    .any(|keyword| check_filter(filter, &keyword.name));
+                found |= card
+                    .keywords
+                    .iter()
+                    .any(|keyword| check_filter(filter, &keyword.ability_text));
+                // Ability text
+                found |= check_filter(filter, &card.ability_text);
+                // Extra
+                found |= card.extra.iter().any(|extra| check_filter(filter, extra));
+                // Tags
+                found |= card.tags.iter().any(|tag| check_filter(filter, tag));
+                // Illustrator
+                found |= illust
+                    .illustrator
+                    .iter()
+                    .any(|illustrator| check_filter(filter, &Localized::jp(illustrator.clone())));
+                found
             })
         })
         // filter by card type
@@ -169,7 +195,7 @@ fn filter_cards(
             _ => false,
         })
         // filter by tag
-        .filter(|(card,_)| match tag {
+        .filter(|(card, _)| match tag {
             FilterTag::All => true,
             FilterTag::Tag(tag) => {
                 card.tags.iter().any(|t| {
@@ -185,15 +211,19 @@ fn filter_cards(
                 })
             }
         })
-        .collect_vec();
-
-    // TODO sort by relevance
-
-    cards
-        .into_iter()
-        .map(|(_, illustration)| illustration)
+        // remove duplicate looking cards in search
+        .enumerate()
+        .unique_by(|(n, (_, i))| {
+            (
+                &i.card_number,
+                i.delta_art_index.unwrap_or(u32::MAX - *n as u32),
+            )
+        })
+        .map(|(_, (_, illustration))| illustration)
         .cloned()
         .collect()
+
+    // TODO sort by relevance
 }
 
 fn scroll_to_top() {
