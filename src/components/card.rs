@@ -210,54 +210,54 @@ pub fn Card(
                     }
                 }
             }
-        }
-        if *is_edit.read() {
-            div { class: "mt-1 is-flex is-justify-content-center",
-                if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
-                    if card.amount > 0 {
-                        button {
-                            r#type: "button",
-                            class: "button is-small has-text-danger",
-                            title: "Remove oshi {tooltip}",
-                            onclick: remove_card,
-                            "Remove"
-                        }
-                    } else {
-                        button {
-                            r#type: "button",
-                            class: "button is-small has-text-success",
-                            title: "Select oshi {tooltip}",
-                            onclick: add_card,
-                            "Select"
-                        }
-                    }
-                } else {
-                    div { class: "buttons has-addons",
-                        button {
-                            r#type: "button",
-                            class: "button is-small",
-                            title: "Remove 1 {tooltip}",
-                            // disable when no more to remove
-                            disabled: card.amount == 0,
-                            onclick: remove_card,
-                            span { class: "icon is-small has-text-danger",
-                                if card.amount == 1 && is_preview {
-                                    // only for deck preview
-                                    i { class: "fas fa-trash" }
-                                } else {
-                                    i { class: "fas fa-minus" }
-                                }
+            if *is_edit.read() {
+                div { class: "mt-1 is-flex is-justify-content-center",
+                    if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
+                        if card.amount > 0 {
+                            button {
+                                r#type: "button",
+                                class: "button is-small has-text-danger",
+                                title: "Remove oshi {tooltip}",
+                                onclick: remove_card,
+                                "Remove"
+                            }
+                        } else {
+                            button {
+                                r#type: "button",
+                                class: "button is-small has-text-success",
+                                title: "Select oshi {tooltip}",
+                                onclick: add_card,
+                                "Select"
                             }
                         }
-                        button {
-                            r#type: "button",
-                            class: "button is-small",
-                            title: "Add 1 {tooltip}",
-                            // disable when reaching max amount. not total amount. allows some buffer for deck building
-                            disabled: card.amount >= max_amount,
-                            onclick: add_card,
-                            span { class: "icon is-small has-text-success",
-                                i { class: "fas fa-plus" }
+                    } else {
+                        div { class: "buttons has-addons",
+                            button {
+                                r#type: "button",
+                                class: "button is-small",
+                                title: "Remove 1 {tooltip}",
+                                // disable when no more to remove
+                                disabled: card.amount == 0,
+                                onclick: remove_card,
+                                span { class: "icon is-small has-text-danger",
+                                    if card.amount == 1 && is_preview {
+                                        // only for deck preview
+                                        i { class: "fas fa-trash" }
+                                    } else {
+                                        i { class: "fas fa-minus" }
+                                    }
+                                }
+                            }
+                            button {
+                                r#type: "button",
+                                class: "button is-small",
+                                title: "Add 1 {tooltip}",
+                                // disable when reaching max amount. not total amount. allows some buffer for deck building
+                                disabled: card.amount >= max_amount,
+                                onclick: add_card,
+                                span { class: "icon is-small has-text-success",
+                                    i { class: "fas fa-plus" }
+                                }
                             }
                         }
                     }
