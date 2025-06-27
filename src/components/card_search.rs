@@ -5,7 +5,7 @@ use serde::Serialize;
 use wana_kana::utils::katakana_to_hiragana;
 
 use crate::{
-    CardLanguage, CardType,
+    ALL_CARDS_SORTED, CardLanguage, CardType,
     components::card::Card,
     sources::{CommonCard, CommonDeck},
     tracker::{EventType, track_event},
@@ -57,12 +57,12 @@ enum FilterTag {
 
 // return a list of cards that match the filters
 fn filter_cards(
+    all_cards: &[hocg::Card],
     filter: &str,
     card_type: &FilterCardType,
     color: &FilterColor,
     bloom_level: &FilterBloomLevel,
     tag: &FilterTag,
-    db: &CardsDatabase,
 ) -> Vec<hocg::CardIllustration> {
     // normalize the filter to hiragana, lowercase and remove extra spaces
     let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
@@ -84,8 +84,7 @@ fn filter_cards(
                 .unwrap_or_default()
     }
 
-    let mut cards = db
-        .values()
+    let cards = all_cards.iter()
         .flat_map(|card| card.illustrations.iter().map(move |i| (card, i)))
         // filter by text
         .filter(|(card, illust)| {
@@ -189,7 +188,6 @@ fn filter_cards(
         .collect_vec();
 
     // TODO sort by relevance
-    cards.sort_by_cached_key(|(card, _)| *card);
 
     cards
         .into_iter()
@@ -275,19 +273,19 @@ pub fn CardSearch(
     };
 
     let filtered_cards = use_memo(move || {
+        let all_cards = ALL_CARDS_SORTED.read();
         let filter_text = cards_filter.read();
         let filter_type = filter_card_type.read();
         let filter_color = filter_color.read();
         let filter_bloom_level = filter_bloom_level.read();
         let filter_tag = filter_tag.read();
-        let _db = db.read();
         filter_cards(
+            &all_cards,
             &filter_text,
             &filter_type,
             &filter_color,
             &filter_bloom_level,
             &filter_tag,
-            &_db,
         )
     });
 

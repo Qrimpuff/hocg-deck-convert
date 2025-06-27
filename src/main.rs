@@ -4,6 +4,8 @@ mod components;
 mod sources;
 mod tracker;
 
+use std::collections::BTreeMap;
+
 use components::{card_details::CardDetailsPopup, deck_preview::DeckPreview};
 use dioxus::{logger::tracing::debug, prelude::*};
 use gloo::{
@@ -11,6 +13,8 @@ use gloo::{
     utils::document,
 };
 use hocg_fan_sim_assets_model::CardsDatabase;
+use hocg_fan_sim_assets_model::{self as hocg};
+use itertools::Itertools;
 use price_check::PriceCache;
 use serde::Serialize;
 use sources::*;
@@ -29,13 +33,20 @@ fn App() -> Element {
     done_loading();
 
     let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
-        *CARDS_DB.write() =
+        let card_db: BTreeMap<String, hocg::Card> =
             reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json")
                 .await
                 .unwrap()
                 .json()
                 .await
                 .unwrap();
+
+        let mut all_cards = card_db.values().cloned().collect_vec();
+        // that sort is costly, so we do it only once
+        all_cards.sort();
+
+        *CARDS_DB.write() = card_db;
+        *ALL_CARDS_SORTED.write() = all_cards;
     });
 
     rsx! {
@@ -205,6 +216,7 @@ fn App() -> Element {
 
 static CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
+static ALL_CARDS_SORTED: GlobalSignal<Vec<hocg::Card>> = Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
 static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
