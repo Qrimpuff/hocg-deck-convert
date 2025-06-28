@@ -266,6 +266,8 @@ pub fn CardSearch(
     #[derive(Serialize)]
     struct EventData {
         action: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        filter_type: Option<String>,
     }
 
     let mut cards = use_signal(Vec::new);
@@ -323,6 +325,7 @@ pub fn CardSearch(
                 EventType::EditDeck,
                 EventData {
                     action: "Card search".into(),
+                    filter_type: None,
                 },
             );
         }
@@ -426,7 +429,7 @@ pub fn CardSearch(
                         div { class: "control",
                             div { class: "select",
                                 select {
-                                    id: "card_language",
+                                    id: "card_type",
                                     disabled: *disable_filter_card_type.read(),
                                     oninput: move |ev| {
                                         *filter_card_type.write() = match ev.value().as_str() {
@@ -475,6 +478,7 @@ pub fn CardSearch(
                                                 EventType::EditDeck,
                                                 EventData {
                                                     action: "Advanced filtering".into(),
+                                                    filter_type: Some("Card type".into()),
                                                 },
                                             );
                                         }
@@ -568,6 +572,7 @@ pub fn CardSearch(
                                                 EventType::EditDeck,
                                                 EventData {
                                                     action: "Advanced filtering".into(),
+                                                    filter_type: Some("Color".into()),
                                                 },
                                             );
                                         }
@@ -639,6 +644,7 @@ pub fn CardSearch(
                                                 EventType::EditDeck,
                                                 EventData {
                                                     action: "Advanced filtering".into(),
+                                                    filter_type: Some("Bloom level".into()),
                                                 },
                                             );
                                         }
@@ -696,6 +702,7 @@ pub fn CardSearch(
                                                 EventType::EditDeck,
                                                 EventData {
                                                     action: "Advanced filtering".into(),
+                                                    filter_type: Some("Tag".into()),
                                                 },
                                             );
                                         }
@@ -735,6 +742,7 @@ pub fn CardSearch(
                                                 EventType::EditDeck,
                                                 EventData {
                                                     action: "Advanced filtering".into(),
+                                                    filter_type: Some("Rarity".into()),
                                                 },
                                             );
                                         }
@@ -780,6 +788,7 @@ pub fn CardSearch(
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Reset filters".into(),
+                                        filter_type: None,
                                     },
                                 );
                             },
@@ -805,6 +814,7 @@ pub fn CardSearch(
                         EventType::EditDeck,
                         EventData {
                             action: "Load more cards".into(),
+                            filter_type: None,
                         },
                     );
                 }
@@ -831,6 +841,7 @@ pub fn CardSearch(
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Load more cards".into(),
+                                        filter_type: None,
                                     },
                                 );
                             },
