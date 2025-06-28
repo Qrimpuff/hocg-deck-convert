@@ -305,14 +305,14 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                     "holoDelta"
                                 }
                                 option {
-                                    value: "holo_duel",
-                                    selected: *import_format.read() == Some(DeckType::HoloDuel),
-                                    "HoloDuel"
-                                }
-                                option {
                                     value: "hocg_tts",
                                     selected: *import_format.read() == Some(DeckType::TabletopSim),
                                     "Tabletop Simulator (by Noodlebrain)"
+                                }
+                                option {
+                                    value: "holo_duel",
+                                    selected: *import_format.read() == Some(DeckType::HoloDuel),
+                                    "HoloDuel"
                                 }
                                 option {
                                     value: "unknown",
@@ -402,14 +402,14 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                                 "holoDelta"
                             }
                             option {
-                                value: "holo_duel",
-                                selected: *export_format.read() == Some(DeckType::HoloDuel),
-                                "HoloDuel"
-                            }
-                            option {
                                 value: "hocg_tts",
                                 selected: *export_format.read() == Some(DeckType::TabletopSim),
                                 "Tabletop Simulator (by Noodlebrain)"
+                            }
+                            option {
+                                value: "holo_duel",
+                                selected: *export_format.read() == Some(DeckType::HoloDuel),
+                                "HoloDuel"
                             }
                             option {
                                 value: "proxy_sheets",
