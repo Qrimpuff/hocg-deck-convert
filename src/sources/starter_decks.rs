@@ -25,8 +25,8 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
         vec![
             // hSD01 - スタートデッキ「ときのそら&AZKi」
             DeckEntry {
-                deck_id: "hSD01-001".into(),
-                display: "hSD01 - Start Deck「Tokino Sora & AZKi」".into(),
+                deck_id: "hSD01-001 JP".into(),
+                display: "hSD01 - Start Deck「Tokino Sora & AZKi」 (JP)".into(),
                 oshi_options: Some(vec![
                     card("hSD01-001", 1, 1, db),
                     card("hSD01-002", 2, 1, db),
@@ -54,6 +54,42 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
                         card("hSD01-019", 19, 3, db),
                         card("hSD01-020", 20, 2, db),
                         card("hSD01-021", 21, 2, db),
+                    ],
+                    cheer_deck: vec![card("hY01-001", 168, 10, db), card("hY02-001", 169, 10, db)],
+                },
+            },
+            // hSD01 - Start Deck – Tokino Sora & AZKi
+            DeckEntry {
+                deck_id: "hSD01-001 EN".into(),
+                display: "hSD01 - Start Deck – Tokino Sora & AZKi (EN)".into(),
+                oshi_options: Some(vec![
+                    card("hSD01-001", 1, 1, db),
+                    card("hSD01-002", 2, 1, db),
+                ]),
+                deck: CommonDeck {
+                    name: Some("Start Deck – Tokino Sora & AZKi".into()),
+                    oshi: Some(card("hSD01-001", 1, 1, db)),
+                    main_deck: vec![
+                        card("hBP01-021", 53, 4, db),
+                        card("hSD01-004", 4, 3, db),
+                        card("hSD01-005", 5, 3, db),
+                        card("hSD01-006", 6, 2, db),
+                        card("hSD01-007", 7, 2, db),
+                        card("hBP01-044", 79, 4, db),
+                        card("hSD01-009", 9, 3, db),
+                        card("hSD01-010", 10, 3, db),
+                        card("hSD01-011", 11, 2, db),
+                        card("hSD01-012", 12, 2, db),
+                        card("hSD01-013", 13, 2, db),
+                        card("hSD01-014", 14, 2, db),
+                        card("hSD01-015", 15, 2, db),
+                        card("hSD01-016", 16, 3, db),
+                        card("hSD01-017", 17, 3, db),
+                        card("hSD01-018", 18, 2, db),
+                        card("hSD01-019", 19, 2, db),
+                        card("hSD01-020", 20, 2, db),
+                        card("hSD01-021", 21, 2, db),
+                        card("hBP01-104", 145, 2, db),
                     ],
                     cheer_deck: vec![card("hY01-001", 168, 10, db), card("hY02-001", 169, 10, db)],
                 },
