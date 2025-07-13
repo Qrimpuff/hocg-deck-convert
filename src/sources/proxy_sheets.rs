@@ -4,14 +4,15 @@ use std::{collections::HashMap, sync::Arc};
 use ::image::ImageFormat;
 use ::image::imageops::FilterType;
 use dioxus::prelude::*;
-use futures::future::join_all;
+use futures::future::try_join_all;
 use futures::lock::Mutex;
 use printpdf::*;
 use serde::Serialize;
 
 use super::{CardsDatabase, CommonDeck};
 use crate::components::deck_validation::DeckValidation;
-use crate::{CardLanguage, EventType, download_file, track_event};
+use crate::sources::ImageOptions;
+use crate::{CardLanguage, EventType, PREVIEW_CARD_LANG, download_file, track_event};
 
 #[derive(Clone, Copy, Serialize)]
 enum PaperSize {
@@ -59,7 +60,10 @@ async fn generate_pdf(
         Box::new(deck.oshi.iter().chain(deck.main_deck.iter()))
     };
     let cards: Vec<_> = cards
-        .filter(|c| c.image_path(db, card_lang, true, true).is_some())
+        .filter(|c| {
+            c.image_path(db, card_lang, ImageOptions::proxy_print())
+                .is_some()
+        })
         .flat_map(|c| std::iter::repeat_n(c.clone(), c.amount as usize))
         .collect();
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
@@ -72,26 +76,22 @@ async fn generate_pdf(
     let download_images = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
-            let Some(img_path) = card.image_path(db, card_lang, true, true) else {
+            let Some(img_path) = card.image_path(db, card_lang, ImageOptions::proxy_print()) else {
                 // skip missing card
-                return;
+                return Ok::<(), Box<dyn Error>>(());
             };
 
-            let image_bytes = reqwest::get(&img_path)
-                .await
-                .unwrap()
-                .bytes()
-                .await
-                .unwrap();
+            let image_bytes = reqwest::get(&img_path).await?.bytes().await?;
 
-            let image =
-                ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP).unwrap();
+            let image = ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP)?;
             let image = image.resize_exact(CARD_WIDTH_PX, CARD_HEIGHT_PX, FilterType::CatmullRom);
             let image = Image::from_dynamic_image(&image);
             img_cache.lock().await.insert(card.manage_id, image);
+
+            Ok(())
         }
     });
-    join_all(download_images).await;
+    try_join_all(download_images).await?;
 
     let img_cache = img_cache.lock().await;
     for page_idx in 0..pages_count {
@@ -154,11 +154,7 @@ async fn generate_pdf(
 }
 
 #[component]
-pub fn Export(
-    mut common_deck: Signal<CommonDeck>,
-    db: Signal<CardsDatabase>,
-    card_lang: Signal<CardLanguage>,
-) -> Element {
+pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -170,6 +166,7 @@ pub fn Export(
     }
 
     let mut deck_error = use_signal(String::new);
+    let card_lang = PREVIEW_CARD_LANG.signal();
     let mut paper_size = use_signal(|| PaperSize::A4);
     let mut include_cheers = use_signal(|| false);
     let mut loading = use_signal(|| false);
@@ -247,14 +244,14 @@ pub fn Export(
                     select {
                         id: "card_language",
                         oninput: move |ev| {
-                            *card_lang.write() = match ev.value().as_str() {
+                            *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
                                 "jp" => CardLanguage::Japanese,
                                 "en" => CardLanguage::English,
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "jp", "Japanese" }
                         option { value: "en", "English" }
+                        option { value: "jp", "Japanese" }
                     }
                 }
             }

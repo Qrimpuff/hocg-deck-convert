@@ -5,12 +5,13 @@ use num_format::{Locale, ToFormattedString};
 use crate::{
     CardLanguage, CardType,
     components::card::Card,
-    sources::{CommonDeck, price_check::PriceCache},
+    sources::{CommonDeck, ImageOptions, price_check::PriceCache},
 };
 
 #[component]
 pub fn DeckPreview(
     card_lang: Signal<CardLanguage>,
+    image_options: Signal<ImageOptions>,
     db: Signal<CardsDatabase>,
     common_deck: Signal<CommonDeck>,
     is_edit: Signal<bool>,
@@ -32,6 +33,7 @@ pub fn DeckPreview(
                 card_type: CardType::Oshi,
                 card_lang,
                 is_preview: true,
+                image_options: *image_options.read(),
                 db,
                 common_deck,
                 is_edit,
@@ -49,6 +51,7 @@ pub fn DeckPreview(
                 card_type: CardType::Main,
                 card_lang,
                 is_preview: true,
+                image_options: *image_options.read(),
                 db,
                 common_deck,
                 is_edit,
@@ -66,6 +69,7 @@ pub fn DeckPreview(
                 card_type: CardType::Cheer,
                 card_lang,
                 is_preview: true,
+                image_options: *image_options.read(),
                 db,
                 common_deck,
                 is_edit,

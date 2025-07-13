@@ -7,7 +7,7 @@ use wana_kana::utils::katakana_to_hiragana;
 use crate::{
     ALL_CARDS_SORTED, CardLanguage, CardType,
     components::card::Card,
-    sources::{CommonCard, CommonDeck},
+    sources::{CommonCard, CommonDeck, ImageOptions},
     tracker::{EventType, track_event},
 };
 
@@ -110,16 +110,18 @@ fn filter_cards(
                 found |= format!("{:?}", card.bloom_level)
                     .to_lowercase()
                     .contains(filter);
-                found |= card
-                    .buzz
-                    .then_some("buzz")
-                    .unwrap_or_default()
-                    .contains(filter);
-                found |= card
-                    .limited
-                    .then_some("limited")
-                    .unwrap_or_default()
-                    .contains(filter);
+                found |= if card.buzz {
+                    "buzz"
+                } else {
+                    Default::default()
+                }
+                .contains(filter);
+                found |= if card.limited {
+                    "limited"
+                } else {
+                    Default::default()
+                }
+                .contains(filter);
                 // Oshi skills
                 found |= card
                     .oshi_skills
@@ -350,7 +352,7 @@ pub fn CardSearch(
         )
     });
 
-    let card_lang = use_signal(|| CardLanguage::Japanese);
+    let card_lang = use_signal(|| CardLanguage::English);
     let _ = use_effect(move || {
         debug!("update_cards called");
         let _common_deck = common_deck.read();
@@ -363,18 +365,14 @@ pub fn CardSearch(
             .map(move |card| {
                 rsx! {
                     Card {
-                        card: CommonCard {
-                            manage_id: card.manage_id,
-                            card_number: card.card_number.clone(),
-                            amount: card
-                                .manage_id
-                                .and_then(|id| _common_deck.find_card(id))
-                                .map(|c| c.amount)
-                                .unwrap_or(0),
-                        },
+                        card: CommonCard::from_card_illustration(
+                            card,
+                            _common_deck.find_card_by_illustration(card).map(|c| c.amount).unwrap_or(0),
+                        ),
                         card_type: CardType::Main,
                         card_lang,
                         is_preview: false,
+                        image_options: ImageOptions::card_search(),
                         db,
                         common_deck,
                         is_edit,

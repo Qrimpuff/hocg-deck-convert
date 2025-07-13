@@ -4,8 +4,8 @@ use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
 use crate::{
-    CARD_DETAILS, CardLanguage, CardType, EXPORT_FORMAT, SHOW_CARD_DETAILS,
-    sources::{CommonCard, CommonDeck, DeckType, price_check::PriceCache},
+    CARD_DETAILS, CardLanguage, CardType, EXPORT_FORMAT, PREVIEW_CARD_LANG, SHOW_CARD_DETAILS,
+    sources::{CommonCard, CommonDeck, DeckType, ImageOptions, price_check::PriceCache},
     tracker::{EventType, track_event, track_url},
 };
 
@@ -15,6 +15,7 @@ pub fn Card(
     card_type: CardType,
     card_lang: Signal<CardLanguage>,
     is_preview: bool,
+    image_options: ImageOptions,
     db: Signal<CardsDatabase>,
     common_deck: Option<Signal<CommonDeck>>,
     is_edit: Signal<bool>,
@@ -40,7 +41,7 @@ pub fn Card(
     let error_img_path = format!("/hocg-deck-convert/assets/{error_img_path}");
 
     let img_path = card
-        .image_path(&db.read(), *card_lang.read(), true, true)
+        .image_path(&db.read(), *card_lang.read(), image_options)
         .unwrap_or_else(|| error_img_path.clone());
 
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
@@ -67,10 +68,7 @@ pub fn Card(
     } else {
         0
     };
-    let max_amount = card
-        .card_info(&db.read())
-        .map(|i| i.max_amount)
-        .unwrap_or(50);
+    let max_amount = card.max_amount(*card_lang.read(), &db.read());
     let warning_amount = total_amount > max_amount;
     let warning_amount_class = if warning_amount {
         "is-warning"
@@ -80,7 +78,7 @@ pub fn Card(
 
     // highlight cards that cause the warnings
     let is_unknown = card.is_unknown(&db.read());
-    let is_unreleased = card.is_unreleased(&db.read());
+    let is_unreleased = card.is_unreleased(*PREVIEW_CARD_LANG.read(), &db.read());
     let is_warning_card = if is_preview {
         let export = *EXPORT_FORMAT.read();
         if is_unknown {

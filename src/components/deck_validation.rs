@@ -1,7 +1,10 @@
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::CardsDatabase;
 
-use crate::{CardLanguage, CardType, sources::CommonDeck};
+use crate::{
+    CardLanguage, CardType,
+    sources::{CommonDeck, ImageOptions},
+};
 
 #[component]
 pub fn DeckValidation(
@@ -23,18 +26,23 @@ pub fn DeckValidation(
     let mut warnings = vec![];
 
     if deck_check {
-        warnings.extend(deck.validate(&db, allow_unreleased));
+        warnings.extend(deck.validate(&db, allow_unreleased, *card_lang.read()));
     }
 
     // warn on missing english proxy
     if proxy_check
-        && *card_lang.read() == CardLanguage::English
         && deck
             .all_cards()
             .filter(|c| c.card_type(&db) != Some(CardType::Cheer))
-            .any(|c| c.image_path(&db, *card_lang.read(), true, false).is_none())
+            .any(|c| {
+                c.image_path(&db, *card_lang.read(), ImageOptions::proxy_validation())
+                    .is_none()
+            })
     {
-        warnings.push("Missing english proxy.".into());
+        match *card_lang.read() {
+            CardLanguage::Japanese => warnings.push("Missing Japanese proxies.".into()),
+            CardLanguage::English => warnings.push("Missing English proxies.".into()),
+        }
     }
 
     rsx! {

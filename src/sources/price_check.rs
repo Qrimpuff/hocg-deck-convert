@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
 use super::{CardsDatabase, CommonDeck};
-use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, track_event};
+use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
 pub type PriceCache = HashMap<String, (Instant, u32)>;
 
@@ -111,7 +111,6 @@ pub fn Export(
     mut common_deck: Signal<CommonDeck>,
     db: Signal<CardsDatabase>,
     prices: Signal<PriceCache>,
-    card_lang: Signal<CardLanguage>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -251,6 +250,10 @@ pub fn Export(
                         oninput: move |ev| {
                             *service.write() = match ev.value().as_str() {
                                 "yuyutei" => PriceCheckService::Yuyutei,
+                                _ => unreachable!(),
+                            };
+                            *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
+                                "yuyutei" => CardLanguage::Japanese,
                                 _ => unreachable!(),
                             };
                         },

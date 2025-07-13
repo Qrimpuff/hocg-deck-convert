@@ -7,13 +7,16 @@ mod tracker;
 use std::collections::BTreeMap;
 
 use components::{card_details::CardDetailsPopup, deck_preview::DeckPreview};
-use dioxus::{logger::tracing::debug, prelude::*};
+use dioxus::{
+    logger::tracing::{debug, error},
+    prelude::*,
+};
 use gloo::{
     file::{Blob, BlobContents},
     utils::document,
 };
-use hocg_fan_sim_assets_model::CardsDatabase;
 use hocg_fan_sim_assets_model::{self as hocg};
+use hocg_fan_sim_assets_model::{CardsDatabase, Language};
 use itertools::Itertools;
 use price_check::PriceCache;
 use serde::Serialize;
@@ -22,7 +25,25 @@ use tracker::{EventType, track_event, track_url};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
+use crate::tracker::track_error;
+
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
+
+static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);
+static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
+static ALL_CARDS_SORTED: GlobalSignal<Vec<hocg::Card>> = Signal::global(Default::default);
+static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
+static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
+static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
+static SHOW_CARD_DETAILS: GlobalSignal<bool> = Signal::global(|| false);
+static CARD_DETAILS: GlobalSignal<Option<(CommonCard, CardType)>> = Signal::global(|| None);
+
+static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
+static PREVIEW_CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
+// default to the first export format (holoDelta)
+static PREVIEW_IMAGE_OPTIONS: GlobalSignal<ImageOptions> = Signal::global(ImageOptions::holodelta);
+static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
+static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 
 fn main() {
     launch(App);
@@ -33,13 +54,24 @@ fn App() -> Element {
     done_loading();
 
     let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
-        let card_db: BTreeMap<String, hocg::Card> =
-            reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json")
-                .await
-                .unwrap()
-                .json()
-                .await
-                .unwrap();
+        let Ok(card_db) =
+            reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json").await
+        else {
+            error!("Failed to fetch cards database from GitHub");
+            track_error("Failed to fetch cards database from GitHub");
+            *ERROR_MESSAGE.write() =
+                "There was an error while loading the card database. Please try again later."
+                    .into();
+            return;
+        };
+        let Ok(card_db): Result<BTreeMap<String, hocg::Card>, _> = card_db.json().await else {
+            error!("Failed to parse card database");
+            track_error("Failed to parse card database");
+            *ERROR_MESSAGE.write() =
+                "There was an error while loading the card database. Please try again later."
+                    .into();
+            return;
+        };
 
         let mut all_cards = card_db.values().cloned().collect_vec();
         // that sort is costly, so we do it only once
@@ -53,6 +85,7 @@ fn App() -> Element {
         section { class: "section",
             div { class: "container",
                 h1 { class: "title", "hololive OCG Deck Converter" }
+
                 div { class: "block",
                     p {
                         "Convert your hOCG deck between various formats, such as "
@@ -82,7 +115,7 @@ fn App() -> Element {
                             target: "_blank",
                             "Tabletop Simulator"
                         }
-                        ", or even print proxy sheets."
+                        ", or even printable proxy sheets."
                     }
                     p { class: "is-hidden-mobile",
                         "To build your deck from scratch, use "
@@ -129,11 +162,16 @@ fn App() -> Element {
                 }
                 div { class: "columns is-tablet",
                     div { class: "column is-two-fifths",
-                        Form { card_lang: CARD_LANG.signal() }
+                        GlobalErrors { class: "is-hidden-tablet" }
+
+                        Form {}
                     }
                     div { class: "column is-three-fifths",
+                        GlobalErrors { class: "is-hidden-mobile" }
+
                         DeckPreview {
-                            card_lang: CARD_LANG.signal(),
+                            card_lang: PREVIEW_CARD_LANG.signal(),
+                            image_options: PREVIEW_IMAGE_OPTIONS.signal(),
                             db: CARDS_DB.signal(),
                             common_deck: COMMON_DECK.signal(),
                             is_edit: EDIT_DECK.signal(),
@@ -214,20 +252,22 @@ fn App() -> Element {
     }
 }
 
-static CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
-static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
-static ALL_CARDS_SORTED: GlobalSignal<Vec<hocg::Card>> = Signal::global(Default::default);
-static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
-static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
-static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
-static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
-static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
-static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
-static SHOW_CARD_DETAILS: GlobalSignal<bool> = Signal::global(|| false);
-static CARD_DETAILS: GlobalSignal<Option<(CommonCard, CardType)>> = Signal::global(|| None);
+#[component]
+fn GlobalErrors(class: String) -> Element {
+    rsx! {
+        if !ERROR_MESSAGE.read().is_empty() {
+            article { class: format!("message is-danger {}", class),
+                div { class: "message-header",
+                    p { "Error" }
+                }
+                div { class: "message-body content", {ERROR_MESSAGE.signal()} }
+            }
+        }
+    }
+}
 
 #[component]
-fn Form(card_lang: Signal<CardLanguage>) -> Element {
+fn Form() -> Element {
     let mut import_format: Signal<Option<DeckType>> = IMPORT_FORMAT.signal();
     let mut export_format = EXPORT_FORMAT.signal();
     use_effect(move || {
@@ -379,8 +419,20 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                         select {
                             id: "export_format",
                             oninput: move |ev| {
-                                *card_lang.write() = CardLanguage::Japanese;
                                 *SHOW_PRICE.write() = false;
+                                *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
+                                    "proxy_sheets" => CardLanguage::English,
+                                    _ => CardLanguage::Japanese,
+                                };
+                                *PREVIEW_IMAGE_OPTIONS.write() = match ev.value().as_str() {
+                                    "deck_log" => ImageOptions::deck_log(),
+                                    "holo_delta" => ImageOptions::holodelta(),
+                                    "holo_duel" => ImageOptions::holodelta(),
+                                    "hocg_tts" => ImageOptions::deck_log(),
+                                    "proxy_sheets" => ImageOptions::proxy_print(),
+                                    "price_check" => ImageOptions::price_check(),
+                                    _ => ImageOptions::holodelta(),
+                                };
                                 *export_format.write() = match ev.value().as_str() {
                                     "deck_log" => Some(DeckType::DeckLog),
                                     "holo_delta" => Some(DeckType::HoloDelta),
@@ -455,7 +507,6 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                     proxy_sheets::Export {
                         common_deck: COMMON_DECK.signal(),
                         db: CARDS_DB.signal(),
-                        card_lang,
                     }
                 }
                 if *export_format.read() == Some(DeckType::PriceCheck) {
@@ -463,7 +514,6 @@ fn Form(card_lang: Signal<CardLanguage>) -> Element {
                         common_deck: COMMON_DECK.signal(),
                         db: CARDS_DB.signal(),
                         prices: CARDS_PRICES.signal(),
-                        card_lang,
                         show_price: SHOW_PRICE.signal(),
                     }
                 }
@@ -610,10 +660,19 @@ pub enum CardType {
     Main,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Hash, PartialOrd, Ord)]
 pub enum CardLanguage {
     Japanese,
     English,
+}
+
+impl From<CardLanguage> for Language {
+    fn from(lang: CardLanguage) -> Self {
+        match lang {
+            CardLanguage::Japanese => Language::Japanese,
+            CardLanguage::English => Language::English,
+        }
+    }
 }
 
 pub fn download_file(file_name: &str, content: impl BlobContents) {

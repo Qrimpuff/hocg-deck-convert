@@ -9,7 +9,8 @@ use gloo::utils::window;
 use serde::Serialize;
 
 use crate::{
-    CARD_LANG, EventType, components::deck_validation::DeckValidation, download_file, track_event,
+    CardLanguage, EventType, components::deck_validation::DeckValidation, download_file,
+    track_event,
 };
 
 use super::{
@@ -277,6 +278,7 @@ pub fn JsonExport(
         error: Option<String>,
     }
 
+    let card_lang = use_signal(|| CardLanguage::Japanese);
     let export_name = use_signal(|| export_name);
     let export_id = use_signal(|| export_id);
     let base64_direct_import_url = use_signal(|| base64_direct_import_url);
@@ -371,7 +373,7 @@ pub fn JsonExport(
             deck_check: true,
             proxy_check: false,
             allow_unreleased,
-            card_lang: CARD_LANG.signal(),
+            card_lang,
             db,
             common_deck,
         }

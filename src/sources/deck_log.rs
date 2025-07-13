@@ -7,7 +7,7 @@ use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::components::deck_validation::DeckValidation;
-use crate::{CARD_LANG, EventType, HOCG_DECK_CONVERT_API, track_event};
+use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
 use super::{
     CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
@@ -17,6 +17,8 @@ use super::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Card {
+    #[serde(skip)] // game_title_id doesn't exist in Deck Log
+    game_title_id: u32,
     card_number: String,
     num: u32,
     manage_id: String,
@@ -102,7 +104,19 @@ impl Deck {
         let content = resp.text().await.unwrap();
         debug!("{:?}", content);
 
-        Ok(serde_json::from_str(&content).map_err(|_| content)?)
+        let mut deck: Deck = serde_json::from_str(&content).map_err(|_| content)?;
+
+        //apply game_title_id to cards
+        for card in deck
+            .p_list
+            .iter_mut()
+            .chain(deck.list.iter_mut())
+            .chain(deck.sub_list.iter_mut())
+        {
+            card.game_title_id = deck.game_title_id;
+        }
+
+        Ok(deck)
     }
 
     pub async fn publish(&mut self, game_title_id: u32) -> Result<String, Box<dyn Error>> {
@@ -132,22 +146,32 @@ impl CommonCardConversion for Card {
     type CardDeck = Vec<Card>;
 
     fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
+        // Note: Deck needs to pass through CommonDeck::into_language before this is called
         Card {
+            game_title_id: 0, // doesn't exist in Deck Log
             card_number: card.card_number,
             num: card.amount,
             manage_id: card
                 .manage_id
-                .expect("should be a valid card in deck log")
+                .unwrap_or((CardLanguage::Japanese, u32::MAX)) // Deck Log will reject it
+                .1
                 .to_string(),
         }
     }
 
-    fn to_common_card(value: Self, _db: &CardsDatabase) -> CommonCard {
-        CommonCard {
-            manage_id: value.manage_id.parse().ok(),
-            card_number: value.card_number,
-            amount: value.num,
-        }
+    fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
+        let language = match value.game_title_id {
+            9 => CardLanguage::Japanese,
+            108 => CardLanguage::Japanese,
+            8 => CardLanguage::English,
+            _ => unreachable!(),
+        };
+        CommonCard::from_card_number_and_manage_id(
+            value.card_number,
+            (language, value.manage_id.parse().unwrap_or(u32::MAX)),
+            value.num,
+            db,
+        )
     }
 
     fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck {
@@ -347,11 +371,16 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
     }
 
     let mut deck_error = use_signal(String::new);
+    let card_lang = PREVIEW_CARD_LANG.signal();
     let mut game_title_id = use_signal(|| 9); // default to Deck Log JP
     let mut deck_log_url = use_signal(String::new);
     let mut loading = use_signal(|| false);
 
-    let warnings = common_deck.read().validate(&db.read(), false);
+    let warnings = use_memo(move || {
+        common_deck
+            .read()
+            .validate(&db.read(), false, *card_lang.read())
+    });
 
     let publish_deck = move |_| async move {
         let common_deck = common_deck.read();
@@ -368,6 +397,13 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             return;
         }
 
+        let language = match *game_title_id.read() {
+            9 => CardLanguage::Japanese,
+            108 => CardLanguage::Japanese,
+            8 => CardLanguage::English,
+            _ => unreachable!(),
+        };
+        let common_deck = common_deck.clone().into_language(language, &db.read());
         let deck = Deck::from_common_deck(common_deck.clone(), &db.read());
         if let Some(mut deck) = deck {
             match deck.publish(*game_title_id.read()).await {
@@ -409,7 +445,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             deck_check: true,
             proxy_check: false,
             allow_unreleased: false,
-            card_lang: CARD_LANG.signal(),
+            card_lang,
             db,
             common_deck,
         }
@@ -425,11 +461,19 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                             *game_title_id.write() = match ev.value().as_str() {
                                 "9" => 9,
                                 "108" => 108,
+                                "8" => 8,
+                                _ => unreachable!(),
+                            };
+                            *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
+                                "9" => CardLanguage::Japanese,
+                                "108" => CardLanguage::Japanese,
+                                "8" => CardLanguage::English,
                                 _ => unreachable!(),
                             };
                         },
                         option { value: "9", "Deck Log JP" }
                         option { value: "108", "Deck Log EN (JP version)" }
+                        option { value: "8", "Deck Log EN" }
                     }
                 }
             }
@@ -447,7 +491,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                     r#type: "button",
                     class: "button",
                     class: if *loading.read() { "is-loading" },
-                    disabled: !warnings.is_empty() || *loading.read(),
+                    disabled: !warnings.read().is_empty() || *loading.read(),
                     onclick: publish_deck,
                     span { class: "icon",
                         i { class: "fa-solid fa-cloud-arrow-up" }

@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::{
     CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, SHOW_CARD_DETAILS,
     components::{card::Card, modal_popup::ModelPopup},
-    sources::{CommonCard, CommonDeck},
+    sources::{CommonCard, CommonDeck, ImageOptions},
     tracker::{EventType, track_event, track_url},
 };
 
@@ -147,13 +147,12 @@ pub fn CardDetailsContent(
     let img_path = use_memo({
         move || {
             card.read()
-                .image_path(&db.read(), *lang.read(), false, true)
+                .image_path(&db.read(), *lang.read(), ImageOptions::card_details())
                 .unwrap_or_else(|| _error_img_path.clone())
         }
     });
 
     let _db = db.read();
-    let card_lang = use_signal(|| CardLanguage::Japanese);
     let alt_cards = card
         .read()
         .alt_cards(&_db)
@@ -168,14 +167,15 @@ pub fn CardDetailsContent(
                     .map(|c| c.amount)
                     .unwrap_or(0);
             };
-            let id = format!("card-details-alt_{}", cc.manage_id.as_ref().unwrap_or(&0));
+            let id = format!("card-details-alt_{}", cc.html_id());
             rsx! {
                 div { id,
                     Card {
                         card: cc,
                         card_type: CardType::Main,
-                        card_lang,
+                        card_lang: lang,
                         is_preview: false,
+                        image_options: ImageOptions::card_search(),
                         db,
                         common_deck,
                         is_edit,
@@ -187,10 +187,7 @@ pub fn CardDetailsContent(
         .collect::<Vec<_>>();
     // scroll currently selected into view
     let _ = use_effect(move || {
-        let id = format!(
-            "card-details-alt_{}",
-            card.read().manage_id.as_ref().unwrap_or(&0)
-        );
+        let id = format!("card-details-alt_{}", card.read().html_id());
         document().eval(format!("
             var target = document.getElementById('{id}');
             target.parentNode.scrollLeft = target.offsetLeft - target.parentNode.offsetLeft - target.parentNode.offsetWidth / 2 + target.offsetWidth / 2;
@@ -293,9 +290,9 @@ pub fn CardDetailsContent(
         if colors.is_empty() {
             card_type
         } else if *lang.read() == CardLanguage::Japanese {
-            format!("{}・{}", colors, card_type)
+            format!("{colors}・{card_type}")
         } else {
-            format!("{} - {}", colors, card_type)
+            format!("{colors} - {card_type}")
         }
     });
 
@@ -463,9 +460,9 @@ pub fn CardDetailsContent(
             .filter(|illustrator| !illustrator.is_empty())
             .map(|illustrator| {
                 if *lang.read() == CardLanguage::Japanese {
-                    format!("イラストレーター名: {}", illustrator)
+                    format!("イラストレーター名: {illustrator}")
                 } else {
-                    format!("Illustrator: {}", illustrator)
+                    format!("Illustrator: {illustrator}")
                 }
             })
     });
@@ -476,21 +473,41 @@ pub fn CardDetailsContent(
 
         let mut urls = Vec::with_capacity(2);
 
-        // Official hOCG site
-        if let Some(manage_id) = card.manage_id.as_ref() {
+        // Official hOCG site (Japanese)
+        if let Some(manage_id) = card.manage_id.japanese.as_ref() {
             urls.push(rsx! {
                 a {
-                    title: "Go to the official hOCG site for {card.card_number}",
+                    title: "Go to the official hOCG site (JP) for {card.card_number}",
                     href: "https://hololive-official-cardgame.com/cardlist/?id={manage_id}",
                     target: "_blank",
-                    onclick: |_| { track_url("Official hOCG site") },
+                    onclick: |_| { track_url("Official hOCG site (JP)") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
                     if *lang.read() == CardLanguage::Japanese {
                         "公式サイト"
                     } else {
-                        "Official hOCG site"
+                        "Official hOCG site (JP)"
+                    }
+                }
+            });
+        }
+
+        // Official hOCG site (English)
+        if let Some(manage_id) = card.manage_id.english.as_ref() {
+            urls.push(rsx! {
+                a {
+                    title: "Go to the official hOCG site (EN) for {card.card_number}",
+                    href: "https://en.hololive-official-cardgame.com/cardlist/?id={manage_id}",
+                    target: "_blank",
+                    onclick: |_| { track_url("Official hOCG site (EN)") },
+                    span { class: "icon",
+                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "公式サイト EN"
+                    } else {
+                        "Official hOCG site (EN)"
                     }
                 }
             });

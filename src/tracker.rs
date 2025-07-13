@@ -31,12 +31,13 @@ pub enum EventType {
     Export(String),
     EditDeck,
     Url(String),
+    Error,
 }
 
 // Generate a key for the throttling map based on event type and data
 fn generate_event_key<T: Serialize>(event_name: &str, data: &T) -> String {
     let data_str = serde_json::to_string(data).unwrap_or_default();
-    format!("{}:{}", event_name, data_str)
+    format!("{event_name}:{data_str}")
 }
 
 pub fn track_event<T>(event: EventType, data: T)
@@ -44,12 +45,12 @@ where
     T: serde::ser::Serialize,
 {
     let event = match event {
-        // entry event doesn't have a name
         EventType::Entry => None,
         EventType::Import(_fmt) => Some("import"),
         EventType::Export(_fmt) => Some("export"),
         EventType::EditDeck => Some("edit_deck"),
         EventType::Url(_url) => Some("external_url"),
+        EventType::Error => Some("error"),
     };
 
     // Check throttling for events that have a name
@@ -125,4 +126,13 @@ pub fn track_url(title: &str) {
     }
 
     track_event(EventType::Url(title.into()), EventData { title });
+}
+
+pub fn track_error(message: &str) {
+    #[derive(Serialize)]
+    struct EventData<'a> {
+        message: &'a str,
+    }
+
+    track_event(EventType::Error, EventData { message });
 }

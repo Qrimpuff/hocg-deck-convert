@@ -8,6 +8,14 @@
     min-height: 176px;
 }
 
+.card-img-oshi.selected a,
+.card-img.selected a,
+.card-img-oshi.warning a,
+.card-img.warning a {
+    z-index: 1;
+    position: relative;
+}
+
 .card-img-oshi.selected::after,
 .card-img.selected::after,
 .card-img-oshi.warning::after,
