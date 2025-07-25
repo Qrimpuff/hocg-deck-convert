@@ -451,6 +451,22 @@ pub fn CardDetailsContent(
         }
     });
 
+    let max_amount = use_memo(move || {
+        let db = db.read();
+        let max_amount = card.read().max_amount(*lang.read(), &db);
+        let card = card.read().card_info(&db)?;
+
+        if card.card_type != hocg::CardType::OshiHoloMember {
+            Some(if *lang.read() == CardLanguage::Japanese {
+                format!("最大金額: {max_amount}")
+            } else {
+                format!("Max amount: {max_amount}")
+            })
+        } else {
+            None
+        }
+    });
+
     let illustrator = use_memo(move || {
         let db = db.read();
         let card = card.read().card_illustration(&db)?;
@@ -633,6 +649,9 @@ pub fn CardDetailsContent(
             }
             if let Some(baton_pass) = baton_pass.read().as_ref() {
                 div { "{baton_pass}" }
+            }
+            if let Some(max_amount) = max_amount.read().as_ref() {
+                div { "{max_amount}" }
             }
         }
 

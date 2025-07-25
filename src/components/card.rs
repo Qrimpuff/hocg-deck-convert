@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hocg_fan_sim_assets_model::CardsDatabase;
+use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
@@ -79,26 +79,22 @@ pub fn Card(
     // highlight cards that cause the warnings
     let is_unknown = card.is_unknown(&db.read());
     let is_unreleased = card.is_unreleased(*PREVIEW_CARD_LANG.read(), &db.read());
-    let is_warning_card = if is_preview {
-        let export = *EXPORT_FORMAT.read();
-        if is_unknown {
-            matches!(
-                export,
-                Some(DeckType::DeckLog)
-                    | Some(DeckType::HoloDelta)
-                    | Some(DeckType::HoloDuel)
-                    | Some(DeckType::TabletopSim)
-            )
-        } else if is_unreleased {
-            matches!(
-                export,
-                Some(DeckType::DeckLog) | Some(DeckType::HoloDuel) | Some(DeckType::TabletopSim)
-            )
-        } else {
-            false
+    let is_warning_card = match is_preview.then(|| *EXPORT_FORMAT.read()).flatten() {
+        Some(DeckType::DeckLog) => is_unknown || is_unreleased,
+        Some(DeckType::HoloDelta) => is_unknown,
+        Some(DeckType::HoloDuel) => is_unknown || is_unreleased,
+        Some(DeckType::TabletopSim) => is_unknown || is_unreleased,
+        Some(DeckType::ProxySheets) => {
+            card.card_type(&db.read()) != Some(CardType::Cheer)
+                && card
+                    .image_path(
+                        &db.read(),
+                        *card_lang.read(),
+                        ImageOptions::proxy_validation(),
+                    )
+                    .is_none()
         }
-    } else {
-        false
+        _ => false,
     };
 
     let tooltip = card
@@ -251,7 +247,12 @@ pub fn Card(
                                 class: "button is-small",
                                 title: "Add 1 {tooltip}",
                                 // disable when reaching max amount. not total amount. allows some buffer for deck building
-                                disabled: card.amount >= max_amount,
+                                disabled: card.amount
+                                    >= match card.card_info(&db.read()).map(|info| info.card_type) {
+                                        Some(hocg::CardType::OshiHoloMember) => 1,
+                                        Some(hocg::CardType::Cheer) => 20,
+                                        _ => 50,
+                                    },
                                 onclick: add_card,
                                 span { class: "icon is-small has-text-success",
                                     i { class: "fas fa-plus" }

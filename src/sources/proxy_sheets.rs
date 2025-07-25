@@ -229,7 +229,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
 
     rsx! {
         DeckValidation {
-            deck_check: false,
+            deck_check: true,
             proxy_check: true,
             allow_unreleased: true,
             card_lang,
