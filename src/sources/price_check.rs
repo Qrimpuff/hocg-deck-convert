@@ -174,7 +174,7 @@ pub fn Export(
         *deck_error.write() = String::new();
 
         let mut deck = common_deck.clone();
-        for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
+        for card in deck.all_cards_mut() {
             if let Some(alt_card) = card
                 .alt_cards(&db.read())
                 .into_iter()
@@ -184,8 +184,8 @@ pub fn Export(
                 }) // this is the highest price
                 .next()
             {
-                card.manage_id = alt_card.manage_id;
                 card.card_number = alt_card.card_number; // it could be a cheer card
+                card.illustration_idx = alt_card.illustration_idx;
             }
         }
         deck.merge();
@@ -211,7 +211,7 @@ pub fn Export(
         *deck_error.write() = String::new();
 
         let mut deck = common_deck.clone();
-        for card in deck.all_cards_mut().filter(|c| c.manage_id.is_some()) {
+        for card in deck.all_cards_mut() {
             if let Some(alt_card) = card
                 .alt_cards(&db.read())
                 .into_iter()
@@ -219,8 +219,8 @@ pub fn Export(
                 .sorted_by_key(|c| c.price(&db.read(), &prices.read()).expect("it's some")) // this is the lowest price
                 .next()
             {
-                card.manage_id = alt_card.manage_id;
                 card.card_number = alt_card.card_number; // it could be a cheer card
+                card.illustration_idx = alt_card.illustration_idx;
             }
         }
         deck.merge();

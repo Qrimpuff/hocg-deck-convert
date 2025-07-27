@@ -160,12 +160,7 @@ pub fn CardDetailsContent(
         .map(move |mut cc| {
             if let Some(common_deck) = common_deck {
                 let common_deck = common_deck.read();
-                cc.amount = cc
-                    .manage_id
-                    .as_ref()
-                    .and_then(|id| common_deck.find_card(*id))
-                    .map(|c| c.amount)
-                    .unwrap_or(0);
+                cc.amount = common_deck.card_amount(&cc.card_number, cc.illustration_idx);
             };
             let id = format!("card-details-alt_{}", cc.html_id());
             rsx! {

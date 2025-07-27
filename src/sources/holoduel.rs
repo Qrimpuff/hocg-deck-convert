@@ -10,10 +10,20 @@ use super::{
 };
 use crate::DeckType;
 
-use super::{CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion};
+use super::{CardsDatabase, CommonCard, CommonDeck};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OshiCard(String);
+
+impl OshiCard {
+    pub fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
+        OshiCard(card.card_number.clone())
+    }
+
+    pub fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
+        CommonCard::from_card_number(value.0, 1, db)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeckCard(String, u32);
@@ -25,6 +35,32 @@ impl From<(String, u32)> for DeckCard {
 impl From<DeckCard> for (String, u32) {
     fn from(value: DeckCard) -> Self {
         (value.0, value.1)
+    }
+}
+
+impl DeckCard {
+    pub fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
+        DeckCard(card.card_number.clone(), card.amount)
+    }
+
+    pub fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
+        CommonCard::from_card_number(value.0, value.1, db)
+    }
+
+    pub fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> IndexMap<String, u32> {
+        cards
+            .merge_without_rarity()
+            .into_iter()
+            .map(|c| DeckCard::from_common_card(c, db).into())
+            .collect()
+    }
+
+    pub fn build_common_deck(cards: IndexMap<String, u32>, db: &CardsDatabase) -> Vec<CommonCard> {
+        cards
+            .into_iter()
+            .map(|c| DeckCard::to_common_card(c.into(), db))
+            .collect::<Vec<_>>()
+            .merge()
     }
 }
 
@@ -54,58 +90,8 @@ impl Deck {
     pub fn to_text(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(&self)?)
     }
-}
 
-impl CommonCardConversion for OshiCard {
-    type CardDeck = OshiCard;
-
-    fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
-        OshiCard(card.card_number.clone())
-    }
-
-    fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
-        CommonCard::from_card_number(value.0, 1, db)
-    }
-
-    fn build_custom_deck(_cards: Vec<CommonCard>, _db: &CardsDatabase) -> Self::CardDeck {
-        unimplemented!("not needed for single card")
-    }
-
-    fn build_common_deck(_cards: Self::CardDeck, _db: &CardsDatabase) -> Vec<CommonCard> {
-        unimplemented!("not needed for single card")
-    }
-}
-
-impl CommonCardConversion for DeckCard {
-    type CardDeck = IndexMap<String, u32>;
-
-    fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
-        DeckCard(card.card_number.clone(), card.amount)
-    }
-
-    fn to_common_card(value: Self, db: &CardsDatabase) -> CommonCard {
-        CommonCard::from_card_number(value.0, value.1, db)
-    }
-
-    fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck {
-        cards
-            .merge_without_rarity()
-            .into_iter()
-            .map(|c| DeckCard::from_common_card(c, db).into())
-            .collect()
-    }
-
-    fn build_common_deck(cards: Self::CardDeck, db: &CardsDatabase) -> Vec<CommonCard> {
-        cards
-            .into_iter()
-            .map(|c| DeckCard::to_common_card(c.into(), db))
-            .collect::<Vec<_>>()
-            .merge()
-    }
-}
-
-impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
+    pub fn from_common_deck(deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
         Some(Deck {
             deck_name: deck.name,
             oshi: OshiCard::from_common_card(deck.oshi?, db),
@@ -114,7 +100,7 @@ impl CommonDeckConversion for Deck {
         })
     }
 
-    fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck {
+    pub fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck {
         CommonDeck {
             name: value
                 .deck_name

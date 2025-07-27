@@ -86,7 +86,8 @@ async fn generate_pdf(
             let image = ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP)?;
             let image = image.resize_exact(CARD_WIDTH_PX, CARD_HEIGHT_PX, FilterType::CatmullRom);
             let image = Image::from_dynamic_image(&image);
-            img_cache.lock().await.insert(card.manage_id, image);
+            let cache_key = Some((&card.card_number, card.illustration_idx));
+            img_cache.lock().await.insert(cache_key, image);
 
             Ok(())
         }
@@ -99,7 +100,7 @@ async fn generate_pdf(
         let page = doc.get_page(page);
         let current_layer = page.get_layer(layer);
 
-        let mut manage_id = None;
+        let mut cache_key = None;
         let mut image_transforms = vec![];
 
         for card_idx in 0..cards_per_page {
@@ -108,8 +109,9 @@ async fn generate_pdf(
             };
 
             // apply transforms
-            if manage_id != card.manage_id && !image_transforms.is_empty() {
-                if let Some(image) = img_cache.get(&manage_id) {
+            let card_cache_key = Some((&card.card_number, card.illustration_idx));
+            if cache_key != card_cache_key && !image_transforms.is_empty() {
+                if let Some(image) = img_cache.get(&cache_key) {
                     let image = Image {
                         image: image.image.clone(),
                         smask: image.smask.clone(),
@@ -123,7 +125,7 @@ async fn generate_pdf(
             }
 
             // place the image on the page
-            manage_id = card.manage_id;
+            cache_key = card_cache_key;
             image_transforms.push(ImageTransform {
                 dpi: Some(DPI),
                 translate_x: Some(
@@ -140,7 +142,7 @@ async fn generate_pdf(
 
         // apply transforms
         if !image_transforms.is_empty() {
-            if let Some(image) = img_cache.get(&manage_id) {
+            if let Some(image) = img_cache.get(&cache_key) {
                 let image = Image {
                     image: image.image.clone(),
                     smask: image.smask.clone(),

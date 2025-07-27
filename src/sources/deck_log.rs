@@ -9,10 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::components::deck_validation::DeckValidation;
 use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
-use super::{
-    CardsDatabase, CommonCard, CommonCardConversion, CommonDeck, CommonDeckConversion,
-    MergeCommonCards,
-};
+use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -142,19 +139,15 @@ impl Deck {
     }
 }
 
-impl CommonCardConversion for Card {
-    type CardDeck = Vec<Card>;
-
-    fn from_common_card(card: CommonCard, _db: &CardsDatabase) -> Self {
-        // Note: Deck needs to pass through CommonDeck::into_language before this is called
+impl Card {
+    fn from_common_card(card: CommonCard, language: CardLanguage, db: &CardsDatabase) -> Self {
         Card {
             game_title_id: 0, // doesn't exist in Deck Log
-            card_number: card.card_number,
+            card_number: card.card_number.clone(),
             num: card.amount,
             manage_id: card
-                .manage_id
-                .unwrap_or((CardLanguage::Japanese, u32::MAX)) // Deck Log will reject it
-                .1
+                .manage_id(language, db)
+                .unwrap_or(u32::MAX) // Deck Log will reject it
                 .to_string(),
         }
     }
@@ -174,15 +167,19 @@ impl CommonCardConversion for Card {
         )
     }
 
-    fn build_custom_deck(cards: Vec<CommonCard>, db: &CardsDatabase) -> Self::CardDeck {
+    fn build_custom_deck(
+        cards: Vec<CommonCard>,
+        language: CardLanguage,
+        db: &CardsDatabase,
+    ) -> Vec<Card> {
         cards
             .merge()
             .into_iter()
-            .map(|c| Card::from_common_card(c, db))
+            .map(|c| Card::from_common_card(c, language, db))
             .collect()
     }
 
-    fn build_common_deck(cards: Self::CardDeck, db: &CardsDatabase) -> Vec<CommonCard> {
+    fn build_common_deck(cards: Vec<Card>, db: &CardsDatabase) -> Vec<CommonCard> {
         cards
             .into_iter()
             .map(|c| Card::to_common_card(c, db))
@@ -191,15 +188,19 @@ impl CommonCardConversion for Card {
     }
 }
 
-impl CommonDeckConversion for Deck {
-    fn from_common_deck(deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
+impl Deck {
+    fn from_common_deck(
+        deck: CommonDeck,
+        language: CardLanguage,
+        db: &CardsDatabase,
+    ) -> Option<Self> {
         Some(Deck {
             game_title_id: 0,   // is set before publishing
             deck_id: "".into(), // not used for publishing
             title: deck.required_deck_name_max_length(25, db),
-            p_list: Card::build_custom_deck(deck.oshi.into_iter().collect(), db),
-            list: Card::build_custom_deck(deck.main_deck, db),
-            sub_list: Card::build_custom_deck(deck.cheer_deck, db),
+            p_list: Card::build_custom_deck(deck.oshi.into_iter().collect(), language, db),
+            list: Card::build_custom_deck(deck.main_deck, language, db),
+            sub_list: Card::build_custom_deck(deck.cheer_deck, language, db),
         })
     }
 
@@ -403,8 +404,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             8 => CardLanguage::English,
             _ => unreachable!(),
         };
-        let common_deck = common_deck.clone().into_language(language, &db.read());
-        let deck = Deck::from_common_deck(common_deck.clone(), &db.read());
+        let deck = Deck::from_common_deck(common_deck.clone(), language, &db.read());
         if let Some(mut deck) = deck {
             match deck.publish(*game_title_id.read()).await {
                 Ok(url) => {

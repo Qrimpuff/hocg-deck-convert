@@ -70,7 +70,7 @@ fn filter_cards(
     bloom_level: &FilterBloomLevel,
     tag: &FilterTag,
     rarity: &FilterRarity,
-) -> Vec<hocg::CardIllustration> {
+) -> Vec<(hocg::CardIllustration, usize)> {
     // normalize the filter to hiragana, lowercase and remove extra spaces
     let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
     let filter = filter.split_whitespace().collect_vec();
@@ -93,9 +93,14 @@ fn filter_cards(
 
     all_cards
         .iter()
-        .flat_map(|card| card.illustrations.iter().map(move |i| (card, i)))
+        .flat_map(|card| {
+            card.illustrations
+                .iter()
+                .enumerate()
+                .map(move |(n, i)| (card, i, n))
+        })
         // filter by text
-        .filter(|(card, illust)| {
+        .filter(|(card, illust, _)| {
             // check that all words matches
             filter.iter().all(|filter| {
                 let mut found = false;
@@ -167,7 +172,7 @@ fn filter_cards(
             })
         })
         // filter by card type
-        .filter(|(card, _)| match (card_type, card.card_type) {
+        .filter(|(card, _, _)| match (card_type, card.card_type) {
             (FilterCardType::All, _) => true,
             (FilterCardType::OshiHoloMember, hocg::CardType::OshiHoloMember) => true,
             (FilterCardType::HoloMember, hocg::CardType::HoloMember) => true,
@@ -183,7 +188,7 @@ fn filter_cards(
             _ => false,
         })
         // filter by color
-        .filter(|(card, _)| match color {
+        .filter(|(card, _, _)| match color {
             FilterColor::All => true,
             FilterColor::White => card.colors.contains(&hocg::Color::White),
             FilterColor::Green => card.colors.contains(&hocg::Color::Green),
@@ -194,7 +199,7 @@ fn filter_cards(
             FilterColor::Colorless => card.colors.contains(&hocg::Color::Colorless),
         })
         // filter by bloom level
-        .filter(|(card, _)| match (bloom_level, card.bloom_level) {
+        .filter(|(card, _, _)| match (bloom_level, card.bloom_level) {
             (FilterBloomLevel::All, _) => true,
             (FilterBloomLevel::Debut, Some(hocg::BloomLevel::Debut)) => true,
             (FilterBloomLevel::First, Some(hocg::BloomLevel::First)) => true,
@@ -204,7 +209,7 @@ fn filter_cards(
             _ => false,
         })
         // filter by tag
-        .filter(|(card, _)| match tag {
+        .filter(|(card, _, _)| match tag {
             FilterTag::All => true,
             FilterTag::Tag(tag) => {
                 card.tags.iter().any(|t| {
@@ -221,21 +226,19 @@ fn filter_cards(
             }
         })
         // filter by rarity
-        .filter(|(_, illust)| match rarity {
+        .filter(|(_, illust, _)| match rarity {
             FilterRarity::All => true,
             FilterRarity::Rarity(rarity) => illust.rarity.eq_ignore_ascii_case(rarity),
         })
         // remove duplicate looking cards in search
-        .enumerate()
-        .unique_by(|(n, (_, i))| {
+        .unique_by(|(_, i, n)| {
             (
                 &i.card_number,
                 i.delta_art_index.unwrap_or(u32::MAX - *n as u32),
             )
         })
-        .map(|(_, (_, illustration))| illustration)
-        .cloned()
-        .collect()
+        .map(|(_, illustration, n)| (illustration.clone(), n))
+        .collect::<Vec<_>>()
 
     // TODO sort by relevance
 }
@@ -362,13 +365,12 @@ pub fn CardSearch(
             .iter()
             // limit the number of cards shown
             .take(*card_amount.read())
-            .map(move |card| {
+            .map(move |(card, idx)| {
+                let mut card = CommonCard::from_card_illustration(card, 0, &db.read());
+                card.amount = _common_deck.card_amount(&card.card_number, Some(*idx));
                 rsx! {
                     Card {
-                        card: CommonCard::from_card_illustration(
-                            card,
-                            _common_deck.find_card_by_illustration(card).map(|c| c.amount).unwrap_or(0),
-                        ),
+                        card,
                         card_type: CardType::Main,
                         card_lang,
                         is_preview: false,

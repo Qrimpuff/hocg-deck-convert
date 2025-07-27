@@ -13,9 +13,7 @@ use crate::{
     track_event,
 };
 
-use super::{
-    CardsDatabase, CommonDeck, CommonDeckConversion, DeckType, holodelta, holoduel, tabletop_sim,
-};
+use super::{CardsDatabase, CommonDeck, DeckType, holodelta, holoduel, tabletop_sim};
 
 #[derive(Debug, Clone)]
 enum Deck {
