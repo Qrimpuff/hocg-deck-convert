@@ -1,6 +1,9 @@
 use std::{collections::HashMap, error::Error, sync::OnceLock};
 
-use dioxus::{logger::tracing::debug, prelude::*};
+use dioxus::{
+    logger::tracing::{debug, error},
+    prelude::*,
+};
 use itertools::Itertools;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
@@ -9,25 +12,45 @@ use web_time::{Duration, Instant};
 use super::{CardsDatabase, CommonDeck};
 use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
-pub type PriceCache = HashMap<String, (Instant, u32)>;
+pub type PriceCache = HashMap<PriceCacheKey, (Instant, f64)>;
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub enum PriceCacheKey {
+    Yuyutei(String),
+    TcgPlayer(u32),
+}
 
 #[derive(Clone, Copy, Serialize)]
-enum PriceCheckService {
+pub enum PriceCheckService {
     Yuyutei,
+    TcgPlayer,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
-struct PriceCheckRequest {
+struct YuyuteiPriceCheckRequest {
     urls: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct YuyuteiPriceCheckResult {
+    url: String,
+    card_number: String,
+    price_yen: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+struct TcgPlayerPriceCheckRequest {
+    product_ids: Vec<u32>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-struct PriceCheckResult {
-    url: String,
-    card_number: String,
-    price_yen: u32,
+struct TcgPlayerPriceCheckResult {
+    product_id: u32,
+    price_usd: f64,
 }
 
 fn http_client() -> &'static Client {
@@ -44,12 +67,12 @@ async fn price_check(
     debug!("price check");
 
     // read price from cache
-    let urls: Vec<_> = deck
+    let keys: Vec<_> = deck
         .all_cards()
         // check price for all versions
         .flat_map(|c| c.alt_cards(db).into_iter())
         .filter(|c| {
-            c.price_cache(db, prices)
+            c.price_cache(db, prices, service)
                 .map(|(cache_time, _)| {
                     // more than an hour
                     Instant::now().duration_since(*cache_time) > Duration::from_secs(60 * 60)
@@ -57,49 +80,107 @@ async fn price_check(
                 .unwrap_or(true)
         })
         .filter_map(|c| c.card_illustration(db))
-        .filter_map(|c| match service {
-            PriceCheckService::Yuyutei => c.yuyutei_sell_url.clone(),
+        .filter_map(|c| {
+            Some(match service {
+                PriceCheckService::Yuyutei => {
+                    PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string())
+                }
+                PriceCheckService::TcgPlayer => PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?),
+            })
         })
         .unique()
         .collect();
-    if urls.is_empty() {
+    if keys.is_empty() {
         return Ok(PriceCache::new());
     }
 
-    let req = PriceCheckRequest { urls };
+    let lookup_prices: HashMap<_, _> = {
+        match service {
+            PriceCheckService::Yuyutei => {
+                let req = YuyuteiPriceCheckRequest {
+                    urls: keys
+                        .into_iter()
+                        .map(|k| match k {
+                            PriceCacheKey::Yuyutei(url) => url,
+                            _ => unreachable!(),
+                        })
+                        .collect(),
+                };
 
-    let resp = http_client()
-        .post(format!("{HOCG_DECK_CONVERT_API}/price-check"))
-        .json(&req)
-        .send()
-        .await
-        .map_err(|_| "service unavailable")?;
+                let resp = http_client()
+                    .post(format!("{HOCG_DECK_CONVERT_API}/price-check-yuyutei"))
+                    .json(&req)
+                    .send()
+                    .await
+                    .map_err(|err| {
+                        error!("Failed to fetch prices from Yuyutei: {err}");
+                        "service unavailable"
+                    })?;
 
-    let content = resp.text().await.unwrap();
-    debug!("{:?}", content);
+                let content = resp.text().await.unwrap();
+                debug!("{:?}", content);
 
-    let res: Vec<PriceCheckResult> = serde_json::from_str(&content).map_err(|_| content)?;
-    let lookup_prices: HashMap<_, _> = res
-        .into_iter()
-        .map(|r| (r.url, (r.card_number, r.price_yen)))
-        .collect();
+                let res: Vec<YuyuteiPriceCheckResult> =
+                    serde_json::from_str(&content).map_err(|_| content)?;
+                res.into_iter()
+                    .map(|r| (PriceCacheKey::Yuyutei(r.url), r.price_yen as f64))
+                    .collect()
+            }
+            PriceCheckService::TcgPlayer => {
+                let req = TcgPlayerPriceCheckRequest {
+                    product_ids: keys
+                        .into_iter()
+                        .map(|k| match k {
+                            PriceCacheKey::TcgPlayer(id) => id,
+                            _ => unreachable!(),
+                        })
+                        .collect(),
+                };
+
+                let resp = http_client()
+                    .post(format!("{HOCG_DECK_CONVERT_API}/price-check-tcgplayer"))
+                    .json(&req)
+                    .send()
+                    .await
+                    .map_err(|err| {
+                        error!("Failed to fetch prices from TCGPlayer: {err}");
+                        "service unavailable"
+                    })?;
+
+                let content = resp.text().await.unwrap();
+                debug!("{:?}", content);
+
+                let res: Vec<TcgPlayerPriceCheckResult> =
+                    serde_json::from_str(&content).map_err(|_| content)?;
+                res.into_iter()
+                    .map(|r| (PriceCacheKey::TcgPlayer(r.product_id), r.price_usd)) // convert to cents
+                    .collect()
+            }
+        }
+    };
     debug!("{:?}", lookup_prices);
 
     // update the price
     let mut prices = PriceCache::new();
     for card in deck.all_cards() {
-        for card in card
+        for key in card
             .alt_cards(db)
             .into_iter()
             .filter_map(|c| c.card_illustration(db))
+            .filter_map(|c| {
+                Some(match service {
+                    PriceCheckService::Yuyutei => {
+                        PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string())
+                    }
+                    PriceCheckService::TcgPlayer => {
+                        PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?)
+                    }
+                })
+            })
         {
-            if let Some(url) = match service {
-                PriceCheckService::Yuyutei => &card.yuyutei_sell_url,
-            } {
-                lookup_prices
-                    .get(url)
-                    .map(|p| prices.insert(url.into(), (Instant::now(), p.1)));
-            }
+            lookup_prices
+                .get(&key)
+                .map(|p| prices.insert(key, (Instant::now(), *p)));
         }
     }
 
@@ -111,6 +192,7 @@ pub fn Export(
     mut common_deck: Signal<CommonDeck>,
     db: Signal<CardsDatabase>,
     prices: Signal<PriceCache>,
+    mut price_service: Signal<PriceCheckService>,
     show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
@@ -125,7 +207,6 @@ pub fn Export(
     }
 
     let mut deck_error = use_signal(String::new);
-    let mut service = use_signal(|| PriceCheckService::Yuyutei);
     let mut loading = use_signal(|| false);
 
     let price_check = move |_| async move {
@@ -134,8 +215,13 @@ pub fn Export(
         *loading.write() = true;
         *deck_error.write() = String::new();
 
-        let price_check =
-            price_check(&common_deck, &db.read(), &prices.read(), *service.read()).await;
+        let price_check = price_check(
+            &common_deck,
+            &db.read(),
+            &prices.read(),
+            *price_service.read(),
+        )
+        .await;
         match price_check {
             Ok(price_check) => {
                 prices.write().extend(price_check);
@@ -144,7 +230,7 @@ pub fn Export(
                     EventType::Export("Price check".into()),
                     EventData {
                         format: "Price check",
-                        price_check_service: Some(*service.read()),
+                        price_check_service: Some(*price_service.read()),
                         price_check_convert: None,
                         error: None,
                     },
@@ -156,7 +242,7 @@ pub fn Export(
                     EventType::Export("Price check".into()),
                     EventData {
                         format: "Price check",
-                        price_check_service: Some(*service.read()),
+                        price_check_service: Some(*price_service.read()),
                         price_check_convert: None,
                         error: Some(e.to_string()),
                     },
@@ -178,9 +264,15 @@ pub fn Export(
             if let Some(alt_card) = card
                 .alt_cards(&db.read())
                 .into_iter()
-                .filter(|c| c.price(&db.read(), &prices.read()).is_some())
+                .filter(|c| {
+                    c.price(&db.read(), &prices.read(), *price_service.read())
+                        .is_some()
+                })
                 .sorted_by_key(|c| {
-                    u32::MAX - c.price(&db.read(), &prices.read()).expect("it's some")
+                    u32::MAX
+                        - (c.price(&db.read(), &prices.read(), *price_service.read())
+                            .expect("it's some")
+                            * 100.0) as u32 // convert to cents
                 }) // this is the highest price
                 .next()
             {
@@ -215,8 +307,15 @@ pub fn Export(
             if let Some(alt_card) = card
                 .alt_cards(&db.read())
                 .into_iter()
-                .filter(|c| c.price(&db.read(), &prices.read()).is_some())
-                .sorted_by_key(|c| c.price(&db.read(), &prices.read()).expect("it's some")) // this is the lowest price
+                .filter(|c| {
+                    c.price(&db.read(), &prices.read(), *price_service.read())
+                        .is_some()
+                })
+                .sorted_by_key(|c| {
+                    (c.price(&db.read(), &prices.read(), *price_service.read())
+                        .expect("it's some")
+                        * 100.0) as u32 // convert to cents
+                }) // this is the lowest price
                 .next()
             {
                 card.card_number = alt_card.card_number; // it could be a cheer card
@@ -248,16 +347,20 @@ pub fn Export(
                     select {
                         id: "service",
                         oninput: move |ev| {
-                            *service.write() = match ev.value().as_str() {
+                            *show_price.write() = false;
+                            *price_service.write() = match ev.value().as_str() {
                                 "yuyutei" => PriceCheckService::Yuyutei,
+                                "tcgplayer" => PriceCheckService::TcgPlayer,
                                 _ => unreachable!(),
                             };
                             *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
                                 "yuyutei" => CardLanguage::Japanese,
+                                "tcgplayer" => CardLanguage::English,
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "yuyutei", "Yuyutei" }
+                        option { value: "yuyutei", "Yuyutei (JPY)" }
+                        option { value: "tcgplayer", "TCGPlayer (USD)" }
                     }
                 }
             }

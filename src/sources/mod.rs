@@ -1,15 +1,21 @@
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
+    str::FromStr,
 };
 
 use hocg_fan_sim_assets_model::{self as hocg, CardIllustration, CardsDatabase};
+use icu::decimal::{DecimalFormatter, input::Decimal};
+use icu::locale::locale;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use price_check::PriceCache;
 use web_time::Instant;
 
-use crate::{CardLanguage, CardType};
+use crate::{
+    CardLanguage, CardType,
+    sources::price_check::{PriceCacheKey, PriceCheckService},
+};
 
 pub mod deck_log;
 pub mod edit_deck;
@@ -214,17 +220,57 @@ impl CommonCard {
         }
     }
 
-    pub fn price(&self, db: &CardsDatabase, prices: &PriceCache) -> Option<u32> {
-        self.price_cache(db, prices).map(|p| p.1)
+    pub fn price(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+    ) -> Option<f64> {
+        self.price_cache(db, prices, service).map(|p| p.1)
+    }
+    pub fn price_display(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+    ) -> Option<String> {
+        self.price(db, prices, service).map(|p| match service {
+            PriceCheckService::Yuyutei => {
+                let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
+                    .expect("locale should be present");
+                let p = Decimal::from_str(format!("{p}").as_str()).unwrap();
+                let p = f.format(&p);
+                format!("¥{p}")
+            }
+            PriceCheckService::TcgPlayer => {
+                let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
+                    .expect("locale should be present");
+                let p = Decimal::from_str(format!("{p:.2}").as_str()).unwrap();
+                let p = f.format(&p);
+                format!("${p}")
+            }
+        })
+    }
+    pub fn price_url(&self, db: &CardsDatabase, service: PriceCheckService) -> Option<String> {
+        self.card_illustration(db).and_then(|c| match service {
+            PriceCheckService::Yuyutei => c.yuyutei_sell_url.clone(),
+            PriceCheckService::TcgPlayer => c.tcgplayer_url(),
+        })
     }
     pub fn price_cache<'a>(
         &self,
         db: &CardsDatabase,
         prices: &'a PriceCache,
-    ) -> Option<&'a (Instant, u32)> {
-        self.card_illustration(db)
-            .and_then(|c| c.yuyutei_sell_url.as_ref())
-            .and_then(|y| prices.get(y))
+        service: PriceCheckService,
+    ) -> Option<&'a (Instant, f64)> {
+        self.card_illustration(db).and_then(|c| {
+            prices.get(&match service {
+                PriceCheckService::Yuyutei => {
+                    PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string())
+                }
+                PriceCheckService::TcgPlayer => PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?),
+            })
+        })
     }
 
     pub fn alt_cards(&self, db: &CardsDatabase) -> Vec<Self> {
@@ -642,8 +688,13 @@ impl CommonDeck {
             let max = card.max_amount(language, db);
             if card.amount > max {
                 errors.push(format!(
-                    "Too many {} in main deck. ({} cards; {max} max)",
-                    card.card_number, card.amount
+                    "Too many {} in deck. ({} cards; {max} max for {})",
+                    card.card_number,
+                    card.amount,
+                    match language {
+                        CardLanguage::Japanese => "JP",
+                        CardLanguage::English => "EN",
+                    }
                 ));
             }
         }
@@ -700,5 +751,56 @@ impl CommonDeck {
             }),
         }
         self.merge();
+    }
+
+    pub fn price(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+    ) -> f64 {
+        self.all_cards()
+            .filter_map(|c| c.price(db, prices, service).map(|p| (c, p)))
+            .map(|(c, p)| p * c.amount as f64)
+            .sum()
+    }
+    pub fn is_price_approximate(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+    ) -> bool {
+        self.all_cards()
+            .any(|c| c.price(db, prices, service).is_none())
+    }
+    pub fn price_display(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+    ) -> String {
+        let approx_price = if self.is_price_approximate(db, prices, service) {
+            ">"
+        } else {
+            ""
+        };
+        let price = self.price(db, prices, service);
+        let price = match service {
+            PriceCheckService::Yuyutei => {
+                let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
+                    .expect("locale should be present");
+                let p = Decimal::from_str(format!("{price}").as_str()).unwrap();
+                let p = f.format(&p);
+                format!("¥{p}")
+            }
+            PriceCheckService::TcgPlayer => {
+                let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
+                    .expect("locale should be present");
+                let p = Decimal::from_str(format!("{price:.2}").as_str()).unwrap();
+                let p = f.format(&p);
+                format!("${p} USD")
+            }
+        };
+        format!("{approx_price}{price}")
     }
 }

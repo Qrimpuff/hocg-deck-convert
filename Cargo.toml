@@ -10,10 +10,10 @@ hocg-fan-sim-assets-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-as
 base64 = "0.22.1"
 futures = "0.3.31"
 gloo = "0.11.0"
+icu = "2.0.0"
 image = { version = "0.25.2", features = ["png", "webp"] }
 indexmap = { version = "2.5.0", features = ["serde"] }
 itertools = "0.14.0"
-num-format = "0.4.4"
 # printpdf: the version on cargo is broken for wasm, and doesn't support reusing images
 printpdf = { git = "https://github.com/Qrimpuff/printpdf", branch = "reuse_image", features = [
     "embedded_images",

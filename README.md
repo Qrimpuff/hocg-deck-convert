@@ -12,7 +12,7 @@ Formats supported:
 - [HoloDuel](https://daktagames.itch.io/holoduel)
 - [Tabletop Simulator (by Noodlebrain)](https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285)
 - Proxy sheets (PDF)
-- Price check (with [Yuyutei](https://yuyu-tei.jp/top/hocg))
+- Price check (with [Yuyutei](https://yuyu-tei.jp/top/hocg) or [TGGPlayer](https://www.tcgplayer.com/categories/trading-and-collectible-card-games/hololive-official-card-game))
 
 ![hololive OCG Deck Converter](https://qrimpuff.github.io/hocg-deck-convert/assets/image.png)
 

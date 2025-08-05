@@ -1,11 +1,10 @@
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::CardsDatabase;
-use num_format::{Locale, ToFormattedString};
 
 use crate::{
-    CardLanguage, CardType,
+    CARDS_PRICES, CardLanguage, CardType, PRICE_SERVICE,
     components::card::Card,
-    sources::{CommonDeck, ImageOptions, price_check::PriceCache},
+    sources::{CommonDeck, ImageOptions},
 };
 
 #[component]
@@ -16,7 +15,6 @@ pub fn DeckPreview(
     common_deck: Signal<CommonDeck>,
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
-    prices: Signal<PriceCache>,
 ) -> Element {
     let deck = common_deck.read();
 
@@ -38,7 +36,6 @@ pub fn DeckPreview(
                 common_deck,
                 is_edit,
                 show_price,
-                prices,
             }
         }
     });
@@ -56,7 +53,6 @@ pub fn DeckPreview(
                 common_deck,
                 is_edit,
                 show_price,
-                prices,
             }
         }
     });
@@ -74,29 +70,17 @@ pub fn DeckPreview(
                 common_deck,
                 is_edit,
                 show_price,
-                prices,
             }
         }
     });
 
     let db = db.read();
 
+    let prices = CARDS_PRICES.read();
+    let price_service = *PRICE_SERVICE.read();
     let show_price = *show_price.read();
-    let approx_price = if show_price
-        && deck
-            .all_cards()
-            .any(|c| c.price(&db, &prices.read()).is_none())
-    {
-        ">"
-    } else {
-        ""
-    };
     let price = if show_price {
-        deck.all_cards()
-            .filter_map(|c| c.price(&db, &prices.read()).map(|p| (c, p)))
-            .map(|(c, p)| p * c.amount)
-            .sum::<u32>()
-            .to_formatted_string(&Locale::en)
+        deck.price_display(&db, &prices, price_service)
     } else {
         String::new()
     };
@@ -108,7 +92,7 @@ pub fn DeckPreview(
                 div { "Name: {name}" }
             }
             if show_price {
-                div { "Price: {approx_price}¥{price}" }
+                div { "Price: {price}" }
             }
         }
         if show_oshi || show_cheer_deck {

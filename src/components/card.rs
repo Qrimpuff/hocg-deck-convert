@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
-use num_format::{Locale, ToFormattedString};
 use serde::Serialize;
 
 use crate::{
-    CARD_DETAILS, CardLanguage, CardType, EXPORT_FORMAT, PREVIEW_CARD_LANG, SHOW_CARD_DETAILS,
-    sources::{CommonCard, CommonDeck, DeckType, ImageOptions, price_check::PriceCache},
+    CARD_DETAILS, CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, PREVIEW_CARD_LANG,
+    PRICE_SERVICE, SHOW_CARD_DETAILS,
+    sources::{CommonCard, CommonDeck, DeckType, ImageOptions},
     tracker::{EventType, track_event, track_url},
 };
 
@@ -20,7 +20,6 @@ pub fn Card(
     common_deck: Option<Signal<CommonDeck>>,
     is_edit: Signal<bool>,
     show_price: Option<Signal<bool>>,
-    prices: Option<Signal<PriceCache>>,
     card_detail: Option<Signal<CommonCard>>,
 ) -> Element {
     #[derive(Serialize)]
@@ -44,18 +43,12 @@ pub fn Card(
         .image_path(&db.read(), *card_lang.read(), image_options)
         .unwrap_or_else(|| error_img_path.clone());
 
+    let price_service = *PRICE_SERVICE.read();
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
-    let price = if let Some(prices) = prices {
-        card.price(&db.read(), &prices.read())
-            .map(|p| p.to_formatted_string(&Locale::en))
-            .unwrap_or("?".into())
-    } else {
-        "?".into()
-    };
-    // TODO not only yuyutei
-    let price_url = card
-        .card_illustration(&db.read())
-        .and_then(|c| c.yuyutei_sell_url.clone());
+    let price = card
+        .price_display(&db.read(), &CARDS_PRICES.read(), price_service)
+        .unwrap_or("?".into());
+    let price_url = card.price_url(&db.read(), price_service);
 
     // verify card amount
     let total_amount = if let Some(common_deck) = common_deck {
@@ -185,7 +178,7 @@ pub fn Card(
                     span {
                         class: "badge is-bottom {warning_amount_class} card-amount",
                         style: "z-index: 10",
-                        " ¥{price} × {card.amount} "
+                        " {price} × {card.amount} "
                         if let Some(price_url) = price_url {
                             a {
                                 title: "Go to Yuyutei for {card.card_number}",

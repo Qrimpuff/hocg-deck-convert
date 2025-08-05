@@ -544,6 +544,26 @@ pub fn CardDetailsContent(
             });
         }
 
+        // TCGPlayer
+        if let Some(tcgplayer_url) = card.tcgplayer_url() {
+            urls.push(rsx! {
+                a {
+                    title: "Go to TCGPlayer for {card.card_number}",
+                    href: "{tcgplayer_url}",
+                    target: "_blank",
+                    onclick: |_| { track_url("TCGPlayer") },
+                    span { class: "icon",
+                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "TCGPlayer"
+                    } else {
+                        "TCGPlayer"
+                    }
+                }
+            });
+        }
+
         urls.is_empty().not().then_some(urls)
     });
 

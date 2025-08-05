@@ -25,7 +25,7 @@ use tracker::{EventType, track_event, track_url};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
-use crate::tracker::track_error;
+use crate::{sources::price_check::PriceCheckService, tracker::track_error};
 
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
 
@@ -43,6 +43,8 @@ static PREVIEW_CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLan
 // default to the first export format (holoDelta)
 static PREVIEW_IMAGE_OPTIONS: GlobalSignal<ImageOptions> = Signal::global(ImageOptions::holodelta);
 static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
+static PRICE_SERVICE: GlobalSignal<PriceCheckService> =
+    Signal::global(|| PriceCheckService::Yuyutei);
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 
 fn main() {
@@ -176,7 +178,6 @@ fn App() -> Element {
                             common_deck: COMMON_DECK.signal(),
                             is_edit: EDIT_DECK.signal(),
                             show_price: SHOW_PRICE.signal(),
-                            prices: CARDS_PRICES.signal(),
                         }
                     }
                 }
@@ -471,7 +472,7 @@ fn Form() -> Element {
                             option {
                                 value: "price_check",
                                 selected: *export_format.read() == Some(DeckType::PriceCheck),
-                                "Price check (JPY)"
+                                "Price check"
                             }
                         }
                     }
@@ -514,6 +515,7 @@ fn Form() -> Element {
                         common_deck: COMMON_DECK.signal(),
                         db: CARDS_DB.signal(),
                         prices: CARDS_PRICES.signal(),
+                        price_service: PRICE_SERVICE.signal(),
                         show_price: SHOW_PRICE.signal(),
                     }
                 }
