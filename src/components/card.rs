@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::{
     CARD_DETAILS, CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, PREVIEW_CARD_LANG,
     PRICE_SERVICE, SHOW_CARD_DETAILS,
-    sources::{CommonCard, CommonDeck, DeckType, ImageOptions},
+    sources::{CommonCard, CommonDeck, DeckType, ImageOptions, price_check::PriceCheckService},
     tracker::{EventType, track_event, track_url},
 };
 
@@ -49,6 +49,10 @@ pub fn Card(
         .price_display(&db.read(), &CARDS_PRICES.read(), price_service)
         .unwrap_or("?".into());
     let price_url = card.price_url(&db.read(), price_service);
+    let price_name = match price_service {
+        PriceCheckService::Yuyutei => "Yuyutei",
+        PriceCheckService::TcgPlayer => "TCGPlayer",
+    };
 
     // verify card amount
     let total_amount = if let Some(common_deck) = common_deck {
@@ -181,10 +185,10 @@ pub fn Card(
                         " {price} × {card.amount} "
                         if let Some(price_url) = price_url {
                             a {
-                                title: "Go to Yuyutei for {card.card_number}",
+                                title: "Go to {price_name} for {card.card_number}",
                                 href: "{price_url}",
                                 target: "_blank",
-                                onclick: |_| { track_url("Yuyutei") },
+                                onclick: |_| { track_url(price_name) },
                                 i { class: "fa-solid fa-arrow-up-right-from-square" }
                             }
                         }
