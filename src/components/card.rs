@@ -51,7 +51,7 @@ pub fn Card(
     let price_url = card.price_url(&db.read(), price_service);
     let price_name = match price_service {
         PriceCheckService::Yuyutei => "Yuyutei",
-        PriceCheckService::TcgPlayer => "TCGPlayer",
+        PriceCheckService::TcgPlayer => "TCGplayer",
     };
 
     // verify card amount

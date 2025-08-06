@@ -143,7 +143,7 @@ async fn price_check(
                     .send()
                     .await
                     .map_err(|err| {
-                        error!("Failed to fetch prices from TCGPlayer: {err}");
+                        error!("Failed to fetch prices from TCGplayer: {err}");
                         "service unavailable"
                     })?;
 
@@ -360,7 +360,7 @@ pub fn Export(
                             };
                         },
                         option { value: "yuyutei", "Yuyutei (JPY)" }
-                        option { value: "tcgplayer", "TCGPlayer (USD)" }
+                        option { value: "tcgplayer", "TCGplayer (USD)" }
                     }
                 }
             }

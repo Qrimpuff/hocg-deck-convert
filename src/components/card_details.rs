@@ -544,21 +544,21 @@ pub fn CardDetailsContent(
             });
         }
 
-        // TCGPlayer
+        // TCGplayer
         if let Some(tcgplayer_url) = card.tcgplayer_url() {
             urls.push(rsx! {
                 a {
-                    title: "Go to TCGPlayer for {card.card_number}",
+                    title: "Go to TCGplayer for {card.card_number}",
                     href: "{tcgplayer_url}",
                     target: "_blank",
-                    onclick: |_| { track_url("TCGPlayer") },
+                    onclick: |_| { track_url("TCGplayer") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
                     if *lang.read() == CardLanguage::Japanese {
-                        "TCGPlayer"
+                        "TCGplayer"
                     } else {
-                        "TCGPlayer"
+                        "TCGplayer"
                     }
                 }
             });
