@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io::Cursor;
 use std::{collections::HashMap, sync::Arc};
 
 use ::image::ImageFormat;
@@ -41,7 +42,7 @@ async fn generate_pdf(
     // TODO maybe custom margin and gap
     let mut margin_width = Mm(5.0);
     let mut margin_height = Mm(5.0);
-    let gap = Mm(0.1);
+    let gap = Mm(0.5);
 
     let fit_width = ((page_width - margin_width - margin_width) / (CARD_WIDTH + gap)).floor();
     let fit_height = ((page_height - margin_height - margin_height) / (CARD_HEIGHT + gap)).floor();
@@ -69,7 +70,9 @@ async fn generate_pdf(
     let pages_count = (cards.len() as f32 / cards_per_page as f32).ceil() as usize;
 
     let title = format!("Proxy sheets for {}", deck.required_deck_name(db));
-    let doc = PdfDocument::empty(&title);
+    let mut doc = PdfDocument::new(&title);
+    doc.metadata.info.producer = "hololive OCG Deck Converter".to_string();
+    // no metadata date for wasm, printpdf can't do it
 
     // download the images (the browser should have them cached)
     let img_cache = Arc::new(Mutex::new(HashMap::with_capacity(cards.len())));
@@ -85,7 +88,16 @@ async fn generate_pdf(
 
             let image = ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP)?;
             let image = image.resize_exact(CARD_WIDTH_PX, CARD_HEIGHT_PX, FilterType::CatmullRom);
-            let image = Image::from_dynamic_image(&image);
+            let mut bytes = Cursor::new(vec![]);
+            ::image::write_buffer_with_format(
+                &mut bytes,
+                image.as_bytes(),
+                CARD_WIDTH_PX,
+                CARD_HEIGHT_PX,
+                image.color(),
+                ImageFormat::Png,
+            )?;
+            let image = RawImage::decode_from_bytes_async(&bytes.into_inner(), &mut vec![]).await?;
             let cache_key = Some((&card.card_number, card.illustration_idx));
             img_cache.lock().await.insert(cache_key, image);
 
@@ -94,65 +106,65 @@ async fn generate_pdf(
     });
     try_join_all(download_images).await?;
 
-    let img_cache = img_cache.lock().await;
-    for page_idx in 0..pages_count {
-        let (page, layer) = doc.add_page(page_width, page_height, "layer");
-        let page = doc.get_page(page);
-        let current_layer = page.get_layer(layer);
+    let img_cache = Arc::try_unwrap(img_cache).unwrap().into_inner();
 
-        let mut cache_key = None;
-        let mut image_transforms = vec![];
+    // Add the images to the document resources and get their IDs
+    let image_ids: HashMap<_, _> = img_cache
+        .into_iter()
+        .map(|(key, image)| (key, doc.add_image(&image)))
+        .collect();
 
-        for card_idx in 0..cards_per_page {
-            let Some(card) = cards.get(page_idx * cards_per_page + card_idx) else {
-                break;
-            };
+    let pages = (0..pages_count)
+        .map(|page_idx| {
+            // Create operations for our page
+            let mut ops = Vec::new();
 
-            // apply transforms
-            let card_cache_key = Some((&card.card_number, card.illustration_idx));
-            if cache_key != card_cache_key && !image_transforms.is_empty() {
-                if let Some(image) = img_cache.get(&cache_key) {
-                    let image = Image {
-                        image: image.image.clone(),
-                        smask: image.smask.clone(),
-                    };
-                    image.add_to_layer_with_many_transforms(
-                        current_layer.clone(),
-                        &image_transforms,
-                    );
-                }
-                image_transforms.clear();
-            }
-
-            // place the image on the page
-            cache_key = card_cache_key;
-            image_transforms.push(ImageTransform {
-                dpi: Some(DPI),
-                translate_x: Some(
-                    margin_width + (CARD_WIDTH + gap) * (card_idx % fit_width as usize) as f32,
-                ),
-                translate_y: Some(
-                    page_height
-                        - margin_height
-                        - (CARD_HEIGHT + gap) * (1.0 + (card_idx / fit_width as usize) as f32),
-                ),
-                ..Default::default()
-            });
-        }
-
-        // apply transforms
-        if !image_transforms.is_empty() {
-            if let Some(image) = img_cache.get(&cache_key) {
-                let image = Image {
-                    image: image.image.clone(),
-                    smask: image.smask.clone(),
+            for card_idx in 0..cards_per_page {
+                let Some(card) = cards.get(page_idx * cards_per_page + card_idx) else {
+                    break;
                 };
-                image.add_to_layer_with_many_transforms(current_layer.clone(), &image_transforms);
-            }
-        }
-    }
 
-    Ok(doc.save_to_bytes()?)
+                // place the image on the page
+                let card_cache_key = Some((&card.card_number, card.illustration_idx));
+                if let Some(image_id) = image_ids.get(&card_cache_key) {
+                    ops.push(Op::UseXobject {
+                        id: image_id.clone(),
+                        transform: XObjectTransform {
+                            dpi: Some(DPI),
+                            translate_x: Some(
+                                (margin_width
+                                    + (CARD_WIDTH + gap) * (card_idx % fit_width as usize) as f32)
+                                    .into(),
+                            ),
+                            translate_y: Some(
+                                (page_height
+                                    - margin_height
+                                    - (CARD_HEIGHT + gap)
+                                        * (1.0 + (card_idx / fit_width as usize) as f32))
+                                    .into(),
+                            ),
+                            ..Default::default()
+                        },
+                    });
+                }
+            }
+
+            // Create a page with our operations
+            PdfPage::new(page_width, page_height, ops)
+        })
+        .collect::<Vec<_>>();
+
+    Ok(doc.with_pages(pages).save(
+        &PdfSaveOptions {
+            image_optimization: Some(ImageOptimizationOptions {
+                // don't resize, will lose image quality
+                max_image_size: None,
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        &mut Vec::new(),
+    ))
 }
 
 #[component]
