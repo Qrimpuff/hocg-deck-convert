@@ -185,7 +185,13 @@ impl CommonCard {
             c.illustrations
                 .iter()
                 .enumerate()
-                .filter(|(_, c)| allow_proxy || c.manage_id.value(language.into()).is_some())
+                .filter(|(_, c)| {
+                    allow_proxy
+                        || c.img_path
+                            .value(language.into())
+                            .as_ref()
+                            .is_some_and(|path| !path.contains("proxies"))
+                })
                 .find(|(_, c)| c.img_path.value(language.into()).is_some())
         });
         if let Some((idx, card)) = found {
@@ -310,7 +316,12 @@ impl CommonCard {
         };
 
         // exact match first
-        if (opts.allow_proxy || card.manage_id.value(language.into()).is_some())
+        if (opts.allow_proxy
+            || card
+                .img_path
+                .value(language.into())
+                .as_ref()
+                .is_some_and(|path| !path.contains("proxies")))
             && let Some(img) = card.img_path.value(language.into()).as_ref()
         {
             return Some(format!("{assets_url}{img}"));
@@ -321,7 +332,13 @@ impl CommonCard {
             .card_info(db)
             .iter()
             .flat_map(|c| &c.illustrations)
-            .filter(|i| opts.allow_proxy || i.manage_id.value(language.into()).is_some())
+            .filter(|i| {
+                opts.allow_proxy
+                    || i.img_path
+                        .value(language.into())
+                        .as_ref()
+                        .is_some_and(|path| !path.contains("proxies"))
+            })
             .find(|i| {
                 i.delta_art_index == card.delta_art_index
                     && i.img_path.value(language.into()).is_some()
@@ -605,11 +622,10 @@ impl CommonDeck {
 
     pub fn merge(&mut self) {
         // remove oshi card if amount is 0
-        if let Some(oshi) = &self.oshi {
-            if oshi.amount == 0 {
+        if let Some(oshi) = &self.oshi
+            && oshi.amount == 0 {
                 self.oshi = None;
             }
-        }
         self.main_deck = std::mem::take(&mut self.main_deck).merge();
         self.cheer_deck = std::mem::take(&mut self.cheer_deck).merge();
     }

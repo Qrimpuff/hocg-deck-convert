@@ -111,12 +111,11 @@ pub fn JsonImport(
         }
 
         let mut deck = Deck::from_text(deck_type, &event.value());
-        if deck.is_err() {
-            if let Ok(fallback) = Deck::from_text(fallback_deck_type, &event.value()) {
+        if deck.is_err()
+            && let Ok(fallback) = Deck::from_text(fallback_deck_type, &event.value()) {
                 info!("fallback to {fallback_deck_type:?}");
                 deck = Ok(fallback);
             }
-        }
         debug!("{:?}", deck);
         match deck {
             Ok(deck) => {
@@ -156,12 +155,11 @@ pub fn JsonImport(
 
                 if let Some(contents) = file_engine.read_file(file).await {
                     let mut deck = Deck::from_file(deck_type, &contents);
-                    if deck.is_err() {
-                        if let Ok(fallback) = Deck::from_file(fallback_deck_type, &contents) {
+                    if deck.is_err()
+                        && let Ok(fallback) = Deck::from_file(fallback_deck_type, &contents) {
                             info!("fallback to {fallback_deck_type:?}");
                             deck = Ok(fallback);
                         }
-                    }
                     debug!("{:?}", deck);
                     match deck {
                         Ok(deck) => {

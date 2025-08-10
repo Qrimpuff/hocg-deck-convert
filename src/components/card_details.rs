@@ -82,10 +82,28 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
         format!("{} ({})", card.card_number, card.rarity)
     });
 
+    let unreleased = use_memo(move || {
+        let db = db.read();
+        let Some(card) = card.read().card_illustration(&db) else {
+            return false;
+        };
+
+        !card.manage_id.has_value()
+    });
+
     rsx! {
         div { class: "is-flex is-justify-content-space-between",
             h4 {
-                div { class: "subtitle", "{subtitle}" }
+                div { class: "subtitle",
+                    "{subtitle}"
+                    if *unreleased.read() {
+                        span {
+                            class: "icon is-small has-text-warning ml-2",
+                            title: "This card is unreleased",
+                            i { class: "fa-solid fa-triangle-exclamation" }
+                        }
+                    }
+                }
                 div { class: "title", "{title}" }
             }
             div { class: "is-flex is-align-items-center mr-3",
