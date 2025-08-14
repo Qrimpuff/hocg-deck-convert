@@ -291,6 +291,62 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
                     cheer_deck: vec![card("hY06-001", (Japanese, 561), 20, db)],
                 },
             },
+            // hSD08 - スタートデッキ 白 天音かなた
+            DeckEntry {
+                deck_id: "hSD08-001".into(),
+                display: "hSD08 - Start Deck (White) Amane Kanata".into(),
+                oshi_options: None,
+                deck: CommonDeck {
+                    name: Some("Start Deck (White) Amane Kanata".into()),
+                    oshi: Some(card("hSD08-001", (Japanese, 1138), 1, db)),
+                    main_deck: vec![
+                        card("hBP01-009", (Japanese, 40), 12, db),
+                        card("hSD08-002", (Japanese, 1139), 2, db),
+                        card("hBP01-011", (Japanese, 42), 4, db),
+                        card("hBP01-013", (Japanese, 44), 4, db),
+                        card("hSD08-003", (Japanese, 1140), 2, db),
+                        card("hSD08-004", (Japanese, 1141), 2, db),
+                        card("hSD08-005", (Japanese, 1142), 2, db),
+                        card("hSD08-006", (Japanese, 1143), 2, db),
+                        card("hSD08-007", (Japanese, 1144), 2, db),
+                        card("hSD01-016", (Japanese, 1145), 4, db),
+                        card("hSD01-017", (Japanese, 17), 3, db),
+                        card("hBP01-108", (Japanese, 149), 2, db),
+                        card("hBP02-084", (Japanese, 351), 2, db),
+                        card("hBP03-093", (Japanese, 1146), 4, db),
+                        card("hBP01-116", (Japanese, 157), 3, db),
+                    ],
+                    cheer_deck: vec![card("hY01-001", (Japanese, 168), 20, db)],
+                },
+            },
+            // hSD09 - スタートデッキ 赤 宝鐘マリン
+            DeckEntry {
+                deck_id: "hSD09-001".into(),
+                display: "hSD09 - Start Deck (Red) Houshou Marine".into(),
+                oshi_options: None,
+                deck: CommonDeck {
+                    name: Some("Start Deck (Red) Houshou Marine".into()),
+                    oshi: Some(card("hSD09-001", (Japanese, 1147), 1, db)),
+                    main_deck: vec![
+                        card("hBP02-028", (Japanese, 295), 12, db),
+                        card("hSD09-002", (Japanese, 1148), 2, db),
+                        card("hBP02-030", (Japanese, 297), 4, db),
+                        card("hBP02-032", (Japanese, 299), 4, db),
+                        card("hSD09-003", (Japanese, 1149), 2, db),
+                        card("hSD09-004", (Japanese, 1150), 2, db),
+                        card("hSD09-005", (Japanese, 1151), 2, db),
+                        card("hSD09-006", (Japanese, 1152), 2, db),
+                        card("hSD09-007", (Japanese, 1153), 2, db),
+                        card("hSD01-016", (Japanese, 1145), 4, db),
+                        card("hSD01-017", (Japanese, 17), 3, db),
+                        card("hBP01-108", (Japanese, 149), 2, db),
+                        card("hBP02-084", (Japanese, 351), 2, db),
+                        card("hBP02-085", (Japanese, 1154), 4, db),
+                        card("hBP02-095", (Japanese, 362), 3, db),
+                    ],
+                    cheer_deck: vec![card("hY03-001", (Japanese, 170), 20, db)],
+                },
+            },
         ]
     })
 }
