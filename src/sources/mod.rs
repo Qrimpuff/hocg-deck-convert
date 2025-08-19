@@ -328,22 +328,24 @@ impl CommonCard {
         }
 
         // fallback to similar card images
-        if let Some(img) = self
-            .card_info(db)
-            .iter()
-            .flat_map(|c| &c.illustrations)
-            .filter(|i| {
-                opts.allow_proxy
-                    || i.img_path
-                        .value(language.into())
-                        .as_ref()
-                        .is_some_and(|path| !path.contains("proxies"))
-            })
-            .find(|i| {
-                i.delta_art_index == card.delta_art_index
-                    && i.img_path.value(language.into()).is_some()
-            })
-            .and_then(|i| i.img_path.value(language.into()).as_ref())
+        if opts.fallback_similar
+            && let Some(img) = self
+                .card_info(db)
+                .iter()
+                .flat_map(|c| &c.illustrations)
+                .filter(|i| {
+                    opts.allow_proxy
+                        || i.img_path
+                            .value(language.into())
+                            .as_ref()
+                            .is_some_and(|path| !path.contains("proxies"))
+                })
+                .find(|i| {
+                    i.delta_art_index.is_some()
+                        && i.delta_art_index == card.delta_art_index
+                        && i.img_path.value(language.into()).is_some()
+                })
+                .and_then(|i| i.img_path.value(language.into()).as_ref())
         {
             return Some(format!("{assets_url}{img}"));
         }
@@ -420,6 +422,7 @@ impl CommonCard {
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct ImageOptions {
+    pub fallback_similar: bool,
     pub fallback_rarity: bool,
     pub fallback_lang: bool,
     pub allow_proxy: bool,
@@ -428,6 +431,7 @@ pub struct ImageOptions {
 impl ImageOptions {
     pub fn card_details() -> Self {
         ImageOptions {
+            fallback_similar: false,
             fallback_rarity: false,
             fallback_lang: true,
             allow_proxy: true,
@@ -436,6 +440,7 @@ impl ImageOptions {
 
     pub fn card_search() -> Self {
         ImageOptions {
+            fallback_similar: true,
             fallback_rarity: false,
             fallback_lang: true,
             allow_proxy: false,
@@ -444,6 +449,7 @@ impl ImageOptions {
 
     pub fn proxy_validation() -> Self {
         ImageOptions {
+            fallback_similar: true,
             fallback_rarity: true,
             fallback_lang: false,
             allow_proxy: true,
@@ -452,6 +458,7 @@ impl ImageOptions {
 
     pub fn proxy_print() -> Self {
         ImageOptions {
+            fallback_similar: true,
             fallback_rarity: true,
             fallback_lang: true,
             allow_proxy: true,
@@ -460,6 +467,7 @@ impl ImageOptions {
 
     pub fn deck_log() -> Self {
         ImageOptions {
+            fallback_similar: false,
             fallback_rarity: false,
             fallback_lang: true,
             allow_proxy: false,
@@ -468,6 +476,7 @@ impl ImageOptions {
 
     pub fn holodelta() -> Self {
         ImageOptions {
+            fallback_similar: true,
             fallback_rarity: true,
             fallback_lang: true,
             allow_proxy: true,
@@ -476,6 +485,7 @@ impl ImageOptions {
 
     pub fn price_check() -> Self {
         ImageOptions {
+            fallback_similar: false,
             fallback_rarity: false,
             fallback_lang: false,
             allow_proxy: false,
@@ -623,9 +633,10 @@ impl CommonDeck {
     pub fn merge(&mut self) {
         // remove oshi card if amount is 0
         if let Some(oshi) = &self.oshi
-            && oshi.amount == 0 {
-                self.oshi = None;
-            }
+            && oshi.amount == 0
+        {
+            self.oshi = None;
+        }
         self.main_deck = std::mem::take(&mut self.main_deck).merge();
         self.cheer_deck = std::mem::take(&mut self.cheer_deck).merge();
     }

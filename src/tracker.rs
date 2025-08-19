@@ -62,10 +62,11 @@ where
         let now = Instant::now();
 
         if let Some(last_time) = timestamps.get(&event_key)
-            && now.duration_since(*last_time) < Duration::from_secs(THROTTLE_DURATION_SECS) {
-                // Too soon, don't track
-                return;
-            }
+            && now.duration_since(*last_time) < Duration::from_secs(THROTTLE_DURATION_SECS)
+        {
+            // Too soon, don't track
+            return;
+        }
 
         // Update the timestamp
         timestamps.insert(event_key, now);
@@ -86,10 +87,11 @@ where
     });
     if let Value::Object(payload) = &mut payload
         && let Some(Value::Object(payload)) = payload.get_mut("payload")
-            && let Some(event) = event {
-                payload.insert("name".into(), event.into());
-                payload.insert("data".into(), json!(data));
-            }
+        && let Some(event) = event
+    {
+        payload.insert("name".into(), event.into());
+        payload.insert("data".into(), json!(data));
+    }
 
     debug!("{payload:?}");
 
