@@ -188,7 +188,7 @@ pub fn CardDetailsContent(
                         card_type: CardType::Main,
                         card_lang: lang,
                         is_preview: false,
-                        image_options: ImageOptions::card_search(),
+                        image_options: ImageOptions::card_details(),
                         db,
                         common_deck,
                         is_edit,
