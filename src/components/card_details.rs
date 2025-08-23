@@ -409,11 +409,6 @@ pub fn CardDetailsContent(
         let db = db.read();
         let card = card.read().card_info(&db)?;
 
-        // Only holo member cards have extra text
-        if !matches!(card.card_type, hocg::CardType::HoloMember) {
-            return None;
-        }
-
         card.extra.as_ref().map(|extra| {
             if *lang.read() == CardLanguage::Japanese {
                 extra
