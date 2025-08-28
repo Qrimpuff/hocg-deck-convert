@@ -61,19 +61,54 @@ enum FilterRarity {
     Rarity(String),
 }
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum FilterRelease {
+    All,
+    Japanese,
+    English,
+    Unreleased,
+}
+
+#[derive(Clone, Copy)]
+struct Filters<'a> {
+    text: &'a str,
+    card_type: &'a FilterCardType,
+    color: &'a FilterColor,
+    bloom_level: &'a FilterBloomLevel,
+    tag: &'a FilterTag,
+    rarity: &'a FilterRarity,
+    release: &'a FilterRelease,
+}
+
 // return a list of cards that match the filters
 fn filter_cards(
     all_cards: &[hocg::Card],
-    filter: &str,
-    card_type: &FilterCardType,
-    color: &FilterColor,
-    bloom_level: &FilterBloomLevel,
-    tag: &FilterTag,
-    rarity: &FilterRarity,
+    filters: Filters,
 ) -> Vec<(hocg::CardIllustration, usize)> {
     // normalize the filter to hiragana, lowercase and remove extra spaces
-    let filter = katakana_to_hiragana(&filter.trim().to_lowercase());
-    let filter = filter.split_whitespace().collect_vec();
+    let filter = katakana_to_hiragana(&filters.text.trim().to_lowercase());
+
+    // group by quotes, for exact matching
+    // if there's an unclosed trailing quote, treat the last split as non-exact (outside quotes)
+    let parts = filter.split('"').collect_vec();
+    let mut exact_parts = parts
+        .into_iter()
+        .zip([false, true].into_iter().cycle())
+        .collect_vec();
+    if let Some((_, exact)) = exact_parts.last_mut() {
+        *exact = false;
+    }
+    let filter = exact_parts
+        .into_iter()
+        .flat_map(|(part, is_exact)| {
+            if is_exact {
+                vec![part]
+            } else {
+                part.split_whitespace().collect_vec()
+            }
+        })
+        .filter(|f| !f.is_empty())
+        .collect_vec();
 
     fn check_filter(filter: &str, text: &Localized<String>) -> bool {
         if filter.is_empty() {
@@ -145,7 +180,7 @@ fn filter_cards(
                     .any(|text| check_filter(filter, text));
                 // Keywords
                 found |= card.keywords.iter().any(|keyword| {
-                    format!("{:?}", keyword.effect)
+                    format!("{:?} effect", keyword.effect)
                         .to_lowercase()
                         .contains(filter)
                 });
@@ -172,7 +207,7 @@ fn filter_cards(
             })
         })
         // filter by card type
-        .filter(|(card, _, _)| match (card_type, card.card_type) {
+        .filter(|(card, _, _)| match (filters.card_type, card.card_type) {
             (FilterCardType::All, _) => true,
             (FilterCardType::OshiHoloMember, hocg::CardType::OshiHoloMember) => true,
             (FilterCardType::HoloMember, hocg::CardType::HoloMember) => true,
@@ -188,7 +223,7 @@ fn filter_cards(
             _ => false,
         })
         // filter by color
-        .filter(|(card, _, _)| match color {
+        .filter(|(card, _, _)| match filters.color {
             FilterColor::All => true,
             FilterColor::White => card.colors.contains(&hocg::Color::White),
             FilterColor::Green => card.colors.contains(&hocg::Color::Green),
@@ -199,17 +234,19 @@ fn filter_cards(
             FilterColor::Colorless => card.colors.contains(&hocg::Color::Colorless),
         })
         // filter by bloom level
-        .filter(|(card, _, _)| match (bloom_level, card.bloom_level) {
-            (FilterBloomLevel::All, _) => true,
-            (FilterBloomLevel::Debut, Some(hocg::BloomLevel::Debut)) => true,
-            (FilterBloomLevel::First, Some(hocg::BloomLevel::First)) => true,
-            (FilterBloomLevel::FirstBuzz, Some(hocg::BloomLevel::First)) => card.buzz,
-            (FilterBloomLevel::Second, Some(hocg::BloomLevel::Second)) => true,
-            (FilterBloomLevel::Spot, Some(hocg::BloomLevel::Spot)) => true,
-            _ => false,
-        })
+        .filter(
+            |(card, _, _)| match (filters.bloom_level, card.bloom_level) {
+                (FilterBloomLevel::All, _) => true,
+                (FilterBloomLevel::Debut, Some(hocg::BloomLevel::Debut)) => true,
+                (FilterBloomLevel::First, Some(hocg::BloomLevel::First)) => true,
+                (FilterBloomLevel::FirstBuzz, Some(hocg::BloomLevel::First)) => card.buzz,
+                (FilterBloomLevel::Second, Some(hocg::BloomLevel::Second)) => true,
+                (FilterBloomLevel::Spot, Some(hocg::BloomLevel::Spot)) => true,
+                _ => false,
+            },
+        )
         // filter by tag
-        .filter(|(card, _, _)| match tag {
+        .filter(|(card, _, _)| match filters.tag {
             FilterTag::All => true,
             FilterTag::Tag(tag) => {
                 card.tags.iter().any(|t| {
@@ -226,9 +263,16 @@ fn filter_cards(
             }
         })
         // filter by rarity
-        .filter(|(_, illust, _)| match rarity {
+        .filter(|(_, illust, _)| match filters.rarity {
             FilterRarity::All => true,
             FilterRarity::Rarity(rarity) => illust.rarity.eq_ignore_ascii_case(rarity),
+        })
+        // filter by release
+        .filter(|(_, illust, _)| match filters.release {
+            FilterRelease::All => true,
+            FilterRelease::Japanese => illust.manage_id.japanese.is_some(),
+            FilterRelease::English => illust.manage_id.english.is_some(),
+            FilterRelease::Unreleased => !illust.manage_id.has_value(),
         })
         // remove duplicate looking cards in search
         .unique_by(|(_, i, n)| {
@@ -317,6 +361,8 @@ pub fn CardSearch(
     let mut disable_filter_tag = use_signal(|| false);
     let mut filter_rarity = use_signal(|| FilterRarity::All);
     let mut disable_filter_rarity = use_signal(|| false);
+    let mut filter_release = use_signal(|| FilterRelease::All);
+    let mut disable_filter_release = use_signal(|| false);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -344,18 +390,22 @@ pub fn CardSearch(
         let filter_bloom_level = filter_bloom_level.read();
         let filter_tag = filter_tag.read();
         let filter_rarity = filter_rarity.read();
+        let filter_release = filter_release.read();
         filter_cards(
             &all_cards,
-            &filter_text,
-            &filter_type,
-            &filter_color,
-            &filter_bloom_level,
-            &filter_tag,
-            &filter_rarity,
+            Filters {
+                text: &filter_text,
+                card_type: &filter_type,
+                color: &filter_color,
+                bloom_level: &filter_bloom_level,
+                tag: &filter_tag,
+                rarity: &filter_rarity,
+                release: &filter_release,
+            },
         )
     });
 
-    let card_lang = use_signal(|| CardLanguage::English);
+    let mut card_lang = use_signal(|| CardLanguage::English);
     let _ = use_effect(move || {
         debug!("update_cards called");
         let _common_deck = common_deck.read();
@@ -763,6 +813,62 @@ pub fn CardSearch(
                             }
                         }
                     }
+                    // Release
+                    div { class: "field cell",
+                        label { "for": "card_release", class: "label", "Release" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_release",
+                                    disabled: *disable_filter_release.read(),
+                                    oninput: move |ev| {
+                                        *filter_release.write() = match ev.value().as_str() {
+                                            "jp" => FilterRelease::Japanese,
+                                            "en" => FilterRelease::English,
+                                            "unreleased" => FilterRelease::Unreleased,
+                                            _ => FilterRelease::All,
+                                        };
+                                        *card_lang.write() = match *filter_release.read() {
+                                            FilterRelease::Japanese => CardLanguage::Japanese,
+                                            FilterRelease::English => CardLanguage::English,
+                                            FilterRelease::Unreleased => CardLanguage::Japanese,
+                                            _ => CardLanguage::English,
+                                        };
+                                        scroll_to_top();
+                                        if *filter_release.read() != FilterRelease::All {
+                                            track_event(
+                                                EventType::EditDeck,
+                                                EventData {
+                                                    action: "Advanced filtering".into(),
+                                                    filter_type: Some("Release".into()),
+                                                },
+                                            );
+                                        }
+                                    },
+                                    option {
+                                        value: "all",
+                                        selected: *filter_release.read() == FilterRelease::All,
+                                        "All"
+                                    }
+                                    option {
+                                        value: "jp",
+                                        selected: *filter_release.read() == FilterRelease::Japanese,
+                                        "Japanese"
+                                    }
+                                    option {
+                                        value: "en",
+                                        selected: *filter_release.read() == FilterRelease::English,
+                                        "English"
+                                    }
+                                    option {
+                                        value: "unreleased",
+                                        selected: *filter_release.read() == FilterRelease::Unreleased,
+                                        "Unreleased"
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 // Reset
                 div { class: "field",
@@ -781,6 +887,8 @@ pub fn CardSearch(
                                 *disable_filter_tag.write() = false;
                                 *filter_rarity.write() = FilterRarity::All;
                                 *disable_filter_rarity.write() = false;
+                                *filter_release.write() = FilterRelease::All;
+                                *disable_filter_release.write() = false;
                                 *cards_filter.write() = String::new();
                                 *card_amount.write() = CARD_INCREMENT;
                                 scroll_to_top();
@@ -798,6 +906,15 @@ pub fn CardSearch(
                             span { "Reset filters" }
                         }
                     }
+                }
+            }
+        }
+        if *max_card_amount.read() > 0 {
+            p { class: "has-text-grey", style: "font-size: 0.9rem",
+                if *max_card_amount.read() == 1 {
+                    "Found 1 card"
+                } else {
+                    "Found {max_card_amount} cards"
                 }
             }
         }
