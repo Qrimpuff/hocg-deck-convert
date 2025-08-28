@@ -421,6 +421,7 @@ fn Form() -> Element {
                             id: "export_format",
                             oninput: move |ev| {
                                 *SHOW_PRICE.write() = false;
+                                *PRICE_SERVICE.write() = PriceCheckService::Yuyutei;
                                 *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
                                     "proxy_sheets" => CardLanguage::English,
                                     _ => CardLanguage::Japanese,
