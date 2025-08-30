@@ -58,6 +58,7 @@ enum FilterTag {
 #[derive(PartialEq, Eq, Clone)]
 enum FilterRarity {
     All,
+    NoAlternateArt,
     Rarity(String),
 }
 
@@ -263,8 +264,23 @@ fn filter_cards(
             }
         })
         // filter by rarity
-        .filter(|(_, illust, _)| match filters.rarity {
+        .filter(|(card, illust, n)| match filters.rarity {
             FilterRarity::All => true,
+            FilterRarity::NoAlternateArt => {
+                // if the card is a cheer card, use the card number with 001
+                if card.card_type == hocg::CardType::Cheer
+                    && let Some(num) = card
+                        .card_number
+                        .split_once('-')
+                        .map(|(_, num)| num)
+                        .and_then(|num| num.parse::<usize>().ok())
+                {
+                    num == 1
+                } else {
+                    // otherwise, the first card printed
+                    *n == 0
+                }
+            }
             FilterRarity::Rarity(rarity) => illust.rarity.eq_ignore_ascii_case(rarity),
         })
         // filter by release
@@ -784,6 +800,7 @@ pub fn CardSearch(
                                     oninput: move |ev| {
                                         *filter_rarity.write() = match ev.value().as_str() {
                                             "all" => FilterRarity::All,
+                                            "no_alt" => FilterRarity::NoAlternateArt,
                                             _ => FilterRarity::Rarity(ev.value()),
                                         };
                                         scroll_to_top();
@@ -801,6 +818,11 @@ pub fn CardSearch(
                                         value: "all",
                                         selected: *filter_rarity.read() == FilterRarity::All,
                                         "All"
+                                    }
+                                    option {
+                                        value: "no_alt",
+                                        selected: *filter_rarity.read() == FilterRarity::NoAlternateArt,
+                                        "No Alternate Art"
                                     }
                                     for rarity in all_rarities.iter() {
                                         option {
