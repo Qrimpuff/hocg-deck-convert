@@ -3,8 +3,8 @@ use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use serde::Serialize;
 
 use crate::{
-    CARD_DETAILS, CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, PREVIEW_CARD_LANG,
-    PRICE_SERVICE, SHOW_CARD_DETAILS,
+    CARD_DETAILS, CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, FREE_BASIC_CHEERS,
+    PREVIEW_CARD_LANG, PRICE_SERVICE, SHOW_CARD_DETAILS,
     sources::{CommonCard, CommonDeck, DeckType, ImageOptions, price_check::PriceCheckService},
     tracker::{EventType, track_event, track_url},
 };
@@ -45,8 +45,14 @@ pub fn Card(
 
     let price_service = *PRICE_SERVICE.read();
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
+    let free_basic_cheers = *FREE_BASIC_CHEERS.read();
     let price = card
-        .price_display(&db.read(), &CARDS_PRICES.read(), price_service)
+        .price_display(
+            &db.read(),
+            &CARDS_PRICES.read(),
+            price_service,
+            free_basic_cheers,
+        )
         .unwrap_or("?".into());
     let price_url = card.price_url(&db.read(), price_service);
     let price_name = match price_service {

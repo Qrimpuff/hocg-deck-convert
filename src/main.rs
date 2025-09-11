@@ -46,6 +46,7 @@ static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
 static PRICE_SERVICE: GlobalSignal<PriceCheckService> =
     Signal::global(|| PriceCheckService::Yuyutei);
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
+static FREE_BASIC_CHEERS: GlobalSignal<bool> = Signal::global(|| false);
 
 fn main() {
     launch(App);

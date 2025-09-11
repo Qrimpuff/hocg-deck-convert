@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::CardsDatabase;
 
 use crate::{
-    CARDS_PRICES, CardLanguage, CardType, PRICE_SERVICE,
+    CARDS_PRICES, CardLanguage, CardType, FREE_BASIC_CHEERS, PRICE_SERVICE,
     components::card::Card,
     sources::{CommonDeck, ImageOptions},
 };
@@ -79,8 +79,9 @@ pub fn DeckPreview(
     let prices = CARDS_PRICES.read();
     let price_service = *PRICE_SERVICE.read();
     let show_price = *show_price.read();
+    let free_basic_cheers = *FREE_BASIC_CHEERS.read();
     let price = if show_price {
-        deck.price_display(&db, &prices, price_service)
+        deck.price_display(&db, &prices, price_service, free_basic_cheers)
     } else {
         String::new()
     };

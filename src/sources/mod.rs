@@ -226,36 +226,50 @@ impl CommonCard {
         }
     }
 
+    pub fn is_basic_cheer(&self) -> bool {
+        matches!(
+            self.card_number.as_str(),
+            "hY01-001" | "hY02-001" | "hY03-001" | "hY04-001" | "hY05-001" | "hY06-001"
+        )
+    }
+
     pub fn price(
         &self,
         db: &CardsDatabase,
         prices: &PriceCache,
         service: PriceCheckService,
+        free_basic_cheers: bool,
     ) -> Option<f64> {
-        self.price_cache(db, prices, service).map(|p| p.1)
+        if free_basic_cheers && self.is_basic_cheer() {
+            Some(0.0)
+        } else {
+            self.price_cache(db, prices, service).map(|p| p.1)
+        }
     }
     pub fn price_display(
         &self,
         db: &CardsDatabase,
         prices: &PriceCache,
         service: PriceCheckService,
+        free_basic_cheers: bool,
     ) -> Option<String> {
-        self.price(db, prices, service).map(|p| match service {
-            PriceCheckService::Yuyutei => {
-                let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
-                    .expect("locale should be present");
-                let p = Decimal::from_str(format!("{p}").as_str()).unwrap();
-                let p = f.format(&p);
-                format!("¥{p}")
-            }
-            PriceCheckService::TcgPlayer => {
-                let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
-                    .expect("locale should be present");
-                let p = Decimal::from_str(format!("{p:.2}").as_str()).unwrap();
-                let p = f.format(&p);
-                format!("${p}")
-            }
-        })
+        self.price(db, prices, service, free_basic_cheers)
+            .map(|p| match service {
+                PriceCheckService::Yuyutei => {
+                    let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
+                        .expect("locale should be present");
+                    let p = Decimal::from_str(format!("{p}").as_str()).unwrap();
+                    let p = f.format(&p);
+                    format!("¥{p}")
+                }
+                PriceCheckService::TcgPlayer => {
+                    let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
+                        .expect("locale should be present");
+                    let p = Decimal::from_str(format!("{p:.2}").as_str()).unwrap();
+                    let p = f.format(&p);
+                    format!("${p}")
+                }
+            })
     }
     pub fn price_url(&self, db: &CardsDatabase, service: PriceCheckService) -> Option<String> {
         self.card_illustration(db).and_then(|c| match service {
@@ -785,9 +799,13 @@ impl CommonDeck {
         db: &CardsDatabase,
         prices: &PriceCache,
         service: PriceCheckService,
+        free_basic_cheers: bool,
     ) -> f64 {
         self.all_cards()
-            .filter_map(|c| c.price(db, prices, service).map(|p| (c, p)))
+            .filter_map(|c| {
+                c.price(db, prices, service, free_basic_cheers)
+                    .map(|p| (c, p))
+            })
             .map(|(c, p)| p * c.amount as f64)
             .sum()
     }
@@ -796,22 +814,24 @@ impl CommonDeck {
         db: &CardsDatabase,
         prices: &PriceCache,
         service: PriceCheckService,
+        free_basic_cheers: bool,
     ) -> bool {
         self.all_cards()
-            .any(|c| c.price(db, prices, service).is_none())
+            .any(|c| c.price(db, prices, service, free_basic_cheers).is_none())
     }
     pub fn price_display(
         &self,
         db: &CardsDatabase,
         prices: &PriceCache,
         service: PriceCheckService,
+        free_basic_cheers: bool,
     ) -> String {
-        let approx_price = if self.is_price_approximate(db, prices, service) {
+        let approx_price = if self.is_price_approximate(db, prices, service, free_basic_cheers) {
             ">"
         } else {
             ""
         };
-        let price = self.price(db, prices, service);
+        let price = self.price(db, prices, service, free_basic_cheers);
         let price = match service {
             PriceCheckService::Yuyutei => {
                 let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())

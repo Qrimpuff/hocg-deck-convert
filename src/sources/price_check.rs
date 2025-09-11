@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 use web_time::{Duration, Instant};
 
 use super::{CardsDatabase, CommonDeck};
-use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
+use crate::{
+    CardLanguage, EventType, FREE_BASIC_CHEERS, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG,
+    track_event,
+};
 
 pub type PriceCache = HashMap<PriceCacheKey, (Instant, f64)>;
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -265,13 +268,23 @@ pub fn Export(
                 .alt_cards(&db.read())
                 .into_iter()
                 .filter(|c| {
-                    c.price(&db.read(), &prices.read(), *price_service.read())
-                        .is_some()
+                    c.price(
+                        &db.read(),
+                        &prices.read(),
+                        *price_service.read(),
+                        *FREE_BASIC_CHEERS.read(),
+                    )
+                    .is_some()
                 })
                 .sorted_by_key(|c| {
                     u32::MAX
-                        - (c.price(&db.read(), &prices.read(), *price_service.read())
-                            .expect("it's some")
+                        - (c.price(
+                            &db.read(),
+                            &prices.read(),
+                            *price_service.read(),
+                            *FREE_BASIC_CHEERS.read(),
+                        )
+                        .expect("it's some")
                             * 100.0) as u32 // convert to cents
                 }) // this is the highest price
                 .next()
@@ -308,12 +321,22 @@ pub fn Export(
                 .alt_cards(&db.read())
                 .into_iter()
                 .filter(|c| {
-                    c.price(&db.read(), &prices.read(), *price_service.read())
-                        .is_some()
+                    c.price(
+                        &db.read(),
+                        &prices.read(),
+                        *price_service.read(),
+                        *FREE_BASIC_CHEERS.read(),
+                    )
+                    .is_some()
                 })
                 .sorted_by_key(|c| {
-                    (c.price(&db.read(), &prices.read(), *price_service.read())
-                        .expect("it's some")
+                    (c.price(
+                        &db.read(),
+                        &prices.read(),
+                        *price_service.read(),
+                        *FREE_BASIC_CHEERS.read(),
+                    )
+                    .expect("it's some")
                         * 100.0) as u32 // convert to cents
                 }) // this is the lowest price
                 .next()
@@ -362,6 +385,21 @@ pub fn Export(
                         option { value: "yuyutei", "Yuyutei (JPY)" }
                         option { value: "tcgplayer", "TCGplayer (USD)" }
                     }
+                }
+            }
+        }
+
+        div { class: "field",
+            div { class: "control",
+                label { class: "checkbox",
+                    input {
+                        r#type: "checkbox",
+                        checked: *FREE_BASIC_CHEERS.read(),
+                        onclick: move |_| {
+                            *FREE_BASIC_CHEERS.write() ^= true;
+                        },
+                    }
+                    " Free basic cheers"
                 }
             }
         }
