@@ -273,7 +273,7 @@ pub fn Import(
         }
     };
 
-    let import_deck = move |_| async move {
+    let import_deck = move || async move {
         *loading.write() = true;
         *deck_log_url.write() = String::new();
 
@@ -317,40 +317,52 @@ pub fn Import(
     };
 
     rsx! {
-        div { class: "field",
-            label { "for": "deck_log_import_url_code", class: "label", "Deck Log URL or code" }
-            div { class: "control",
-                input {
-                    id: "deck_log_import_url_code",
-                    class: "input",
-                    disabled: *loading.read(),
-                    r#type: "text",
-                    placeholder: "https://decklog.bushiroad.com/view/....",
-                    oninput: update_url_code,
-                    value: "{import_url_code}",
+        form {
+            onsubmit: move |e| async move {
+                e.prevent_default();
+                if !(import_url_code.read().is_empty() || !deck_error.read().is_empty()
+                    || *loading.read())
+                {
+                    import_deck().await;
                 }
-            }
-            p { class: "help is-danger", "{deck_error}" }
-            if !deck_log_url.read().is_empty() {
-                p { class: "help",
-                    a { href: "{deck_log_url}", target: "_blank", "{deck_log_url}" }
-                }
-            }
-        }
-
-        div { class: "field",
-            div { class: "control",
-                button {
-                    r#type: "button",
-                    class: "button",
-                    class: if *loading.read() { "is-loading" },
-                    disabled: import_url_code.read().is_empty() || !deck_error.read().is_empty()
-                        || *loading.read(),
-                    onclick: import_deck,
-                    span { class: "icon",
-                        i { class: "fa-solid fa-cloud-arrow-down" }
+            },
+            div { class: "field",
+                label { "for": "deck_log_import_url_code", class: "label", "Deck Log URL or code" }
+                div { class: "control",
+                    input {
+                        id: "deck_log_import_url_code",
+                        class: "input",
+                        disabled: *loading.read(),
+                        r#type: "text",
+                        placeholder: "https://decklog.bushiroad.com/view/....",
+                        oninput: update_url_code,
+                        value: "{import_url_code}",
                     }
-                    span { "Import deck" }
+                }
+                p { class: "help is-danger", "{deck_error}" }
+                if !deck_log_url.read().is_empty() {
+                    p { class: "help",
+                        a { href: "{deck_log_url}", target: "_blank", "{deck_log_url}" }
+                    }
+                }
+            }
+
+            div { class: "field",
+                div { class: "control",
+                    button {
+                        r#type: "button",
+                        class: "button",
+                        class: if *loading.read() { "is-loading" },
+                        disabled: import_url_code.read().is_empty() || !deck_error.read().is_empty()
+                            || *loading.read(),
+                        onclick: move |_| async move {
+                            import_deck().await;
+                        },
+                        span { class: "icon",
+                            i { class: "fa-solid fa-cloud-arrow-down" }
+                        }
+                        span { "Import deck" }
+                    }
                 }
             }
         }

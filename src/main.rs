@@ -278,7 +278,7 @@ fn Form() -> Element {
     });
 
     rsx! {
-        form { class: "box",
+        div { class: "box",
             div { class: "mb-4 is-flex is-justify-content-center",
                 div { class: "buttons has-addons",
                     button {
