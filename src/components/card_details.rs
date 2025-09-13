@@ -498,7 +498,7 @@ pub fn CardDetailsContent(
         let mut urls = Vec::with_capacity(2);
 
         // Official hOCG site (Japanese)
-        if let Some(manage_id) = card.manage_id.japanese.as_ref() {
+        for manage_id in card.manage_id.japanese.iter().flatten() {
             urls.push(rsx! {
                 a {
                     title: "Go to the official hOCG site (JP) for {card.card_number}",
@@ -518,7 +518,7 @@ pub fn CardDetailsContent(
         }
 
         // Official hOCG site (English)
-        if let Some(manage_id) = card.manage_id.english.as_ref() {
+        for manage_id in card.manage_id.english.iter().flatten() {
             urls.push(rsx! {
                 a {
                     title: "Go to the official hOCG site (EN) for {card.card_number}",

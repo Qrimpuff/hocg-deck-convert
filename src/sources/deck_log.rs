@@ -146,7 +146,7 @@ impl Card {
             card_number: card.card_number.clone(),
             num: card.amount,
             manage_id: card
-                .manage_id(language, db)
+                .first_manage_id(language, db)
                 .unwrap_or(u32::MAX) // Deck Log will reject it
                 .to_string(),
         }

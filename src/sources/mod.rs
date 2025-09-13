@@ -83,7 +83,13 @@ impl CommonCard {
         let found: Option<_> = db
             .values()
             .flat_map(|c| c.illustrations.iter().enumerate())
-            .find(|(_, c)| *c.manage_id.value(manage_id.0.into()) == Some(manage_id.1));
+            .find(|(_, c)| {
+                c.manage_id
+                    .value(manage_id.0.into())
+                    .iter()
+                    .flatten()
+                    .any(|m| *m == manage_id.1)
+            });
         if let Some((idx, card)) = found {
             CommonCard::from_card_number_and_illustration_idx(card.card_number.clone(), idx, amount)
         } else {
@@ -124,7 +130,13 @@ impl CommonCard {
             // this card number could be in any case
             .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
             .flat_map(|c| c.illustrations.iter().enumerate())
-            .find(|(_, c)| *c.manage_id.value(manage_id.0.into()) == Some(manage_id.1));
+            .find(|(_, c)| {
+                c.manage_id
+                    .value(manage_id.0.into())
+                    .iter()
+                    .flatten()
+                    .any(|m| *m == manage_id.1)
+            });
         if let Some((idx, card)) = found {
             CommonCard::from_card_number_and_illustration_idx(card.card_number.clone(), idx, amount)
         } else {
@@ -153,8 +165,14 @@ impl CommonCard {
         }
     }
 
-    pub fn manage_id(&self, language: CardLanguage, db: &CardsDatabase) -> Option<u32> {
-        *self.card_illustration(db)?.manage_id.value(language.into())
+    pub fn first_manage_id(&self, language: CardLanguage, db: &CardsDatabase) -> Option<u32> {
+        self.card_illustration(db)?
+            .manage_id
+            .value(language.into())
+            .iter()
+            .flatten()
+            .copied()
+            .next()
     }
 
     pub fn delta_art_index(&self, db: &CardsDatabase) -> u32 {
