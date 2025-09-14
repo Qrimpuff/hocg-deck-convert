@@ -71,7 +71,7 @@ fn App() -> Element {
             error!("Failed to parse card database");
             track_error("Failed to parse card database");
             *ERROR_MESSAGE.write() =
-                "There was an error while loading the card database. Please try again later."
+                "There was an error while loading the card database. Please refresh the page or try again later."
                     .into();
             return;
         };
