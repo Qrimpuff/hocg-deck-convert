@@ -25,22 +25,40 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-badge@1.0.1/dist/bulma-badge.min.css">
-  <link rel="preload" as="script" href="/hocg-deck-convert/assets/hocg-deck-convert-2fdab255cd1c9127.js" crossorigin><link rel="preload" as="fetch" type="application/wasm" href="/hocg-deck-convert/assets/hocg-deck-convert_bg-dbecb7a197cd1652.wasm" crossorigin>
+  <link rel="preload" as="script" href="/hocg-deck-convert/assets/hocg-deck-convert-b8e453cdf4bc53fd.js" crossorigin><link rel="preload" as="fetch" type="application/wasm" href="/hocg-deck-convert/assets/hocg-deck-convert_bg-f53f66c8004250e2.wasm" crossorigin>
 </head>
 
 <body>
   <div id="main">
     <div id="loading">
       <div class="section">
-        <div class="container ">Loading...</div>
+        <div class="container">
+          <h1 class="title">hololive OCG Deck Converter</h1>
+          <div class="block">
+            <p>Convert your hOCG deck between various formats, such as
+              <a href="https://decklog-en.bushiroad.com/ja/create?c=108" target="_blank">Deck Log</a>,
+              <a href="https://holodelta.net/" target="_blank">holoDelta</a>,
+              <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285" target="_blank">Tabletop
+                Simulator</a>, or even printable proxy sheets.
+            </p>
+            <p class="is-hidden-mobile">To build your deck from scratch, use <a href="#" role="button">Edit deck</a>.
+              You can also choose one of the <a href="#" role="button">official starter decks</a> to get you started.
+            </p>
+            <p>If you have any questions about the game, or this tool, the
+              <a href="https://discord.com/invite/GJ9RhA22nP" target="_blank"><span class="icon"><i
+                    class="fa-brands fa-discord"></i></span>Hololive OCG Fan Server</a> is welcoming.
+            </p>
+          </div>
+          <b>Loading...</b>
+        </div>
       </div>
     </div>
   </div>
 <script>
             // We can't use a module script here because we need to start the script immediately when streaming
-            import("/hocg-deck-convert/assets/hocg-deck-convert-2fdab255cd1c9127.js").then(
+            import("/hocg-deck-convert/assets/hocg-deck-convert-b8e453cdf4bc53fd.js").then(
                 ({ default: init }) => {
-                init("/hocg-deck-convert/assets/hocg-deck-convert_bg-dbecb7a197cd1652.wasm").then((wasm) => {
+                init("/hocg-deck-convert/assets/hocg-deck-convert_bg-f53f66c8004250e2.wasm").then((wasm) => {
                     if (wasm.__wbindgen_start == undefined) {
                     wasm.main();
                     }
