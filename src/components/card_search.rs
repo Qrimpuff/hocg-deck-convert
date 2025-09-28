@@ -1,5 +1,5 @@
 use dioxus::{document::document, logger::tracing::debug, prelude::*};
-use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, Localized, SupportType};
+use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, SupportType};
 use itertools::Itertools;
 use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
