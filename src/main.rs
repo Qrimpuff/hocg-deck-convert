@@ -30,6 +30,7 @@ use crate::{
     tracker::track_error,
 };
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
 
 static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);

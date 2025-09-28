@@ -10,6 +10,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::HOCG_DECK_CONVERT_API;
+use crate::VERSION;
 
 fn http_client() -> &'static Client {
     static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
@@ -90,7 +91,11 @@ where
         && let Some(event) = event
     {
         payload.insert("name".into(), event.into());
-        payload.insert("data".into(), json!(data));
+        let mut data = json!(data);
+        if let Value::Object(data) = &mut data {
+            data.insert("version".into(), VERSION.into());
+        }
+        payload.insert("data".into(), data);
     }
 
     debug!("{payload:?}");
