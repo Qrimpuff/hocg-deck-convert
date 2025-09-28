@@ -17,7 +17,7 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       
       - name: Install Dioxus-CLI
-        run: cargo binstall dioxus-cli --no-confirm
+        run: cargo binstall dioxus-cli --no-confirm --force
       
       - name: Dioxus
         run: dx build --release && cp -r ./target/dx/hocg-deck-convert/release/web/public ./dist && cp ./dist/index.html ./dist/404.html
