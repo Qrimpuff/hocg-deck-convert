@@ -2,6 +2,7 @@ use dioxus::{document::document, logger::tracing::debug, prelude::*};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, Localized, SupportType};
 use itertools::Itertools;
 use serde::Serialize;
+use unicode_normalization::UnicodeNormalization;
 use wana_kana::utils::katakana_to_hiragana;
 
 use crate::{
@@ -81,13 +82,108 @@ struct Filters<'a> {
     release: &'a FilterRelease,
 }
 
+pub fn prepare_text_cache(card: &hocg::Card) -> String {
+    let mut text_cache = String::new();
+
+    // Basic info
+    text_cache.push_str(&card.card_number);
+    text_cache.push('\n');
+    text_cache.push_str(card.name.japanese.as_deref().unwrap_or_default());
+    text_cache.push('\n');
+    text_cache.push_str(card.name.english.as_deref().unwrap_or_default());
+    text_cache.push('\n');
+    text_cache.push_str(&format!("{:?}", card.card_type));
+    text_cache.push('\n');
+    text_cache.push_str(&format!("{:?}", card.colors));
+    text_cache.push('\n');
+    text_cache.push_str(&card.life.to_string());
+    text_cache.push('\n');
+    text_cache.push_str(&card.hp.to_string());
+    text_cache.push('\n');
+    text_cache.push_str(&format!("{:?}", card.bloom_level));
+    text_cache.push('\n');
+    text_cache.push_str(if card.buzz { "buzz" } else { "" });
+    text_cache.push('\n');
+    text_cache.push_str(if card.limited { "limited" } else { "" });
+    text_cache.push('\n');
+    // Oshi skills
+    for skill in &card.oshi_skills {
+        text_cache.push_str(&format!(
+            "[ホロパワー：-{}]\n",
+            String::from(skill.holo_power).to_uppercase()
+        ));
+        text_cache.push_str(&format!(
+            "[holo Power: -{}]\n",
+            String::from(skill.holo_power).to_uppercase()
+        ));
+        text_cache.push_str(skill.name.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(skill.name.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(skill.ability_text.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(skill.ability_text.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+    }
+    // Arts
+    for art in &card.arts {
+        text_cache.push_str(art.name.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(art.name.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        if let Some(ability_text) = &art.ability_text {
+            text_cache.push_str(ability_text.japanese.as_deref().unwrap_or_default());
+            text_cache.push('\n');
+            text_cache.push_str(ability_text.english.as_deref().unwrap_or_default());
+            text_cache.push('\n');
+        }
+    }
+    // Keywords
+    for keyword in &card.keywords {
+        text_cache.push_str(&format!("{:?} effect", keyword.effect));
+        text_cache.push('\n');
+        text_cache.push_str(keyword.name.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(keyword.name.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(keyword.ability_text.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(keyword.ability_text.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+    }
+    // Ability text
+    text_cache.push_str(card.ability_text.japanese.as_deref().unwrap_or_default());
+    text_cache.push('\n');
+    // Extra
+    if let Some(extra) = &card.extra {
+        text_cache.push_str(extra.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(extra.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+    }
+    // Tags
+    for tag in &card.tags {
+        text_cache.push_str(tag.japanese.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+        text_cache.push_str(tag.english.as_deref().unwrap_or_default());
+        text_cache.push('\n');
+    }
+
+    // normalize text
+    normalize_filter_text(&text_cache)
+}
+
+fn normalize_filter_text(text: &str) -> String {
+    katakana_to_hiragana(&text.nfkc().collect::<String>().trim().to_lowercase())
+}
+
 // return a list of cards that match the filters
 fn filter_cards(
-    all_cards: &[hocg::Card],
+    all_cards: &[(hocg::Card, String)],
     filters: Filters,
 ) -> Vec<(hocg::CardIllustration, usize)> {
     // normalize the filter to hiragana, lowercase and remove extra spaces
-    let filter = katakana_to_hiragana(&filters.text.trim().to_lowercase());
+    let filter = normalize_filter_text(filters.text);
 
     // group by quotes, for exact matching
     // if there's an unclosed trailing quote, treat the last split as non-exact (outside quotes)
@@ -111,120 +207,58 @@ fn filter_cards(
         .filter(|f| !f.is_empty())
         .collect_vec();
 
-    fn check_filter(filter: &str, text: &Localized<String>) -> bool {
+    fn check_filter(filter: &str, text: &str) -> bool {
         if filter.is_empty() {
             return true; // if the filter is empty, we match everything
         }
 
-        text.japanese
-            .as_ref()
-            .map(|t| katakana_to_hiragana(&t.to_lowercase()).contains(filter))
-            .unwrap_or_default()
-            || text
-                .english
-                .as_ref()
-                .map(|t| t.to_lowercase().contains(filter))
-                .unwrap_or_default()
+        normalize_filter_text(text).contains(filter)
     }
 
     all_cards
         .iter()
-        .flat_map(|card| {
+        .flat_map(|(card, cache)| {
             card.illustrations
                 .iter()
                 .enumerate()
-                .map(move |(n, i)| (card, i, n))
+                .map(move |(n, i)| ((card, cache), i, n))
         })
         // filter by text
-        .filter(|(card, illust, _)| {
+        .filter(|((_, cache), illust, _)| {
             // check that all words matches
             filter.iter().all(|filter| {
                 let mut found = false;
-                found |= card.card_number.to_lowercase().contains(filter);
-                found |= check_filter(filter, &card.name);
-                found |= format!("{:?}", card.card_type)
-                    .to_lowercase()
-                    .contains(filter);
-                found |= format!("{:?}", card.colors).to_lowercase().contains(filter);
-                found |= card.life.to_string().contains(filter);
-                found |= card.hp.to_string().contains(filter);
-                found |= format!("{:?}", card.bloom_level)
-                    .to_lowercase()
-                    .contains(filter);
-                found |= if card.buzz {
-                    "buzz"
-                } else {
-                    Default::default()
-                }
-                .contains(filter);
-                found |= if card.limited {
-                    "limited"
-                } else {
-                    Default::default()
-                }
-                .contains(filter);
-                // Oshi skills
-                found |= card
-                    .oshi_skills
-                    .iter()
-                    .any(|skill| check_filter(filter, &skill.name));
-                found |= card
-                    .oshi_skills
-                    .iter()
-                    .any(|skill| check_filter(filter, &skill.ability_text));
-                // Arts
-                found |= card.arts.iter().any(|art| check_filter(filter, &art.name));
-                found |= card
-                    .arts
-                    .iter()
-                    .flat_map(|art| art.ability_text.as_ref())
-                    .any(|text| check_filter(filter, text));
-                // Keywords
-                found |= card.keywords.iter().any(|keyword| {
-                    format!("{:?} effect", keyword.effect)
-                        .to_lowercase()
-                        .contains(filter)
-                });
-                found |= card
-                    .keywords
-                    .iter()
-                    .any(|keyword| check_filter(filter, &keyword.name));
-                found |= card
-                    .keywords
-                    .iter()
-                    .any(|keyword| check_filter(filter, &keyword.ability_text));
-                // Ability text
-                found |= check_filter(filter, &card.ability_text);
-                // Extra
-                found |= card.extra.iter().any(|extra| check_filter(filter, extra));
-                // Tags
-                found |= card.tags.iter().any(|tag| check_filter(filter, tag));
+                found |= cache.contains(filter);
                 // Illustrator
                 found |= illust
                     .illustrator
                     .iter()
-                    .any(|illustrator| check_filter(filter, &Localized::jp(illustrator.clone())));
+                    .any(|illustrator| check_filter(filter, illustrator));
                 found
             })
         })
         // filter by card type
-        .filter(|(card, _, _)| match (filters.card_type, card.card_type) {
-            (FilterCardType::All, _) => true,
-            (FilterCardType::OshiHoloMember, hocg::CardType::OshiHoloMember) => true,
-            (FilterCardType::HoloMember, hocg::CardType::HoloMember) => true,
-            (FilterCardType::Support, hocg::CardType::Support(_)) => true,
-            (FilterCardType::SupportStaff, hocg::CardType::Support(SupportType::Staff)) => true,
-            (FilterCardType::SupportItem, hocg::CardType::Support(SupportType::Item)) => true,
-            (FilterCardType::SupportEvent, hocg::CardType::Support(SupportType::Event)) => true,
-            (FilterCardType::SupportTool, hocg::CardType::Support(SupportType::Tool)) => true,
-            (FilterCardType::SupportMascot, hocg::CardType::Support(SupportType::Mascot)) => true,
-            (FilterCardType::SupportFan, hocg::CardType::Support(SupportType::Fan)) => true,
-            (FilterCardType::SupportLimited, hocg::CardType::Support(_)) => card.limited,
-            (FilterCardType::Cheer, hocg::CardType::Cheer) => true,
-            _ => false,
-        })
+        .filter(
+            |((card, _), _, _)| match (filters.card_type, card.card_type) {
+                (FilterCardType::All, _) => true,
+                (FilterCardType::OshiHoloMember, hocg::CardType::OshiHoloMember) => true,
+                (FilterCardType::HoloMember, hocg::CardType::HoloMember) => true,
+                (FilterCardType::Support, hocg::CardType::Support(_)) => true,
+                (FilterCardType::SupportStaff, hocg::CardType::Support(SupportType::Staff)) => true,
+                (FilterCardType::SupportItem, hocg::CardType::Support(SupportType::Item)) => true,
+                (FilterCardType::SupportEvent, hocg::CardType::Support(SupportType::Event)) => true,
+                (FilterCardType::SupportTool, hocg::CardType::Support(SupportType::Tool)) => true,
+                (FilterCardType::SupportMascot, hocg::CardType::Support(SupportType::Mascot)) => {
+                    true
+                }
+                (FilterCardType::SupportFan, hocg::CardType::Support(SupportType::Fan)) => true,
+                (FilterCardType::SupportLimited, hocg::CardType::Support(_)) => card.limited,
+                (FilterCardType::Cheer, hocg::CardType::Cheer) => true,
+                _ => false,
+            },
+        )
         // filter by color
-        .filter(|(card, _, _)| match filters.color {
+        .filter(|((card, _), _, _)| match filters.color {
             FilterColor::All => true,
             FilterColor::White => card.colors.contains(&hocg::Color::White),
             FilterColor::Green => card.colors.contains(&hocg::Color::Green),
@@ -236,7 +270,7 @@ fn filter_cards(
         })
         // filter by bloom level
         .filter(
-            |(card, _, _)| match (filters.bloom_level, card.bloom_level) {
+            |((card, _), _, _)| match (filters.bloom_level, card.bloom_level) {
                 (FilterBloomLevel::All, _) => true,
                 (FilterBloomLevel::Debut, Some(hocg::BloomLevel::Debut)) => true,
                 (FilterBloomLevel::First, Some(hocg::BloomLevel::First)) => true,
@@ -247,7 +281,7 @@ fn filter_cards(
             },
         )
         // filter by tag
-        .filter(|(card, _, _)| match filters.tag {
+        .filter(|((card, _), _, _)| match filters.tag {
             FilterTag::All => true,
             FilterTag::Tag(tag) => {
                 card.tags.iter().any(|t| {
@@ -264,7 +298,7 @@ fn filter_cards(
             }
         })
         // filter by rarity
-        .filter(|(card, illust, n)| match filters.rarity {
+        .filter(|((card, _), illust, n)| match filters.rarity {
             FilterRarity::All => true,
             FilterRarity::NoAlternateArt => {
                 // if the card is a cheer card, use the card number with 001

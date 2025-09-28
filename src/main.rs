@@ -25,13 +25,16 @@ use tracker::{EventType, track_event, track_url};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
-use crate::{sources::price_check::PriceCheckService, tracker::track_error};
+use crate::{
+    components::card_search::prepare_text_cache, sources::price_check::PriceCheckService,
+    tracker::track_error,
+};
 
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
 
 static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
-static ALL_CARDS_SORTED: GlobalSignal<Vec<hocg::Card>> = Signal::global(Default::default);
+static ALL_CARDS_SORTED: GlobalSignal<Vec<(hocg::Card, String)>> = Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
@@ -81,7 +84,13 @@ fn App() -> Element {
         all_cards.sort();
 
         *CARDS_DB.write() = card_db;
-        *ALL_CARDS_SORTED.write() = all_cards;
+        *ALL_CARDS_SORTED.write() = all_cards
+            .into_iter()
+            .map(|card| {
+                let cache = prepare_text_cache(&card);
+                (card, cache)
+            })
+            .collect();
     });
 
     rsx! {

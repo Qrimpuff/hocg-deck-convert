@@ -18,6 +18,7 @@ printpdf = { version = "0.8.0", features = ["png"] }
 reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
 serde = "1.0"
 serde_json = "1.0"
+unicode-normalization = "0.1.24"
 wana_kana = "4.0.0"
 wasm-bindgen = { version = "0.2.95", features = ["serde"] }
 web-sys = { version = "0.3.70", features = ["Navigator", "Screen"] }
