@@ -347,6 +347,70 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
                     cheer_deck: vec![card("hY03-001", (Japanese, 170), 20, db)],
                 },
             },
+            // hSD10 - スタートデッキ FLOW GLOW 推し 輪堂千速
+            DeckEntry {
+                deck_id: "hSD10-001".into(),
+                display: "hSD10 - Start Deck [FLOW GLOW] Rindo Chihaya".into(),
+                oshi_options: None,
+                deck: CommonDeck {
+                    name: Some("Start Deck [FLOW GLOW] Rindo Chihaya".into()),
+                    oshi: Some(card("hSD10-001", (Japanese, 1456), 1, db)),
+                    main_deck: vec![
+                        card("hSD10-002", (Japanese, 1457), 8, db),
+                        card("hSD10-003", (Japanese, 1458), 4, db),
+                        card("hSD10-004", (Japanese, 1459), 2, db),
+                        card("hSD10-005", (Japanese, 1460), 2, db),
+                        card("hSD10-006", (Japanese, 1461), 4, db),
+                        card("hSD10-007", (Japanese, 1462), 4, db),
+                        card("hSD10-008", (Japanese, 1463), 2, db),
+                        card("hSD10-009", (Japanese, 1464), 2, db),
+                        card("hSD10-010", (Japanese, 1465), 3, db),
+                        card("hSD10-011", (Japanese, 1466), 4, db),
+                        card("hSD10-012", (Japanese, 1467), 4, db),
+                        card("hSD10-013", (Japanese, 1468), 2, db),
+                        card("hSD01-016", (Japanese, 16), 4, db),
+                        card("hSD01-017", (Japanese, 17), 2, db),
+                        card("hBP01-104", (Japanese, 145), 2, db),
+                        card("hBP02-077", (Japanese, 344), 1, db),
+                    ],
+                    cheer_deck: vec![
+                        card("hY02-001", (Japanese, 169), 13, db),
+                        card("hY05-001", (Japanese, 267), 7, db),
+                    ],
+                },
+            },
+            // hSD11 - スタートデッキ FLOW GLOW 推し 虎金妃笑虎
+            DeckEntry {
+                deck_id: "hSD11-001".into(),
+                display: "hSD11 - Start Deck [FLOW GLOW] Koganei Niko".into(),
+                oshi_options: None,
+                deck: CommonDeck {
+                    name: Some("Start Deck [FLOW GLOW] Koganei Niko".into()),
+                    oshi: Some(card("hSD11-001", (Japanese, 1469), 1, db)),
+                    main_deck: vec![
+                        card("hSD11-002", (Japanese, 1470), 8, db),
+                        card("hSD11-003", (Japanese, 1471), 4, db),
+                        card("hSD11-004", (Japanese, 1472), 2, db),
+                        card("hSD11-005", (Japanese, 1473), 2, db),
+                        card("hSD11-006", (Japanese, 1474), 4, db),
+                        card("hSD11-007", (Japanese, 1475), 4, db),
+                        card("hSD11-008", (Japanese, 1476), 2, db),
+                        card("hSD11-009", (Japanese, 1477), 2, db),
+                        card("hSD10-010", (Japanese, 1465), 3, db),
+                        card("hSD10-011", (Japanese, 1466), 4, db),
+                        card("hSD10-012", (Japanese, 1467), 4, db),
+                        card("hSD10-013", (Japanese, 1468), 2, db),
+                        card("hSD01-016", (Japanese, 16), 4, db),
+                        card("hSD01-017", (Japanese, 17), 2, db),
+                        card("hSD01-019", (Japanese, 19), 1, db),
+                        card("hBP01-104", (Japanese, 145), 2, db),
+                    ],
+                    cheer_deck: vec![
+                        card("hY06-001", (Japanese, 561), 13, db),
+                        card("hY04-001", (Japanese, 171), 7, db),
+                    ],
+                },
+            },
         ]
     })
 }
