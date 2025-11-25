@@ -561,77 +561,77 @@ pub fn UnknownImport(
         *deck_error.write() = "".into();
         *deck_success.write() = "".into();
         *file_name.write() = "".into();
-        if let Some(file_engine) = event.files() {
-            let files = file_engine.files();
-            for file in &files {
-                *file_name.write() = file.clone();
+        let files = event.files();
+        for file in &files {
+            *file_name.write() = file.name();
 
-                if let Some(contents) = file_engine.read_file(file).await {
-                    // holoDelta
-                    let deck = holodelta::Deck::from_file(&contents);
-                    debug!("{:?}", deck);
-                    if let Ok(deck) = deck {
-                        *common_deck.write() = holodelta::Deck::to_common_deck(deck, &db.read());
-                        *deck_success.write() = "Deck file format: holoDelta".into();
-                        *show_price.write() = false;
-                        track_event(
-                            EventType::Import("Unknown".into()),
-                            EventData {
-                                format: "Unknown",
-                                file_format: Some("holoDelta"),
-                                error: None,
-                            },
-                        );
-                        return;
-                    }
+            if let Ok(contents) = file.read_bytes().await {
+                let contents = contents.to_vec();
 
-                    // HoloDuel
-                    let deck = holoduel::Deck::from_file(&contents);
-                    debug!("{:?}", deck);
-                    if let Ok(deck) = deck {
-                        *common_deck.write() = holoduel::Deck::to_common_deck(deck, &db.read());
-                        *deck_success.write() = "Deck file format: HoloDuel".into();
-                        *show_price.write() = false;
-                        track_event(
-                            EventType::Import("Unknown".into()),
-                            EventData {
-                                format: "Unknown",
-                                file_format: Some("HoloDuel"),
-                                error: None,
-                            },
-                        );
-                        return;
-                    }
-
-                    // Tabletop Sim
-                    let deck = tabletop_sim::Deck::from_file(&contents);
-                    debug!("{:?}", deck);
-                    if let Ok(deck) = deck {
-                        *common_deck.write() = tabletop_sim::Deck::to_common_deck(deck, &db.read());
-                        *deck_success.write() =
-                            "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
-                        *show_price.write() = false;
-                        track_event(
-                            EventType::Import("Unknown".into()),
-                            EventData {
-                                format: "Unknown",
-                                file_format: Some("Tabletop Sim"),
-                                error: None,
-                            },
-                        );
-                        return;
-                    }
-
-                    *deck_error.write() = "Cannot parse deck file".into();
+                // holoDelta
+                let deck = holodelta::Deck::from_file(&contents);
+                debug!("{:?}", deck);
+                if let Ok(deck) = deck {
+                    *common_deck.write() = holodelta::Deck::to_common_deck(deck, &db.read());
+                    *deck_success.write() = "Deck file format: holoDelta".into();
+                    *show_price.write() = false;
                     track_event(
                         EventType::Import("Unknown".into()),
                         EventData {
                             format: "Unknown",
-                            file_format: None,
-                            error: Some("Cannot parse deck file".into()),
+                            file_format: Some("holoDelta"),
+                            error: None,
                         },
                     );
+                    return;
                 }
+
+                // HoloDuel
+                let deck = holoduel::Deck::from_file(&contents);
+                debug!("{:?}", deck);
+                if let Ok(deck) = deck {
+                    *common_deck.write() = holoduel::Deck::to_common_deck(deck, &db.read());
+                    *deck_success.write() = "Deck file format: HoloDuel".into();
+                    *show_price.write() = false;
+                    track_event(
+                        EventType::Import("Unknown".into()),
+                        EventData {
+                            format: "Unknown",
+                            file_format: Some("HoloDuel"),
+                            error: None,
+                        },
+                    );
+                    return;
+                }
+
+                // Tabletop Sim
+                let deck = tabletop_sim::Deck::from_file(&contents);
+                debug!("{:?}", deck);
+                if let Ok(deck) = deck {
+                    *common_deck.write() = tabletop_sim::Deck::to_common_deck(deck, &db.read());
+                    *deck_success.write() =
+                        "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
+                    *show_price.write() = false;
+                    track_event(
+                        EventType::Import("Unknown".into()),
+                        EventData {
+                            format: "Unknown",
+                            file_format: Some("Tabletop Sim"),
+                            error: None,
+                        },
+                    );
+                    return;
+                }
+
+                *deck_error.write() = "Cannot parse deck file".into();
+                track_event(
+                    EventType::Import("Unknown".into()),
+                    EventData {
+                        format: "Unknown",
+                        file_format: None,
+                        error: Some("Cannot parse deck file".into()),
+                    },
+                );
             }
         }
     };

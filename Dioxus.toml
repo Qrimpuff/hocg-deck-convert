@@ -11,7 +11,7 @@ default_platform = "web"
 out_dir = "dist"
 
 # resource (assets) file folder
-asset_dir = "assets"
+public_dir = "public"
 
 [web.app]
 
@@ -27,7 +27,7 @@ base_path = "hocg-deck-convert"
 reload_html = true
 
 # which files or dirs will be watcher monitoring
-watch_path = ["src", "assets"]
+watch_path = ["src", "public"]
 
 # include `assets` in web platform
 [web.resource]

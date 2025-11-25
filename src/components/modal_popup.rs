@@ -1,4 +1,4 @@
-use dioxus::{logger::tracing::debug, prelude::*};
+use dioxus::{core::use_drop, logger::tracing::debug, prelude::*};
 use gloo::{events::EventListener, utils::window};
 use wasm_bindgen::JsValue;
 

@@ -149,57 +149,56 @@ pub fn JsonImport(
         *deck_error.write() = "".into();
         *json.write() = "".into();
         *file_name.write() = "".into();
-        if let Some(file_engine) = event.files() {
-            let files = file_engine.files();
-            for file in &files {
-                *file_name.write() = file.clone();
+        let files = event.files();
+        for file in &files {
+            *file_name.write() = file.name();
 
-                if let Some(contents) = file_engine.read_file(file).await {
-                    let mut deck = Deck::from_file(deck_type, &contents);
-                    if deck.is_err()
-                        && let Ok(fallback) = Deck::from_file(fallback_deck_type, &contents)
-                    {
-                        info!("fallback to {fallback_deck_type:?}");
-                        deck = Ok(fallback);
-                    }
-                    debug!("{:?}", deck);
-                    match deck {
-                        Ok(deck) => {
-                            *common_deck.write() = Deck::to_common_deck(deck, &db.read());
-                            *show_price.write() = false;
-                            match String::from_utf8(contents) {
-                                Ok(contents) => {
-                                    *json.write() = contents;
-                                    track_event(
-                                        EventType::Import(import_name.read().clone()),
-                                        EventData {
-                                            format: import_name.read().clone(),
-                                            error: None,
-                                        },
-                                    );
-                                }
-                                Err(e) => {
-                                    *deck_error.write() = e.to_string();
-                                    track_event(
-                                        EventType::Import(import_name.read().clone()),
-                                        EventData {
-                                            format: import_name.read().clone(),
-                                            error: Some(e.to_string()),
-                                        },
-                                    );
-                                }
+            if let Ok(contents) = file.read_bytes().await {
+                let contents = contents.to_vec();
+                let mut deck = Deck::from_file(deck_type, &contents);
+                if deck.is_err()
+                    && let Ok(fallback) = Deck::from_file(fallback_deck_type, &contents)
+                {
+                    info!("fallback to {fallback_deck_type:?}");
+                    deck = Ok(fallback);
+                }
+                debug!("{:?}", deck);
+                match deck {
+                    Ok(deck) => {
+                        *common_deck.write() = Deck::to_common_deck(deck, &db.read());
+                        *show_price.write() = false;
+                        match String::from_utf8(contents) {
+                            Ok(contents) => {
+                                *json.write() = contents;
+                                track_event(
+                                    EventType::Import(import_name.read().clone()),
+                                    EventData {
+                                        format: import_name.read().clone(),
+                                        error: None,
+                                    },
+                                );
+                            }
+                            Err(e) => {
+                                *deck_error.write() = e.to_string();
+                                track_event(
+                                    EventType::Import(import_name.read().clone()),
+                                    EventData {
+                                        format: import_name.read().clone(),
+                                        error: Some(e.to_string()),
+                                    },
+                                );
                             }
                         }
-                        Err(e) => {
-                            *deck_error.write() = e.to_string();
-                            track_event(
-                                EventType::Import(import_name.read().clone()),
-                                EventData {
-                                    format: import_name.read().clone(),
-                                    error: Some(e.to_string()),
-                                },
-                            );
-                        }
+                    }
+                    Err(e) => {
+                        *deck_error.write() = e.to_string();
+                        track_event(
+                            EventType::Import(import_name.read().clone()),
+                            EventData {
+                                format: import_name.read().clone(),
+                                error: Some(e.to_string()),
+                            },
+                        );
                     }
                 }
             }
