@@ -2224,7 +2224,7 @@ checksum = "1489f81ead4b71a09ddeab6850c0356c0932587637d753f21ee1010ab875b013"
 
 [[package]]
 name = "hocg-deck-convert"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64",
  "dioxus",
