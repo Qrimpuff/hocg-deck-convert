@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/1.0.2/css/bulma.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-badge@1.0.1/dist/bulma-badge.min.css">
-  <link rel="preload" as="script" href="/hocg-deck-convert/assets/hocg-deck-convert-b9a63c85a960a4a4.js" crossorigin><link rel="preload" as="fetch" type="application/wasm" href="/hocg-deck-convert/assets/hocg-deck-convert_bg-f5135b09bdf1306c.wasm" crossorigin>
+  <link rel="preload" as="script" href="/hocg-deck-convert/assets/hocg-deck-convert-dxh8c7820394c8313f6.js" crossorigin>
 </head>
 
 <body>
@@ -54,19 +54,7 @@
       </div>
     </div>
   </div>
-<script>
-            // We can't use a module script here because we need to start the script immediately when streaming
-            import("/hocg-deck-convert/assets/hocg-deck-convert-b9a63c85a960a4a4.js").then(
-                ({ default: init }) => {
-                init("/hocg-deck-convert/assets/hocg-deck-convert_bg-f5135b09bdf1306c.wasm").then((wasm) => {
-                    if (wasm.__wbindgen_start == undefined) {
-                    wasm.main();
-                    }
-                });
-                }
-            );
-            </script>
-            
+<script type="module" async src="/hocg-deck-convert/assets/hocg-deck-convert-dxh8c7820394c8313f6.js"></script>
             </body>
 
 </html>
