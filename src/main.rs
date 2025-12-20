@@ -364,7 +364,7 @@ fn Form() -> Element {
                                 option {
                                     value: "holo_duel",
                                     selected: *import_format.read() == Some(DeckType::HoloDuel),
-                                    "HoloDuel"
+                                    "HoloDuel (unmaintained)"
                                 }
                                 option {
                                     value: "unknown",
@@ -474,7 +474,7 @@ fn Form() -> Element {
                             option {
                                 value: "holo_duel",
                                 selected: *export_format.read() == Some(DeckType::HoloDuel),
-                                "HoloDuel"
+                                "HoloDuel (unmaintained)"
                             }
                             option {
                                 value: "proxy_sheets",
