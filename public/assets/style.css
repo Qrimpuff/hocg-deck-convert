@@ -48,8 +48,21 @@
     min-height: 176px;
 }
 
+@media screen and (min-width: 769px) {
+    .card-img-details {
+        width: 100%;
+        cursor: unset !important;
+    }
+}
+
 .card-img-details.big-card {
     width: 100%;
+}
+
+/* modal size for card details */
+.card-details-modal {
+    width: 100% !important;
+    max-width: 60rem;
 }
 
 /* fix badge text clipping */
@@ -58,6 +71,10 @@
     height: unset !important;
 }
 
+.is-disabled-link {
+    pointer-events: none !important;
+    opacity: 0.6 !important;
+}
 
 .oshi-skill-keyword {
     font-style: italic !important;

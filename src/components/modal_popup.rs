@@ -1,4 +1,4 @@
-use dioxus::{core::use_drop, logger::tracing::debug, prelude::*};
+use dioxus::{core::use_drop, html::g::class, logger::tracing::debug, prelude::*};
 use gloo::{events::EventListener, utils::window};
 use wasm_bindgen::JsValue;
 
@@ -89,8 +89,10 @@ pub fn ModelPopup(
     title: Option<Element>,
     content: Element,
     footer: Option<Element>,
+    modal_class: Option<String>,
 ) -> Element {
     let modal_card = title.is_some() || footer.is_some();
+    let modal_class = modal_class.unwrap_or_default();
     let mut popup_listener: Signal<Option<EventListener>> = use_signal(|| None);
 
     let _ = use_effect(move || {
@@ -117,7 +119,8 @@ pub fn ModelPopup(
                     onclick: move |_| { show_popup.set(false) },
                 }
                 if modal_card {
-                    div { class: "modal-card",
+                    div { class: "modal-card", class: "{modal_class}",
+                        div { class: "modal-card-details" }
                         if let Some(title) = title {
                             header {
                                 class: "modal-card-head p-5",

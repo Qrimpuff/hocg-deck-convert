@@ -47,6 +47,7 @@ pub fn CardDetailsPopup(card: CommonCard, card_type: CardType) -> Element {
                     is_edit: EDIT_DECK.signal(),
                 }
             },
+            modal_class: Some("card-details-modal".into()),
         }
     }
 }
@@ -516,6 +517,20 @@ pub fn CardDetailsContent(
                 }
             });
         }
+        if card.manage_id.japanese.iter().flatten().next().is_none() {
+            urls.push(rsx! {
+                span { class: "is-disabled-link",
+                    span { class: "icon",
+                        i { class: "fa-regular fa-circle-xmark" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "公式サイト"
+                    } else {
+                        "Official hOCG site (JP)"
+                    }
+                }
+            });
+        }
 
         // Official hOCG site (English)
         for manage_id in card.manage_id.english.iter().flatten() {
@@ -527,6 +542,20 @@ pub fn CardDetailsContent(
                     onclick: |_| { track_url("Official hOCG site (EN)") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "公式サイト EN"
+                    } else {
+                        "Official hOCG site (EN)"
+                    }
+                }
+            });
+        }
+        if card.manage_id.english.iter().flatten().next().is_none() {
+            urls.push(rsx! {
+                span { class: "is-disabled-link",
+                    span { class: "icon",
+                        i { class: "fa-regular fa-circle-xmark" }
                     }
                     if *lang.read() == CardLanguage::Japanese {
                         "公式サイト EN"
@@ -555,6 +584,19 @@ pub fn CardDetailsContent(
                     }
                 }
             });
+        } else {
+            urls.push(rsx! {
+                span { class: "is-disabled-link",
+                    span { class: "icon",
+                        i { class: "fa-regular fa-circle-xmark" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "遊々亭"
+                    } else {
+                        "Yuyutei"
+                    }
+                }
+            });
         }
 
         // TCGplayer
@@ -575,122 +617,141 @@ pub fn CardDetailsContent(
                     }
                 }
             });
+        } else {
+            urls.push(rsx! {
+                span { class: "is-disabled-link",
+                    span { class: "icon",
+                        i { class: "fa-regular fa-circle-xmark" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "TCGplayer"
+                    } else {
+                        "TCGplayer"
+                    }
+                }
+            });
         }
 
         urls.is_empty().not().then_some(urls)
     });
 
     rsx! {
-        div { class: "block is-flex is-justify-content-center",
-            a {
-                href: "#",
-                role: "button",
-                class: "card-img-details",
-                class: if *big_card.read() { "big-card" },
-                style: if *big_card.read() { "cursor: zoom-out;" } else { "cursor: zoom-in;" },
-                onclick: move |evt| {
-                    evt.prevent_default();
-                    big_card.toggle();
-                    track_event(
-                        EventType::EditDeck,
-                        EventData {
-                            action: "Card zoom".into(),
+        div { class: "columns",
+            div { class: "column is-one-third",
+                div { class: "block is-flex is-justify-content-center",
+                    a {
+                        href: "#",
+                        role: "button",
+                        class: "card-img-details",
+                        class: if *big_card.read() { "big-card" },
+                        style: if *big_card.read() { "cursor: zoom-out;" } else { "cursor: zoom-in;" },
+                        onclick: move |evt| {
+                            evt.prevent_default();
+                            big_card.toggle();
+                            track_event(
+                                EventType::EditDeck,
+                                EventData {
+                                    action: "Card zoom".into(),
+                                },
+                            );
                         },
-                    );
-                },
-                figure { class: "image",
-                    img {
-                        border_radius: "3.7%",
-                        src: "{img_path}",
-                        "onerror": "this.src='{error_img_path}'",
-                    }
-                }
-            }
-        }
-
-        // an horizontal scrollable list of alternative illustrations
-        div {
-            class: "block is-flex is-flex-wrap-nowrap pb-2",
-            style: "overflow-x: auto; justify-content: safe center;",
-            for illust in alt_cards {
-                {illust}
-            }
-        }
-
-        div { class: "is-flex is-justify-content-space-between",
-            div { class: "title is-6", "{card_type}" }
-            div { class: "is-flex-shrink-0",
-                if let Some(life_hp_amount) = *life_hp_amount.read() {
-                    span { class: "subtitle is-5", "{life_hp}" }
-                    span { class: "title is-5", "{life_hp_amount}" }
-                }
-            }
-        }
-
-        if !oshi_skills.read().is_empty() {
-            div { class: "block",
-                for skill in oshi_skills.read().iter() {
-                    OshiSkillDisplay { skill: skill.clone(), lang }
-                }
-            }
-        }
-
-        if !keywords.read().is_empty() {
-            div { class: "block",
-                for keyword in keywords.read().iter() {
-                    KeywordDisplay { keyword: keyword.clone(), lang }
-                }
-            }
-        }
-
-        if !arts.read().is_empty() {
-            div { class: "block",
-                for art in arts.read().iter() {
-                    ArtDisplay { art: art.clone(), lang }
-                }
-            }
-        }
-
-        if !card_text.read().is_empty() {
-            div { class: "block", style: "white-space: pre-line;", "{card_text}" }
-        }
-
-        if let Some(extra) = extra.read().as_ref() {
-            div { class: "block",
-                div {
-                    span { class: "title is-6 pr-1 extra-keyword",
-                        if *lang.read() == CardLanguage::Japanese {
-                            "エクストラ"
-                        } else {
-                            "Extra"
+                        figure { class: "image",
+                            img {
+                                border_radius: "3.7%",
+                                src: "{img_path}",
+                                "onerror": "this.src='{error_img_path}'",
+                            }
                         }
                     }
                 }
-                div { style: "white-space: pre-line;", "{extra}" }
-            }
-        }
 
-        div { class: "block",
-            for tag in &*tags.read() {
-                span { class: "tag", "{tag}" }
-                " "
+                // an horizontal scrollable list of alternative illustrations
+                div {
+                    class: "block is-flex is-flex-wrap-nowrap pb-2",
+                    style: "overflow-x: auto; justify-content: safe center;",
+                    for illust in alt_cards {
+                        {illust}
+                    }
+                }
             }
-            if let Some(baton_pass) = baton_pass.read().as_ref() {
-                div { "{baton_pass}" }
-            }
-            if let Some(max_amount) = max_amount.read().as_ref() {
-                div { "{max_amount}" }
-            }
-        }
 
-        if let Some(illustrator) = illustrator.read().as_ref() {
-            div { class: "block", "{illustrator}" }
-        }
+            div { class: "column",
+                div { class: "is-flex is-justify-content-space-between",
+                    div { class: "title is-6", "{card_type}" }
+                    div { class: "is-flex-shrink-0",
+                        if let Some(life_hp_amount) = *life_hp_amount.read() {
+                            span { class: "subtitle is-5", "{life_hp}" }
+                            span { class: "title is-5", "{life_hp_amount}" }
+                        }
+                    }
+                }
 
-        if let Some(urls) = urls.read().as_ref() {
-            ul {
-                for url in urls {
-                    li { {url} }
+                if !oshi_skills.read().is_empty() {
+                    div { class: "block",
+                        for skill in oshi_skills.read().iter() {
+                            OshiSkillDisplay { skill: skill.clone(), lang }
+                        }
+                    }
+                }
+
+                if !keywords.read().is_empty() {
+                    div { class: "block",
+                        for keyword in keywords.read().iter() {
+                            KeywordDisplay { keyword: keyword.clone(), lang }
+                        }
+                    }
+                }
+
+                if !arts.read().is_empty() {
+                    div { class: "block",
+                        for art in arts.read().iter() {
+                            ArtDisplay { art: art.clone(), lang }
+                        }
+                    }
+                }
+
+                if !card_text.read().is_empty() {
+                    div { class: "block", style: "white-space: pre-line;", "{card_text}" }
+                }
+
+                if let Some(extra) = extra.read().as_ref() {
+                    div { class: "block",
+                        div {
+                            span { class: "title is-6 pr-1 extra-keyword",
+                                if *lang.read() == CardLanguage::Japanese {
+                                    "エクストラ"
+                                } else {
+                                    "Extra"
+                                }
+                            }
+                        }
+                        div { style: "white-space: pre-line;", "{extra}" }
+                    }
+                }
+
+                div { class: "block",
+                    for tag in &*tags.read() {
+                        span { class: "tag", "{tag}" }
+                        " "
+                    }
+                    if let Some(baton_pass) = baton_pass.read().as_ref() {
+                        div { "{baton_pass}" }
+                    }
+                    if let Some(max_amount) = max_amount.read().as_ref() {
+                        div { "{max_amount}" }
+                    }
+                }
+
+                if let Some(illustrator) = illustrator.read().as_ref() {
+                    div { class: "block", "{illustrator}" }
+                }
+
+                if let Some(urls) = urls.read().as_ref() {
+                    ul {
+                        for url in urls {
+                            li { {url} }
+                        }
+                    }
                 }
             }
         }
