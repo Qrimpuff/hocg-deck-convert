@@ -154,6 +154,8 @@ pub fn prepare_text_cache(card: &hocg::Card) -> String {
     // Ability text
     text_cache.push_str(card.ability_text.japanese.as_deref().unwrap_or_default());
     text_cache.push('\n');
+    text_cache.push_str(card.ability_text.english.as_deref().unwrap_or_default());
+    text_cache.push('\n');
     // Extra
     if let Some(extra) = &card.extra {
         text_cache.push_str(extra.japanese.as_deref().unwrap_or_default());
