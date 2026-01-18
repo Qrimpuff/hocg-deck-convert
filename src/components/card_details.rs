@@ -8,7 +8,7 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use crate::{
-    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, SHOW_CARD_DETAILS,
+    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK,
     components::{card::Card, modal_popup::ModelPopup},
     sources::{CommonCard, CommonDeck, ImageOptions},
     tracker::{EventType, track_event, track_url},
@@ -22,19 +22,12 @@ struct EventData {
 }
 
 #[component]
-pub fn CardDetailsPopup(card: CommonCard, card_type: CardType) -> Element {
-    let mut popup_card = use_signal(|| card.clone());
-
-    // update the card when the popup is opened
-    let _ = use_effect(move || {
-        if *SHOW_CARD_DETAILS.read() {
-            popup_card.write().clone_from(&card);
-        }
-    });
+pub fn CardDetailsPopup(popup_id: usize, card: CommonCard, card_type: CardType) -> Element {
+    let popup_card = use_signal(|| card.clone());
 
     rsx! {
         ModelPopup {
-            show_popup: SHOW_CARD_DETAILS.signal(),
+            popup_id,
             title: rsx! {
                 CardDetailsTitle { card: popup_card, db: CARDS_DB.signal() }
             },

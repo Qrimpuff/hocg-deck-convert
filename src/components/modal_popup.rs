@@ -1,6 +1,40 @@
-use dioxus::{core::use_drop, html::g::class, logger::tracing::debug, prelude::*};
+use dioxus::{core::use_drop, logger::tracing::debug, prelude::*};
 use gloo::{events::EventListener, utils::window};
 use wasm_bindgen::JsValue;
+
+use crate::{CardType, components::card_details::CardDetailsPopup, sources::CommonCard};
+
+static MODAL_POPUP_ID: GlobalSignal<usize> = Signal::global(|| 0);
+static MODAL_POPUP_LIST: GlobalSignal<Vec<(usize, Popup)>> = Signal::global(Vec::new);
+
+pub enum Popup {
+    CardDetails(CommonCard, CardType),
+}
+
+pub fn show_popup(popup: Popup) {
+    let id = *MODAL_POPUP_ID.read();
+    *MODAL_POPUP_ID.write() += 1;
+    MODAL_POPUP_LIST.write().push((id, popup));
+}
+
+#[component]
+pub fn ModalPopupStack() -> Element {
+    let popups = MODAL_POPUP_LIST.read();
+    let popups = popups.iter().map(|(id, popup)| match popup {
+        Popup::CardDetails(common_card, card_type) => rsx! {
+            CardDetailsPopup {
+                key: "{id}",
+                popup_id: *id,
+                card: common_card.clone(),
+                card_type: *card_type,
+            }
+        },
+    });
+
+    rsx! {
+        {popups}
+    }
+}
 
 pub fn update_popup_layer(show_popup: Option<Signal<bool>>) -> Option<EventListener> {
     debug!("update_popup_layer {:?}", show_popup);
@@ -85,7 +119,7 @@ pub fn update_popup_layer(show_popup: Option<Signal<bool>>) -> Option<EventListe
 
 #[component]
 pub fn ModelPopup(
-    show_popup: Signal<bool>,
+    popup_id: usize,
     title: Option<Element>,
     content: Element,
     footer: Option<Element>,
@@ -93,7 +127,18 @@ pub fn ModelPopup(
 ) -> Element {
     let modal_card = title.is_some() || footer.is_some();
     let modal_class = modal_class.unwrap_or_default();
+    let mut show_popup = use_signal(|| true);
     let mut popup_listener: Signal<Option<EventListener>> = use_signal(|| None);
+
+    // Remove popup from global list when closed
+    let _ = use_effect(move || {
+        if !*show_popup.read() {
+            let mut popups = MODAL_POPUP_LIST.write();
+            if let Some(pos) = popups.iter().position(|(id, _)| *id == popup_id) {
+                popups.remove(pos);
+            }
+        }
+    });
 
     let _ = use_effect(move || {
         // Update the popup layer and manage history state (back button behavior)
@@ -105,15 +150,24 @@ pub fn ModelPopup(
         }
     });
 
+    // Clean up the popup layer on unmount
     use_drop(move || {
-        if *show_popup.peek() {
+        if popup_listener.peek().is_some() {
             let _ = update_popup_layer(None);
         }
     });
 
+    let is_on_top = use_memo(move || {
+        MODAL_POPUP_LIST
+            .read()
+            .last()
+            .map(|(id, _)| *id == popup_id)
+            .unwrap_or(false)
+    });
+
     rsx! {
         if *show_popup.read() {
-            div { class: "modal is-active",
+            div { class: "modal", class: if *is_on_top.read() { "is-active" },
                 div {
                     class: "modal-background",
                     onclick: move |_| { show_popup.set(false) },

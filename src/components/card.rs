@@ -3,8 +3,9 @@ use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use serde::Serialize;
 
 use crate::{
-    CARD_DETAILS, CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, FREE_BASIC_CHEERS,
-    PREVIEW_CARD_LANG, PRICE_SERVICE, SHOW_CARD_DETAILS,
+    CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, FREE_BASIC_CHEERS, PREVIEW_CARD_LANG,
+    PRICE_SERVICE,
+    components::modal_popup::{Popup, show_popup},
     sources::{CommonCard, CommonDeck, DeckType, ImageOptions, price_check::PriceCheckService},
     tracker::{EventType, track_event, track_url},
 };
@@ -168,8 +169,7 @@ pub fn Card(
                                 },
                             );
                         } else {
-                            *CARD_DETAILS.write() = Some((card.clone(), card_type));
-                            *SHOW_CARD_DETAILS.write() = true;
+                            show_popup(Popup::CardDetails(card.clone(), card_type));
                             track_event(
                                 EventType::EditDeck,
                                 EventData {

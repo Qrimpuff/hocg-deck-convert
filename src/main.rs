@@ -26,7 +26,8 @@ use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
 use crate::{
-    components::card_search::prepare_text_cache, sources::price_check::PriceCheckService,
+    components::{card_search::prepare_text_cache, modal_popup::ModalPopupStack},
+    sources::price_check::PriceCheckService,
     tracker::track_error,
 };
 
@@ -39,8 +40,6 @@ static ALL_CARDS_SORTED: GlobalSignal<Vec<(hocg::Card, String)>> = Signal::globa
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
-static SHOW_CARD_DETAILS: GlobalSignal<bool> = Signal::global(|| false);
-static CARD_DETAILS: GlobalSignal<Option<(CommonCard, CardType)>> = Signal::global(|| None);
 
 static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
 static PREVIEW_CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
@@ -256,10 +255,7 @@ fn App() -> Element {
                 p { "Please support the official card game." }
             }
 
-            // card details popup
-            if let Some((card, card_type)) = CARD_DETAILS.read().as_ref() {
-                CardDetailsPopup { card: card.clone(), card_type: *card_type }
-            }
+            ModalPopupStack {}
         }
     }
 }
