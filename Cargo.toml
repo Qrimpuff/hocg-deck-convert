@@ -17,7 +17,7 @@ image = { version = "0.25.2", features = ["png", "webp"] }
 indexmap = { version = "2.5.0", features = ["serde"] }
 itertools = "0.14.0"
 printpdf = { version = "0.8.0", features = ["png"] }
-reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
+reqwest = { version = "0.13.1", features = ["json", "gzip", "brotli", "deflate"] }
 serde = "1.0"
 serde_json = "1.0"
 unicode-normalization = "0.1.24"
