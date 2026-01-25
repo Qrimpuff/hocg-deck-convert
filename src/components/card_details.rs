@@ -443,10 +443,23 @@ pub fn CardDetailsContent(
         let card = card.read().card_info(&db)?;
 
         if card.card_type == hocg::CardType::HoloMember {
-            Some(if *lang.read() == CardLanguage::Japanese {
-                format!("バトンタッチ: {}", card.baton_pass.len())
-            } else {
-                format!("Baton Pass: {}", card.baton_pass.len())
+            Some(rsx! {
+                div { class: "is-flex",
+                    span { class: "mr-2",
+                        if *lang.read() == CardLanguage::Japanese {
+                            "バトンタッチ: "
+                        } else {
+                            "Baton Pass: "
+                        }
+                    }
+                    span { class: "is-flex-shrink-0",
+                        CheersDisplay {
+                            cheers: card.baton_pass.clone(),
+                            lang,
+                            is_small: true,
+                        }
+                    }
+                }
             })
         } else {
             None
@@ -761,7 +774,7 @@ pub fn CardDetailsContent(
                         " "
                     }
                     if let Some(baton_pass) = baton_pass.read().as_ref() {
-                        div { "{baton_pass}" }
+                        div { {baton_pass} }
                     }
                     if let Some(max_amount) = max_amount.read().as_ref() {
                         div { "{max_amount}" }
@@ -919,42 +932,6 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
 
 #[component]
 pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
-    let cheers = art.cheers.iter().map(|c| {
-        let cheer_img = match c {
-            hocg::Color::White => "arts_white.png",
-            hocg::Color::Green => "arts_green.png",
-            hocg::Color::Red => "arts_red.png",
-            hocg::Color::Blue => "arts_blue.png",
-            hocg::Color::Purple => "arts_purple.png",
-            hocg::Color::Yellow => "arts_yellow.png",
-            hocg::Color::Colorless => "arts_null.png",
-        };
-
-        let cheer_alt = if *lang.read() == CardLanguage::Japanese {
-            match c {
-                hocg::Color::White => "白",
-                hocg::Color::Green => "緑",
-                hocg::Color::Red => "赤",
-                hocg::Color::Blue => "青",
-                hocg::Color::Purple => "紫",
-                hocg::Color::Yellow => "黄",
-                hocg::Color::Colorless => "無色",
-            }
-        } else {
-            match c {
-                hocg::Color::White => "White",
-                hocg::Color::Green => "Green",
-                hocg::Color::Red => "Red",
-                hocg::Color::Blue => "Blue",
-                hocg::Color::Purple => "Purple",
-                hocg::Color::Yellow => "Yellow",
-                hocg::Color::Colorless => "Colorless",
-            }
-        };
-
-        (format!("/hocg-deck-convert/assets/{cheer_img}"), cheer_alt)
-    });
-
     let name = if *lang.read() == CardLanguage::Japanese {
         art.name
             .japanese
@@ -1016,14 +993,7 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
         div { class: "block",
             div { class: "is-flex",
                 span { class: "is-flex-shrink-0",
-                    for (cheer_img , cheer_alt) in cheers {
-                        img {
-                            class: "icon",
-                            margin_right: "0.1rem",
-                            title: "{cheer_alt}",
-                            src: "{cheer_img}",
-                        }
-                    }
+                    CheersDisplay { cheers: art.cheers.clone(), lang }
                 }
                 span { class: "title is-5 ml-3", "{name}" }
             }
@@ -1039,6 +1009,62 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
             }
             if let Some(text) = text {
                 div { style: "white-space: pre-line;", "{text}" }
+            }
+        }
+    }
+}
+
+#[component]
+fn CheersDisplay(
+    cheers: Vec<hocg::Color>,
+    lang: Signal<CardLanguage>,
+    #[props(default)] is_small: bool,
+) -> Element {
+    let cheers = cheers.iter().map(|c| {
+        let cheer_img = match c {
+            hocg::Color::White => "arts_white.png",
+            hocg::Color::Green => "arts_green.png",
+            hocg::Color::Red => "arts_red.png",
+            hocg::Color::Blue => "arts_blue.png",
+            hocg::Color::Purple => "arts_purple.png",
+            hocg::Color::Yellow => "arts_yellow.png",
+            hocg::Color::Colorless => "arts_null.png",
+        };
+
+        let cheer_alt = if *lang.read() == CardLanguage::Japanese {
+            match c {
+                hocg::Color::White => "白",
+                hocg::Color::Green => "緑",
+                hocg::Color::Red => "赤",
+                hocg::Color::Blue => "青",
+                hocg::Color::Purple => "紫",
+                hocg::Color::Yellow => "黄",
+                hocg::Color::Colorless => "無色",
+            }
+        } else {
+            match c {
+                hocg::Color::White => "White",
+                hocg::Color::Green => "Green",
+                hocg::Color::Red => "Red",
+                hocg::Color::Blue => "Blue",
+                hocg::Color::Purple => "Purple",
+                hocg::Color::Yellow => "Yellow",
+                hocg::Color::Colorless => "Colorless",
+            }
+        };
+
+        (format!("/hocg-deck-convert/assets/{cheer_img}"), cheer_alt)
+    });
+
+    rsx! {
+        for (cheer_img , cheer_alt) in cheers {
+            span { class: "icon-text", vertical_align: "sub",
+                span {
+                    class: "icon",
+                    class: if is_small { "is-small" } else { "" },
+                    margin_right: "0.1rem",
+                    img { title: "{cheer_alt}", src: "{cheer_img}" }
+                }
             }
         }
     }
