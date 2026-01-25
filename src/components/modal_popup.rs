@@ -157,17 +157,9 @@ pub fn ModelPopup(
         }
     });
 
-    let is_on_top = use_memo(move || {
-        MODAL_POPUP_LIST
-            .read()
-            .last()
-            .map(|(id, _)| *id == popup_id)
-            .unwrap_or(false)
-    });
-
     rsx! {
         if *show_popup.read() {
-            div { class: "modal", class: if *is_on_top.read() { "is-active" },
+            div { class: "modal is-active",
                 div {
                     class: "modal-background",
                     onclick: move |_| { show_popup.set(false) },

@@ -559,6 +559,39 @@ pub fn CardDetailsContent(
             });
         }
 
+        // ogbajoj's sheet
+        if let Some(ogbajoj_sheet_url) = card.ogbajoj_sheet_urls().first() {
+            urls.push(rsx! {
+                a {
+                    title: "Go to ogbajoj's sheet for {card.card_number}",
+                    href: "{ogbajoj_sheet_url}",
+                    target: "_blank",
+                    onclick: |_| { track_url("ogbajoj's sheet") },
+                    span { class: "icon",
+                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "ogbajojのスプレッドシート"
+                    } else {
+                        "ogbajoj's sheet"
+                    }
+                }
+            });
+        } else {
+            urls.push(rsx! {
+                span { class: "is-disabled-link",
+                    span { class: "icon",
+                        i { class: "fa-regular fa-circle-xmark" }
+                    }
+                    if *lang.read() == CardLanguage::Japanese {
+                        "ogbajojのスプレッドシート"
+                    } else {
+                        "ogbajoj's sheet"
+                    }
+                }
+            });
+        }
+
         // Yuyutei
         if let Some(yuyutei_sell_url) = card.yuyutei_sell_url.as_ref() {
             urls.push(rsx! {

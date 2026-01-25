@@ -6,7 +6,7 @@ mod tracker;
 
 use std::collections::BTreeMap;
 
-use components::{card_details::CardDetailsPopup, deck_preview::DeckPreview};
+use components::deck_preview::DeckPreview;
 use dioxus::{
     logger::tracing::{debug, error},
     prelude::*,
