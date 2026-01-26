@@ -51,7 +51,6 @@
 @media screen and (min-width: 769px) {
     .card-img-details {
         width: 100%;
-        cursor: unset !important;
     }
 }
 

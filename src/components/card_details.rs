@@ -676,7 +676,9 @@ pub fn CardDetailsContent(
 
     rsx! {
         div { class: "columns",
-            div { class: "column is-one-third",
+            div {
+                class: "column ",
+                class: if *big_card.read() { "is-three-fifths" } else { "is-one-third" },
                 div { class: "block is-flex is-justify-content-center",
                     a {
                         href: "#",
