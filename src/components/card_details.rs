@@ -505,11 +505,12 @@ pub fn CardDetailsContent(
         let mut urls = Vec::with_capacity(2);
 
         // Official hOCG site (Japanese)
-        for manage_id in card.manage_id.japanese.iter().flatten() {
+        let urls_jp = card.official_site_urls(hocg::Language::Japanese);
+        for url in &urls_jp {
             urls.push(rsx! {
                 a {
                     title: "Go to the official hOCG site (JP) for {card.card_number}",
-                    href: "https://hololive-official-cardgame.com/cardlist/?id={manage_id}",
+                    href: "{url}",
                     target: "_blank",
                     onclick: |_| { track_url("Official hOCG site (JP)") },
                     span { class: "icon",
@@ -523,7 +524,7 @@ pub fn CardDetailsContent(
                 }
             });
         }
-        if card.manage_id.japanese.iter().flatten().next().is_none() {
+        if urls_jp.is_empty() {
             urls.push(rsx! {
                 span { class: "is-disabled-link",
                     span { class: "icon",
@@ -539,11 +540,12 @@ pub fn CardDetailsContent(
         }
 
         // Official hOCG site (English)
-        for manage_id in card.manage_id.english.iter().flatten() {
+        let urls_en = card.official_site_urls(hocg::Language::English);
+        for url in &urls_en {
             urls.push(rsx! {
                 a {
                     title: "Go to the official hOCG site (EN) for {card.card_number}",
-                    href: "https://en.hololive-official-cardgame.com/cardlist/?id={manage_id}",
+                    href: "{url}",
                     target: "_blank",
                     onclick: |_| { track_url("Official hOCG site (EN)") },
                     span { class: "icon",
@@ -557,7 +559,7 @@ pub fn CardDetailsContent(
                 }
             });
         }
-        if card.manage_id.english.iter().flatten().next().is_none() {
+        if urls_en.is_empty() {
             urls.push(rsx! {
                 span { class: "is-disabled-link",
                     span { class: "icon",
