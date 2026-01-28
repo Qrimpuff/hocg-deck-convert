@@ -46,6 +46,91 @@ where
     T: serde::ser::Serialize,
 {
     let event = match event {
+        EventType::Entry => Some("$pageview"),
+        EventType::Import(_fmt) => Some("import"),
+        EventType::Export(_fmt) => Some("export"),
+        EventType::EditDeck => Some("edit_deck"),
+        EventType::Url(_url) => Some("external_url"),
+        EventType::Error => Some("error"),
+    };
+
+    // Check throttling for events that have a name
+    if let Some(event) = event {
+        let event_key = generate_event_key(event, &data);
+
+        // Check if this event has been tracked recently
+        let mut timestamps = event_timestamps().lock().unwrap();
+        let now = Instant::now();
+
+        if let Some(last_time) = timestamps.get(&event_key)
+            && now.duration_since(*last_time) < Duration::from_secs(THROTTLE_DURATION_SECS)
+        {
+            // Too soon, don't track
+            return;
+        }
+
+        // Update the timestamp
+        timestamps.insert(event_key, now);
+    }
+
+    // https://posthog.com/docs/data/events#default-properties
+    let mut properties = json!({
+        "$current_url": window().location().href().ok(),
+        "$host": window().location().hostname().ok(),
+        "$pathname": window().location().pathname().ok(),
+        "$raw_user_agent": window().navigator().user_agent().ok(),
+        "$referrer": document().referrer(),
+        "$screen_height": window().screen().and_then(|s| s.height()).ok(),
+        "$screen_width": window().screen().and_then(|s| s.width()).ok(),
+    });
+
+    if let Value::Object(properties) = &mut properties {
+        // insert version into properties
+        properties.insert("version".into(), VERSION.into());
+        // append event data into properties
+        let mut data = json!(data);
+        if let Value::Object(data) = &mut data {
+            properties.append(data);
+        }
+    }
+
+    let request = json!({
+        "event": event.unwrap_or("$pageview"),
+        "properties": properties,
+    });
+    debug!("{request:?}");
+
+    // skip tracking
+    let untrack = window()
+        .local_storage()
+        .ok()
+        .flatten()
+        // TODO posthog
+        .and_then(|ls| ls.get_item("umami.disabled").ok())
+        .flatten()
+        .is_some();
+    if untrack {
+        return;
+    }
+
+    // we as few await point as possible, so we are sending the request in a new task
+    spawn(async move {
+        // we don't care about any errors
+        let _resp = http_client()
+            .post(format!("{HOCG_DECK_CONVERT_API}/posthog"))
+            .json(&request)
+            .fetch_credentials_include()
+            .send()
+            .await;
+    });
+}
+
+// TODO DELETE after confirming posthog works
+pub fn track_event_OLD<T>(event: EventType, data: T)
+where
+    T: serde::ser::Serialize,
+{
+    let event = match event {
         EventType::Entry => None,
         EventType::Import(_fmt) => Some("import"),
         EventType::Export(_fmt) => Some("export"),
