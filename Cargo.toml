@@ -1,6 +1,6 @@
 [package]
 name = "hocg-deck-convert"
-version = "0.2.5"
+version = "0.2.6"
 authors = ["Qrimpuff <qrimpuff@gmail.com>"]
 publish = false
 license = "MIT"
@@ -10,22 +10,28 @@ edition = "2024"
 hocg-fan-sim-assets-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-assets" }
 
 base64 = "0.22.1"
+dioxus = { version = "0.7.3", features = ["web", "router"] }
 futures = "0.3.31"
 gloo = "0.11.0"
-icu = "2.0.0"
-image = { version = "0.25.2", features = ["png", "webp"] }
-indexmap = { version = "2.5.0", features = ["serde"] }
+icu = "2.1.1"
+image = { version = "0.25.9", features = ["png", "webp"] }
+indexmap = { version = "2.13.0", features = ["serde"] }
 itertools = "0.14.0"
-printpdf = { version = "0.8.0", features = ["png"] }
-reqwest = { version = "0.13.1", features = ["json", "gzip", "brotli", "deflate"] }
-serde = "1.0"
-serde_json = "1.0"
-unicode-normalization = "0.1.24"
+jiff = { version = "0.2.18", features = ["js", "serde"] }
+printpdf = { version = "0.8.2", features = ["png"] }
+reqwest = { version = "0.13.1", features = [
+    "json",
+    "gzip",
+    "brotli",
+    "deflate",
+] }
+serde = "1.0.228"
+serde_json = "1.0.149"
+unicode-normalization = "0.1.25"
+uuid = { version = "1.20.0", features = ["js", "v4", "v7"] }
 wana_kana = "4.0.0"
-wasm-bindgen = { version = "0.2.95", features = ["serde"] }
-web-sys = { version = "0.3.70", features = ["Navigator", "Screen"] }
-web-time = "1.1.0"
-dioxus = { version = "0.7.0", features = ["web", "router"] }
+wasm-bindgen = { version = "0.2.108", features = ["serde"] }
+web-sys = { version = "0.3.85", features = ["Navigator", "Screen"] }
 
 [profile]
 

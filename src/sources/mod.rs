@@ -9,8 +9,8 @@ use icu::decimal::{DecimalFormatter, input::Decimal};
 use icu::locale::locale;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use jiff::Timestamp;
 use price_check::PriceCache;
-use web_time::Instant;
 
 use crate::{
     CardLanguage, CardType,
@@ -300,7 +300,7 @@ impl CommonCard {
         db: &CardsDatabase,
         prices: &'a PriceCache,
         service: PriceCheckService,
-    ) -> Option<&'a (Instant, f64)> {
+    ) -> Option<&'a (Timestamp, f64)> {
         self.card_illustration(db).and_then(|c| {
             prices.get(&match service {
                 PriceCheckService::Yuyutei => {

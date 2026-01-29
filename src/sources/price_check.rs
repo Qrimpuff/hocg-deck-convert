@@ -5,9 +5,9 @@ use dioxus::{
     prelude::*,
 };
 use itertools::Itertools;
+use jiff::{SignedDuration, Timestamp};
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
-use web_time::{Duration, Instant};
 
 use super::{CardsDatabase, CommonDeck};
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     track_event,
 };
 
-pub type PriceCache = HashMap<PriceCacheKey, (Instant, f64)>;
+pub type PriceCache = HashMap<PriceCacheKey, (Timestamp, f64)>;
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum PriceCacheKey {
     Yuyutei(String),
@@ -78,7 +78,7 @@ async fn price_check(
             c.price_cache(db, prices, service)
                 .map(|(cache_time, _)| {
                     // more than an hour
-                    Instant::now().duration_since(*cache_time) > Duration::from_secs(60 * 60)
+                    Timestamp::now().duration_since(*cache_time) > SignedDuration::from_hours(1)
                 })
                 .unwrap_or(true)
         })
@@ -183,7 +183,7 @@ async fn price_check(
         {
             lookup_prices
                 .get(&key)
-                .map(|p| prices.insert(key, (Instant::now(), *p)));
+                .map(|p| prices.insert(key, (Timestamp::now(), *p)));
         }
     }
 
