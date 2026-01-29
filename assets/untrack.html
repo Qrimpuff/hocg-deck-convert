@@ -2,15 +2,16 @@
 
 <body></body>
 <script>
-    // TODO posthog
-    let disabled = localStorage.getItem("umami.disabled");
+    let disabled = localStorage.getItem("posthog.disabled") || localStorage.getItem("umami.disabled");
     if (disabled) {
         localStorage.removeItem("umami.disabled");
+        localStorage.removeItem("posthog.disabled");
     } else {
         localStorage.setItem("umami.disabled", "1");
+        localStorage.setItem("posthog.disabled", "1");
     }
-    disabled = localStorage.getItem("umami.disabled");
-    document.body.append("umami.disabled: " + disabled);
+    disabled = localStorage.getItem("posthog.disabled") || localStorage.getItem("umami.disabled");
+    document.body.append("posthog.disabled: " + disabled);
 </script>
 
 </html>
