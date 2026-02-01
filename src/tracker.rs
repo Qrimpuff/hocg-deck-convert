@@ -79,6 +79,7 @@ where
         "$host": window().location().hostname().ok(),
         "$pathname": window().location().pathname().ok(),
         "$raw_user_agent": window().navigator().user_agent().ok(),
+        "$user_agent": window().navigator().user_agent().ok(),
         "$referrer": document().referrer(),
         "$screen_height": window().screen().and_then(|s| s.height()).ok(),
         "$screen_width": window().screen().and_then(|s| s.width()).ok(),
