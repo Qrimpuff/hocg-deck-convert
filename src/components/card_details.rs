@@ -676,6 +676,29 @@ pub fn CardDetailsContent(
         urls.is_empty().not().then_some(urls)
     });
 
+    let scroll_container_id = format!("scroll-container-{}", card.read().html_id());
+    let _scroll_container_id = scroll_container_id.clone();
+    let on_scroll_container_mount = move |_: MountedEvent| {
+        // can't use deltaMode, it will lose pixel precision on some browsers
+        // warn: could be an issue with stacked popups
+        document().eval(format!(
+            r#"
+            const element = document.getElementById('{_scroll_container_id}');
+            if (element) {{
+                element.addEventListener('wheel', (event) => {{
+                    if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {{
+                        return;
+                    }}
+                    if (event.deltaY !== 0) {{
+                        element.scrollLeft += event.deltaY;
+                        event.preventDefault();
+                    }}
+                }}, {{ passive: false }});
+            }}
+            "#
+        ));
+    };
+
     rsx! {
         div { class: "columns",
             div {
@@ -710,8 +733,10 @@ pub fn CardDetailsContent(
 
                 // an horizontal scrollable list of alternative illustrations
                 div {
+                    id: "{scroll_container_id}",
                     class: "block is-flex is-flex-wrap-nowrap pb-2",
                     style: "overflow-x: auto; justify-content: safe center;",
+                    onmount: on_scroll_container_mount,
                     for illust in alt_cards {
                         {illust}
                     }
