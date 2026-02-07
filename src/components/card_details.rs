@@ -1,10 +1,11 @@
-use std::{ops::Not, vec};
+use std::{cmp::Reverse, ops::Not, sync::OnceLock, vec};
 
 use dioxus::{document::document, prelude::*};
 use hocg_fan_sim_assets_model::{
     self as hocg, Art, CardsDatabase, Keyword, KeywordEffect, OshiSkill,
 };
 use itertools::Itertools;
+use regex::Regex;
 use serde::Serialize;
 
 use crate::{
@@ -52,19 +53,19 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
     let title = use_memo(move || {
         let db = db.read();
         let Some(card) = card.read().card_info(&db) else {
-            return "<Unknown card>".to_string();
+            return "- Unknown card -".to_string();
         };
 
         if *lang.read() == CardLanguage::Japanese {
             card.name
                 .japanese
                 .clone()
-                .unwrap_or("<No Japanese name>".to_string())
+                .unwrap_or("- No Japanese name -".to_string())
         } else {
             card.name
                 .english
                 .clone()
-                .unwrap_or("<No English name>".to_string())
+                .unwrap_or("- No English name -".to_string())
         }
     });
     let subtitle = use_memo(move || {
@@ -204,7 +205,7 @@ pub fn CardDetailsContent(
     let card_type = use_memo(move || {
         let db = db.read();
         let Some(card) = card.read().card_info(&db) else {
-            return "<Unknown>".to_string();
+            return "- Unknown -".to_string();
         };
 
         let mut card_type = if *lang.read() == CardLanguage::Japanese {
@@ -375,7 +376,7 @@ pub fn CardDetailsContent(
     let card_text = use_memo(move || {
         let db = db.read();
         let Some(card) = card.read().card_info(&db) else {
-            return "<Unknown card>".to_string();
+            return "- Unknown card -".to_string();
         };
 
         // Only support cards have ability text
@@ -390,12 +391,12 @@ pub fn CardDetailsContent(
             card.ability_text
                 .japanese
                 .clone()
-                .unwrap_or("<No Japanese text>".to_string())
+                .unwrap_or("- No Japanese text -".to_string())
         } else {
             card.ability_text
                 .english
                 .clone()
-                .unwrap_or("<No English text>".to_string())
+                .unwrap_or("- No English text -".to_string())
         }
     });
 
@@ -408,12 +409,12 @@ pub fn CardDetailsContent(
                 extra
                     .japanese
                     .clone()
-                    .unwrap_or("<No Japanese text>".to_string())
+                    .unwrap_or("- No Japanese text -".to_string())
             } else {
                 extra
                     .english
                     .clone()
-                    .unwrap_or("<No English text>".to_string())
+                    .unwrap_or("- No English text -".to_string())
             }
         })
     });
@@ -430,9 +431,9 @@ pub fn CardDetailsContent(
                 if *lang.read() == CardLanguage::Japanese {
                     t.japanese
                         .clone()
-                        .unwrap_or("<No Japanese tag>".to_string())
+                        .unwrap_or("- No Japanese tag -".to_string())
                 } else {
-                    t.english.clone().unwrap_or("<No English tag>".to_string())
+                    t.english.clone().unwrap_or("- No English tag -".to_string())
                 }
             })
             .collect::<Vec<_>>()
@@ -779,7 +780,9 @@ pub fn CardDetailsContent(
                 }
 
                 if !card_text.read().is_empty() {
-                    div { class: "block", style: "white-space: pre-line;", "{card_text}" }
+                    div { class: "block", style: "white-space: pre-line;",
+                        AugmentedText { text: "{card_text}", lang }
+                    }
                 }
 
                 if let Some(extra) = extra.read().as_ref() {
@@ -793,7 +796,9 @@ pub fn CardDetailsContent(
                                 }
                             }
                         }
-                        div { style: "white-space: pre-line;", "{extra}" }
+                        div { style: "white-space: pre-line;",
+                            AugmentedText { text: "{extra}", lang }
+                        }
                     }
                 }
 
@@ -857,13 +862,13 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
             .name
             .japanese
             .clone()
-            .unwrap_or("<No Japanese name>".to_string())
+            .unwrap_or("- No Japanese name -".to_string())
     } else {
         skill
             .name
             .english
             .clone()
-            .unwrap_or("<No English name>".to_string())
+            .unwrap_or("- No English name -".to_string())
     };
 
     let text = if *lang.read() == CardLanguage::Japanese {
@@ -871,13 +876,13 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
             .ability_text
             .japanese
             .clone()
-            .unwrap_or("<No Japanese text>".to_string())
+            .unwrap_or("- No Japanese text -".to_string())
     } else {
         skill
             .ability_text
             .english
             .clone()
-            .unwrap_or("<No English text>".to_string())
+            .unwrap_or("- No English text -".to_string())
     };
 
     rsx! {
@@ -891,7 +896,9 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
                 b { "{holo_power}" }
                 "]"
             }
-            div { style: "white-space: pre-line;", "{text}" }
+            div { style: "white-space: pre-line;",
+                AugmentedText { text: "{text}", lang }
+            }
         }
     }
 }
@@ -925,13 +932,13 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
             .name
             .japanese
             .clone()
-            .unwrap_or("<No Japanese name>".to_string())
+            .unwrap_or("- No Japanese name -".to_string())
     } else {
         keyword
             .name
             .english
             .clone()
-            .unwrap_or("<No English name>".to_string())
+            .unwrap_or("- No English name -".to_string())
     };
 
     let text = if *lang.read() == CardLanguage::Japanese {
@@ -939,13 +946,13 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
             .ability_text
             .japanese
             .clone()
-            .unwrap_or("<No Japanese text>".to_string())
+            .unwrap_or("- No Japanese text -".to_string())
     } else {
         keyword
             .ability_text
             .english
             .clone()
-            .unwrap_or("<No English text>".to_string())
+            .unwrap_or("- No English text -".to_string())
     };
 
     rsx! {
@@ -954,7 +961,9 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
                 span { class: "title is-6 pr-1 {keyword_class}", "{keyword_name}" }
                 span { class: "title is-5 ml-2", "{name}" }
             }
-            div { style: "white-space: pre-line;", "{text}" }
+            div { style: "white-space: pre-line;",
+                AugmentedText { text: "{text}", lang }
+            }
         }
     }
 }
@@ -965,12 +974,12 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
         art.name
             .japanese
             .clone()
-            .unwrap_or("<No Japanese name>".to_string())
+            .unwrap_or("- No Japanese name -".to_string())
     } else {
         art.name
             .english
             .clone()
-            .unwrap_or("<No English name>".to_string())
+            .unwrap_or("- No English name -".to_string())
     };
 
     let power_name = if *lang.read() == CardLanguage::Japanese {
@@ -1008,13 +1017,13 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
         art.ability_text.map(|text| {
             text.japanese
                 .clone()
-                .unwrap_or("<No Japanese text>".to_string())
+                .unwrap_or("- No Japanese text -".to_string())
         })
     } else {
         art.ability_text.map(|text| {
             text.english
                 .clone()
-                .unwrap_or("<No English text>".to_string())
+                .unwrap_or("- No English text -".to_string())
         })
     };
 
@@ -1037,7 +1046,9 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
                 }
             }
             if let Some(text) = text {
-                div { style: "white-space: pre-line;", "{text}" }
+                div { style: "white-space: pre-line;",
+                    AugmentedText { text: "{text}", lang }
+                }
             }
         }
     }
@@ -1048,6 +1059,7 @@ fn CheersDisplay(
     cheers: Vec<hocg::Color>,
     lang: Signal<CardLanguage>,
     #[props(default)] is_small: bool,
+    #[props(default)] no_title: bool,
 ) -> Element {
     let cheers = cheers.iter().map(|c| {
         let cheer_img = match c {
@@ -1092,7 +1104,166 @@ fn CheersDisplay(
                     class: "icon",
                     class: if is_small { "is-small" } else { "" },
                     margin_right: "0.1rem",
-                    img { title: "{cheer_alt}", src: "{cheer_img}" }
+                    img {
+                        title: if !no_title { "{cheer_alt}" } else { "" },
+                        src: "{cheer_img}",
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+enum TextSegment {
+    Text(String),
+    /// e.g. 〈Tsunomaki Watame〉
+    CardName(String),
+    /// e.g. #Gen 3
+    Tag(String),
+    /// e.g. a green cheer, 1~2 yellow cheers
+    Cheers(Vec<hocg::Color>),
+}
+
+fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    static TAGS: OnceLock<Vec<String>> = OnceLock::new();
+
+    let re = RE.get_or_init(|| {
+            const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
+            const TAG_PATTERN: &str = r"(?P<tag>#(?:\s?[^\sを持つ]+){1,3})";
+            const CHEER_PATTERN: &str =
+                r"(?P<yell>(白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_text>エール|\scheers?)?)";
+            Regex::new(format!("(?i){CARD_PATTERN}|{TAG_PATTERN}|{CHEER_PATTERN}").as_str()).unwrap()
+        });
+
+    let mut segments = Vec::new();
+    let mut last_end = 0;
+
+    for cap in re.captures_iter(text) {
+        let m = cap.get(0).unwrap();
+
+        if m.start() > last_end {
+            segments.push(TextSegment::Text(text[last_end..m.start()].to_string()));
+        }
+
+        // Card name
+        if let Some(card_name) = cap.name("c_name") {
+            segments.push(TextSegment::Text(cap["c_b1"].to_string()));
+            segments.push(TextSegment::CardName(card_name.as_str().to_string()));
+            segments.push(TextSegment::Text(cap["c_b2"].to_string()));
+
+        // Tag name
+        } else if let Some(tag_str) = cap.name("tag") {
+            let all_tags = TAGS.get_or_init(|| {
+                let mut tags = db
+                    .values()
+                    .flat_map(|card| card.tags.iter())
+                    .filter_map(|c| c.english.as_ref())
+                    .unique()
+                    .cloned()
+                    .collect::<Vec<_>>();
+                tags.sort_by_key(|t| Reverse(t.len()));
+                tags
+            });
+
+            // verify that it's a valid tag (could be less than 3 words)
+            if let Some(valid_tag) = all_tags.iter().find(|tag| {
+                tag_str
+                    .as_str()
+                    .to_lowercase()
+                    .starts_with(&tag.to_lowercase())
+            }) {
+                segments.push(TextSegment::Tag(valid_tag.clone()));
+                segments.push(TextSegment::Text(
+                    tag_str.as_str()[valid_tag.len()..].to_string(),
+                ));
+            } else {
+                segments.push(TextSegment::Text(tag_str.as_str().to_string()));
+            }
+
+        // Cheer icon
+        } else if let Some(cheer_str) = cap.name("yell") {
+            let s = cheer_str.as_str().to_lowercase();
+            let color = if s.contains("白") || s.contains("white") {
+                hocg::Color::White
+            } else if s.contains("緑") || s.contains("green") {
+                hocg::Color::Green
+            } else if s.contains("赤") || s.contains("red") {
+                hocg::Color::Red
+            } else if s.contains("青") || s.contains("blue") {
+                hocg::Color::Blue
+            } else if s.contains("紫") || s.contains("purple") {
+                hocg::Color::Purple
+            } else if s.contains("黄") || s.contains("yellow") {
+                hocg::Color::Yellow
+            } else {
+                hocg::Color::Colorless
+            };
+
+            // just add the cheer icon, it's more pleasant with the full text
+            if cap.name("y_text").is_some() {
+                // there is always "cheers" after a valid color
+                segments.push(TextSegment::Cheers(vec![color]));
+            } else if color == hocg::Color::Colorless {
+                // no "cheer" text for colorless
+                segments.push(TextSegment::Cheers(vec![color]));
+            }
+            segments.push(TextSegment::Text(cheer_str.as_str().to_string()));
+        }
+
+        last_end = m.end();
+    }
+
+    if last_end < text.len() {
+        segments.push(TextSegment::Text(text[last_end..].to_string()));
+    }
+
+    // merge consecutive Text segments
+    segments.into_iter().fold(Vec::new(), |mut acc, segment| {
+        match segment {
+            TextSegment::Text(t) => {
+                if let Some(TextSegment::Text(last)) = acc.last_mut() {
+                    last.push_str(&t);
+                } else {
+                    acc.push(TextSegment::Text(t));
+                }
+            }
+            other => acc.push(other),
+        }
+        acc
+    })
+}
+
+#[component]
+fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
+    let segments = parse_augmented_text(&text, &CARDS_DB.read());
+
+    rsx! {
+        for segment in segments {
+            match segment {
+                TextSegment::Text(t) => {
+                    rsx! { "{t}" }
+                }
+                TextSegment::CardName(name) => {
+                    rsx! {
+                        a { "{name}" }
+                    }
+                }
+                TextSegment::Tag(name) => {
+                    rsx! {
+                        a { "{name}" }
+                    }
+                }
+                TextSegment::Cheers(cheers) => {
+                    rsx! {
+                        CheersDisplay {
+                            cheers: cheers.clone(),
+                            is_small: true,
+                            no_title: true,
+                            lang,
+                        }
+                    }
                 }
             }
         }

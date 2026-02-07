@@ -44,6 +44,7 @@ enum FilterColor {
 enum FilterBloomLevel {
     All,
     Debut,
+    DebutUnlimited,
     First,
     FirstBuzz,
     Second,
@@ -275,6 +276,14 @@ fn filter_cards(
             |((card, _), _, _)| match (filters.bloom_level, card.bloom_level) {
                 (FilterBloomLevel::All, _) => true,
                 (FilterBloomLevel::Debut, Some(hocg::BloomLevel::Debut)) => true,
+                (FilterBloomLevel::DebutUnlimited, Some(hocg::BloomLevel::Debut)) => {
+                    card.extra.as_ref().is_some_and(|extra| {
+                        extra.japanese.as_deref()
+                            == Some("このホロメンはデッキに何枚でも入れられる")
+                            || extra.english.as_deref()
+                                == Some("You may include any number of this holomem in the deck")
+                    })
+                }
                 (FilterBloomLevel::First, Some(hocg::BloomLevel::First)) => true,
                 (FilterBloomLevel::FirstBuzz, Some(hocg::BloomLevel::First)) => card.buzz,
                 (FilterBloomLevel::Second, Some(hocg::BloomLevel::Second)) => true,
@@ -734,6 +743,7 @@ pub fn CardSearch(
                                     oninput: move |ev| {
                                         *filter_bloom_level.write() = match ev.value().as_str() {
                                             "debut" => FilterBloomLevel::Debut,
+                                            "debut_unlimited" => FilterBloomLevel::DebutUnlimited,
                                             "first" => FilterBloomLevel::First,
                                             "first_buzz" => FilterBloomLevel::FirstBuzz,
                                             "second" => FilterBloomLevel::Second,
@@ -760,6 +770,11 @@ pub fn CardSearch(
                                         value: "debut",
                                         selected: *filter_bloom_level.read() == FilterBloomLevel::Debut,
                                         "Debut"
+                                    }
+                                    option {
+                                        value: "debut_unlimited",
+                                        selected: *filter_bloom_level.read() == FilterBloomLevel::DebutUnlimited,
+                                        "Debut - Unlimited"
                                     }
                                     option {
                                         value: "first",
