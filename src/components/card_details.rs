@@ -867,7 +867,7 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
         div { class: "block",
             div {
                 span { class: "title is-6 pr-1 {oshi_skill_class}", "{oshi_skill}" }
-                span { class: "title is-5 ml-2", "{name}" }
+                span { class: "title is-5 ml-1", " {name}" }
             }
             div { class: "subtitle is-6 mb-1",
                 "[{holo_power_text}"
@@ -937,7 +937,7 @@ pub fn KeywordDisplay(keyword: Keyword, lang: Signal<CardLanguage>) -> Element {
         div { class: "block",
             div {
                 span { class: "title is-6 pr-1 {keyword_class}", "{keyword_name}" }
-                span { class: "title is-5 ml-2", "{name}" }
+                span { class: "title is-5 ml-1", " {name}" }
             }
             div { style: "white-space: pre-line;",
                 AugmentedText { text: "{text}", lang }
@@ -1011,15 +1011,15 @@ pub fn ArtDisplay(art: Art, lang: Signal<CardLanguage>) -> Element {
                 span { class: "is-flex-shrink-0",
                     CheersDisplay { cheers: art.cheers.clone(), lang }
                 }
-                span { class: "title is-5 ml-3", "{name}" }
+                span { class: "title is-5 ml-3", " {name}" }
             }
             div { class: "subtitle is-6 mb-1",
                 "{power_name}"
                 b { class: "title is-6", "{power}" }
                 if let Some(advantage) = advantage {
                     span {
-                        class: "ml-2 {advantage.0}",
-                        dangerous_inner_html: "{advantage.1}",
+                        class: "ml-1 {advantage.0}",
+                        dangerous_inner_html: " {advantage.1}",
                     }
                 }
             }
