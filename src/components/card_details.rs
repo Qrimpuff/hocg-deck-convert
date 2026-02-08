@@ -332,45 +332,24 @@ pub fn CardDetailsContent(
     });
 
     let oshi_skills = use_memo(move || {
-        let db = db.read();
-        let Some(card) = card.read().card_info(&db) else {
-            return vec![];
-        };
-
-        // Only oshi holo member cards have oshi skills
-        if !matches!(card.card_type, hocg::CardType::OshiHoloMember) {
-            return vec![];
-        }
-
-        card.oshi_skills.to_vec()
+        card.read()
+            .card_info(&db.read())
+            .map(|card| card.oshi_skills.to_vec())
+            .unwrap_or_default()
     });
 
     let keywords = use_memo(move || {
-        let db = db.read();
-        let Some(card) = card.read().card_info(&db) else {
-            return vec![];
-        };
-
-        // Only holo member cards have keywords
-        if !matches!(card.card_type, hocg::CardType::HoloMember) {
-            return vec![];
-        }
-
-        card.keywords.to_vec()
+        card.read()
+            .card_info(&db.read())
+            .map(|card| card.keywords.to_vec())
+            .unwrap_or_default()
     });
 
     let arts = use_memo(move || {
-        let db = db.read();
-        let Some(card) = card.read().card_info(&db) else {
-            return vec![];
-        };
-
-        // Only holo member cards have arts
-        if !matches!(card.card_type, hocg::CardType::HoloMember) {
-            return vec![];
-        }
-
-        card.arts.to_vec()
+        card.read()
+            .card_info(&db.read())
+            .map(|card| card.arts.to_vec())
+            .unwrap_or_default()
     });
 
     let card_text = use_memo(move || {
@@ -379,24 +358,20 @@ pub fn CardDetailsContent(
             return "- Unknown card -".to_string();
         };
 
-        // Only support cards have ability text
-        if !matches!(
-            card.card_type,
-            hocg::CardType::Support(_) | hocg::CardType::Cheer
-        ) {
-            return "".into();
-        }
-
+        let required =
+            card.oshi_skills.is_empty() && card.keywords.is_empty() && card.arts.is_empty();
         if *lang.read() == CardLanguage::Japanese {
             card.ability_text
                 .japanese
                 .clone()
-                .unwrap_or("- No Japanese text -".to_string())
+                .or_else(|| required.then_some("- No Japanese text -".to_string()))
+                .unwrap_or_default()
         } else {
             card.ability_text
                 .english
                 .clone()
-                .unwrap_or("- No English text -".to_string())
+                .or_else(|| required.then_some("- No English text -".to_string()))
+                .unwrap_or_default()
         }
     });
 
@@ -433,7 +408,9 @@ pub fn CardDetailsContent(
                         .clone()
                         .unwrap_or("- No Japanese tag -".to_string())
                 } else {
-                    t.english.clone().unwrap_or("- No English tag -".to_string())
+                    t.english
+                        .clone()
+                        .unwrap_or("- No English tag -".to_string())
                 }
             })
             .collect::<Vec<_>>()
@@ -443,6 +420,7 @@ pub fn CardDetailsContent(
         let db = db.read();
         let card = card.read().card_info(&db)?;
 
+        // only holo member cards have baton pass, and free baton pass is valid
         if card.card_type == hocg::CardType::HoloMember {
             Some(rsx! {
                 div { class: "is-flex",
