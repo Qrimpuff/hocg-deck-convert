@@ -1175,7 +1175,7 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
     let re = RE.get_or_init(|| {
         const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
         const IN_CARD_PATTERN: &str = r#"(?P<in_card>(?P<i_en_1>")(?P<i_name_en>[^"]+)(?P<i_en_2>" in its card name)|(?P<i_jp_1>カード名に「)(?P<i_name_jp>[^」]+)(?P<i_jp_2>」))"#;
-        const TAG_PATTERN: &str = r"(?P<tag>#(?:\s?[^\sを持つ]+){1,5})";
+        const TAG_PATTERN: &str = r#"(?P<tag>#(?:\s?[^\sを持つ"「〈<\[]+){1,5})"#;
         const CHEER_PATTERN: &str = r"(?P<yell>(白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_text>エール|\scheers?)?)";
         const SKILL_PATTERN: &str = r#"(?P<skill>(?P<s_text>oshi skill\s|推しスキル)(?P<s_b1>["「])(?P<s_name>[^"」]+)(?P<s_b2>["」]))"#;
         const EXTRA_PATTERN: &str = r#"(?P<extra>(?P<e_text>extra\s|エクストラ)(?P<e_b1>["「])(?P<e_name>[^"」]+)(?P<e_b2>["」]))"#;

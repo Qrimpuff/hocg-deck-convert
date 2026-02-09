@@ -1,7 +1,7 @@
 use dioxus::{logger::tracing::debug, prelude::*, web::WebEventExt};
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, Localized, SupportType};
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
 use wana_kana::utils::katakana_to_hiragana;
 
@@ -13,7 +13,7 @@ use crate::{
     tracker::{EventType, track_event},
 };
 
-#[derive(PartialEq, Eq, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum FilterCardType {
     #[default]
     All,
@@ -30,7 +30,7 @@ pub enum FilterCardType {
     Cheer,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum FilterColor {
     #[default]
     All,
@@ -43,7 +43,7 @@ pub enum FilterColor {
     Colorless,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum FilterBloomLevel {
     #[default]
     All,
@@ -55,7 +55,7 @@ pub enum FilterBloomLevel {
     Spot,
 }
 
-#[derive(PartialEq, Eq, Clone, Default)]
+#[derive(PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
 pub enum FilterTag {
     #[default]
     All,
@@ -71,7 +71,7 @@ impl FilterTag {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Default)]
+#[derive(PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
 pub enum FilterRarity {
     #[default]
     All,
@@ -79,7 +79,7 @@ pub enum FilterRarity {
     Rarity(String),
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum FilterRelease {
     #[default]
     All,
@@ -88,7 +88,7 @@ pub enum FilterRelease {
     Unreleased,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default, Hash)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Hash, Serialize, Deserialize)]
 pub enum FilterField {
     #[default]
     All,
@@ -98,7 +98,7 @@ pub enum FilterField {
     Extra,
 }
 
-#[derive(PartialEq, Eq, Clone, Default)]
+#[derive(PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
 pub struct TextFilter {
     pub text: (String, bool), // has been processed
     pub field: FilterField,
@@ -237,7 +237,7 @@ impl TextFilter {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Filters {
     pub texts: Vec<TextFilter>,
     pub card_type: FilterCardType,

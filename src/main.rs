@@ -19,7 +19,7 @@ use hocg_fan_sim_assets_model::{self as hocg};
 use hocg_fan_sim_assets_model::{CardsDatabase, Language};
 use itertools::Itertools;
 use price_check::PriceCache;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sources::*;
 use tracker::{EventType, track_event, track_url};
 use wasm_bindgen::prelude::*;
@@ -669,7 +669,7 @@ pub fn UnknownImport(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CardType {
     Oshi,
     Cheer,

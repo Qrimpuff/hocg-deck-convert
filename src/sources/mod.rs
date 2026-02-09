@@ -11,6 +11,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use jiff::Timestamp;
 use price_check::PriceCache;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     CardLanguage, CardType,
@@ -39,7 +40,7 @@ pub enum DeckType {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CommonCard {
     pub card_number: String,
     pub illustration_idx: Option<usize>,
