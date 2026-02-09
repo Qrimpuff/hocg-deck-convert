@@ -2,13 +2,21 @@ use dioxus::{core::use_drop, logger::tracing::debug, prelude::*};
 use gloo::{events::EventListener, utils::window};
 use wasm_bindgen::JsValue;
 
-use crate::{CardType, components::card_details::CardDetailsPopup, sources::CommonCard};
+use crate::{
+    CardType,
+    components::{
+        card_details::CardDetailsPopup,
+        card_search::{CardSearchPopup, Filters},
+    },
+    sources::CommonCard,
+};
 
-static MODAL_POPUP_ID: GlobalSignal<usize> = Signal::global(|| 0);
+static MODAL_POPUP_ID: GlobalSignal<usize> = Signal::global(|| 1);
 static MODAL_POPUP_LIST: GlobalSignal<Vec<(usize, Popup)>> = Signal::global(Vec::new);
 
 pub enum Popup {
     CardDetails(CommonCard, CardType),
+    CardSearch(Filters),
 }
 
 pub fn show_popup(popup: Popup) {
@@ -27,6 +35,13 @@ pub fn ModalPopupStack() -> Element {
                 popup_id: *id,
                 card: common_card.clone(),
                 card_type: *card_type,
+            }
+        },
+        Popup::CardSearch(filters) => rsx! {
+            CardSearchPopup {
+                key: "{id}",
+                popup_id: *id,
+                default_filters: filters.clone(),
             }
         },
     });

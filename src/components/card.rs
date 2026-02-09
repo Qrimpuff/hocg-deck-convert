@@ -179,6 +179,8 @@ pub fn Card(
                         }
                     },
                     img {
+                        width: "400",
+                        height: "560",
                         border_radius: "3.7%",
                         src: "{img_path}",
                         "onerror": "this.src='{error_img_path}'",

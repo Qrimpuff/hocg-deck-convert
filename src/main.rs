@@ -26,7 +26,10 @@ use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
 use crate::{
-    components::{card_search::prepare_text_cache, modal_popup::ModalPopupStack},
+    components::{
+        card_search::{FilterRarity, FilterRelease, prepare_text_cache},
+        modal_popup::ModalPopupStack,
+    },
     sources::price_check::PriceCheckService,
     tracker::track_error,
 };
@@ -36,7 +39,8 @@ const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com"
 
 static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
-static ALL_CARDS_SORTED: GlobalSignal<Vec<(hocg::Card, String)>> = Signal::global(Default::default);
+static ALL_CARDS_SORTED: GlobalSignal<Vec<(hocg::Card, (String, String))>> =
+    Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
 static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
@@ -46,6 +50,8 @@ static PREVIEW_CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLan
 // default to the first export format (holoDelta)
 static PREVIEW_IMAGE_OPTIONS: GlobalSignal<ImageOptions> = Signal::global(ImageOptions::holodelta);
 static EDIT_DECK: GlobalSignal<bool> = Signal::global(|| false);
+static GLOBAL_RELEASE: GlobalSignal<FilterRelease> = Signal::global(|| FilterRelease::All);
+static GLOBAL_RARITY: GlobalSignal<FilterRarity> = Signal::global(|| FilterRarity::All);
 static PRICE_SERVICE: GlobalSignal<PriceCheckService> =
     Signal::global(|| PriceCheckService::Yuyutei);
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);

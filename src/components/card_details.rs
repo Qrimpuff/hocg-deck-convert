@@ -9,8 +9,12 @@ use regex::Regex;
 use serde::Serialize;
 
 use crate::{
-    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK,
-    components::{card::Card, modal_popup::ModelPopup},
+    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, GLOBAL_RARITY, GLOBAL_RELEASE,
+    components::{
+        card::Card,
+        card_search::{FilterField, FilterRelease, Filters, TextFilter},
+        modal_popup::{ModelPopup, Popup, show_popup},
+    },
     sources::{CommonCard, CommonDeck, ImageOptions},
     tracker::{EventType, track_event, track_url},
 };
@@ -20,6 +24,7 @@ static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLan
 #[derive(Serialize)]
 struct EventData {
     action: String,
+    source: Option<String>,
 }
 
 #[component]
@@ -34,6 +39,7 @@ pub fn CardDetailsPopup(popup_id: usize, card: CommonCard, card_type: CardType) 
             },
             content: rsx! {
                 CardDetailsContent {
+                    popup_id,
                     card: popup_card,
                     card_type,
                     db: CARDS_DB.signal(),
@@ -80,10 +86,23 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
     let unreleased = use_memo(move || {
         let db = db.read();
         let Some(card) = card.read().card_illustration(&db) else {
-            return false;
+            return (false, "");
         };
 
-        !card.manage_id.has_value()
+        (
+            !card.manage_id.has_value(),
+            if *GLOBAL_RELEASE.read() == FilterRelease::Japanese
+                && card.manage_id.japanese.is_none()
+            {
+                "Japanese"
+            } else if *GLOBAL_RELEASE.read() == FilterRelease::English
+                && card.manage_id.english.is_none()
+            {
+                "English"
+            } else {
+                ""
+            },
+        )
     });
 
     rsx! {
@@ -91,11 +110,17 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
             h4 {
                 div { class: "subtitle",
                     "{subtitle}"
-                    if *unreleased.read() {
+                    if unreleased.read().0 {
                         span {
                             class: "icon is-small has-text-warning ml-2",
                             title: "This card is unreleased",
                             i { class: "fa-solid fa-triangle-exclamation" }
+                        }
+                    } else if !unreleased.read().1.is_empty() {
+                        span {
+                            class: "icon is-small has-text-info ml-2",
+                            title: "This card is unreleased in {unreleased.read().1}",
+                            i { class: "fa-solid fa-info-circle" }
                         }
                     }
                 }
@@ -113,6 +138,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                                 EventType::EditDeck,
                                 EventData {
                                     action: "Details language EN".into(),
+                                    source: None,
                                 },
                             );
                         },
@@ -128,6 +154,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                                 EventType::EditDeck,
                                 EventData {
                                     action: "Details language JP".into(),
+                                    source: None,
                                 },
                             );
                         },
@@ -141,6 +168,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
 
 #[component]
 pub fn CardDetailsContent(
+    #[props(default)] popup_id: usize,
     card: Signal<CommonCard>,
     card_type: CardType,
     db: Signal<CardsDatabase>,
@@ -175,7 +203,7 @@ pub fn CardDetailsContent(
                 let common_deck = common_deck.read();
                 cc.amount = common_deck.card_amount(&cc.card_number, cc.illustration_idx);
             };
-            let id = format!("card-details-alt_{}", cc.html_id());
+            let id = format!("card-details-alt_{}_{popup_id}", cc.html_id());
             rsx! {
                 div { id,
                     Card {
@@ -195,7 +223,7 @@ pub fn CardDetailsContent(
         .collect::<Vec<_>>();
     // scroll currently selected into view
     let _ = use_effect(move || {
-        let id = format!("card-details-alt_{}", card.read().html_id());
+        let id = format!("card-details-alt_{}_{popup_id}", card.read().html_id());
         document().eval(format!("
             var target = document.getElementById('{id}');
             target.parentNode.scrollLeft = target.offsetLeft - target.parentNode.offsetLeft - target.parentNode.offsetWidth / 2 + target.offsetWidth / 2;
@@ -406,11 +434,13 @@ pub fn CardDetailsContent(
                 if *lang.read() == CardLanguage::Japanese {
                     t.japanese
                         .clone()
-                        .unwrap_or("- No Japanese tag -".to_string())
+                        .map(|tag| (tag, true))
+                        .unwrap_or(("- No Japanese tag -".to_string(), false))
                 } else {
                     t.english
                         .clone()
-                        .unwrap_or("- No English tag -".to_string())
+                        .map(|tag| (tag, true))
+                        .unwrap_or(("- No English tag -".to_string(), false))
                 }
             })
             .collect::<Vec<_>>()
@@ -655,11 +685,10 @@ pub fn CardDetailsContent(
         urls.is_empty().not().then_some(urls)
     });
 
-    let scroll_container_id = format!("scroll-container-{}", card.read().html_id());
+    let scroll_container_id = format!("scroll-container-{popup_id}");
     let _scroll_container_id = scroll_container_id.clone();
     let on_scroll_container_mount = move |_: MountedEvent| {
         // can't use deltaMode, it will lose pixel precision on some browsers
-        // warn: could be an issue with stacked popups
         document().eval(format!(
             r#"
             const element = document.getElementById('{_scroll_container_id}');
@@ -697,11 +726,14 @@ pub fn CardDetailsContent(
                                 EventType::EditDeck,
                                 EventData {
                                     action: "Card zoom".into(),
+                                    source: None,
                                 },
                             );
                         },
                         figure { class: "image",
                             img {
+                                width: "400",
+                                height: "560",
                                 border_radius: "3.7%",
                                 src: "{img_path}",
                                 "onerror": "this.src='{error_img_path}'",
@@ -781,8 +813,35 @@ pub fn CardDetailsContent(
                 }
 
                 div { class: "block",
-                    for tag in &*tags.read() {
-                        span { class: "tag", "{tag}" }
+                    for (tag , is_link) in tags.read().iter().cloned() {
+                        if is_link {
+                            span { class: "tag",
+                                a {
+                                    title: r#"Find card tagged "{tag}""#,
+                                    onclick: move |evt| {
+                                        evt.prevent_default();
+                                        show_popup(
+                                            Popup::CardSearch(Filters {
+                                                texts: vec![TextFilter::full_match(FilterField::Tag, &tag)],
+                                                rarity: GLOBAL_RARITY.read().clone(),
+                                                release: *GLOBAL_RELEASE.read(),
+                                                ..Default::default()
+                                            }),
+                                        );
+                                        track_event(
+                                            EventType::EditDeck,
+                                            EventData {
+                                                action: "Card search popup".into(),
+                                                source: Some("Tag".into()),
+                                            },
+                                        );
+                                    },
+                                    "{tag}"
+                                }
+                            }
+                        } else {
+                            span { class: "tag", "{tag}" }
+                        }
                         " "
                     }
                     if let Some(baton_pass) = baton_pass.read().as_ref() {
@@ -1097,6 +1156,8 @@ enum TextSegment {
     Text(String),
     /// e.g. 〈Tsunomaki Watame〉
     CardName(String),
+    // e.g. SP Oshi Skill "Ollie Revives"
+    OshiSkill(String),
     /// e.g. #Gen 3
     Tag(String),
     /// e.g. a green cheer, 1~2 yellow cheers
@@ -1108,12 +1169,15 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
     static TAGS: OnceLock<Vec<String>> = OnceLock::new();
 
     let re = RE.get_or_init(|| {
-            const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
-            const TAG_PATTERN: &str = r"(?P<tag>#(?:\s?[^\sを持つ]+){1,3})";
-            const CHEER_PATTERN: &str =
-                r"(?P<yell>(白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_text>エール|\scheers?)?)";
-            Regex::new(format!("(?i){CARD_PATTERN}|{TAG_PATTERN}|{CHEER_PATTERN}").as_str()).unwrap()
-        });
+        const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
+        const TAG_PATTERN: &str = r"(?P<tag>#(?:\s?[^\sを持つ]+){1,5})";
+        const CHEER_PATTERN: &str = r"(?P<yell>(白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_text>エール|\scheers?)?)";
+        const SKILL_PATTERN: &str = r#"(?P<skill>(?P<s_text>oshi skill\s|推しスキル)(?P<s_b1>["「])(?P<s_name>[^"」]+)(?P<s_b2>["」]))"#;
+        Regex::new(
+            format!("(?i){CARD_PATTERN}|{TAG_PATTERN}|{CHEER_PATTERN}|{SKILL_PATTERN}").as_str(),
+        )
+        .unwrap()
+    });
 
     let mut segments = Vec::new();
     let mut last_end = 0;
@@ -1131,13 +1195,21 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
             segments.push(TextSegment::CardName(card_name.as_str().to_string()));
             segments.push(TextSegment::Text(cap["c_b2"].to_string()));
 
-        // Tag name
+        // Oshi skill
+        } else if let Some(skill_name) = cap.name("s_name") {
+            segments.push(TextSegment::Text(cap["s_text"].to_string()));
+            segments.push(TextSegment::Text(cap["s_b1"].to_string()));
+            segments.push(TextSegment::OshiSkill(skill_name.as_str().to_string()));
+            segments.push(TextSegment::Text(cap["s_b2"].to_string()));
+
+        // Tag
         } else if let Some(tag_str) = cap.name("tag") {
             let all_tags = TAGS.get_or_init(|| {
                 let mut tags = db
                     .values()
                     .flat_map(|card| card.tags.iter())
-                    .filter_map(|c| c.english.as_ref())
+                    .flat_map(|t| [&t.japanese, &t.english])
+                    .filter_map(|t| t.as_ref())
                     .unique()
                     .cloned()
                     .collect::<Vec<_>>();
@@ -1225,12 +1297,80 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                 }
                 TextSegment::CardName(name) => {
                     rsx! {
-                        a { "{name}" }
+                        a {
+                            title: r#"Find card named "{name}""#,
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                show_popup(
+                                    Popup::CardSearch(Filters {
+                                        texts: vec![TextFilter::full_match(FilterField::CardName, &name)],
+                                        rarity: GLOBAL_RARITY.read().clone(),
+                                        release: *GLOBAL_RELEASE.read(),
+                                        ..Default::default()
+                                    }),
+                                );
+                                track_event(
+                                    EventType::EditDeck,
+                                    EventData {
+                                        action: "Card search popup".into(),
+                                        source: Some("Card name".into()),
+                                    },
+                                );
+                            },
+                            "{name}"
+                        }
                     }
                 }
-                TextSegment::Tag(name) => {
+                TextSegment::OshiSkill(skill) => {
                     rsx! {
-                        a { "{name}" }
+                        a {
+                            title: r#"Find card with oshi skill "{skill}""#,
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                show_popup(
+                                    Popup::CardSearch(Filters {
+                                        texts: vec![TextFilter::full_match(FilterField::OshiSkill, &skill)],
+                                        rarity: GLOBAL_RARITY.read().clone(),
+                                        release: *GLOBAL_RELEASE.read(),
+                                        ..Default::default()
+                                    }),
+                                );
+                                track_event(
+                                    EventType::EditDeck,
+                                    EventData {
+                                        action: "Card search popup".into(),
+                                        source: Some("Oshi skill".into()),
+                                    },
+                                );
+                            },
+                            "{skill}"
+                        }
+                    }
+                }
+                TextSegment::Tag(tag) => {
+                    rsx! {
+                        a {
+                            title: r#"Find card tagged "{tag}""#,
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                show_popup(
+                                    Popup::CardSearch(Filters {
+                                        texts: vec![TextFilter::full_match(FilterField::Tag, &tag)],
+                                        rarity: GLOBAL_RARITY.read().clone(),
+                                        release: *GLOBAL_RELEASE.read(),
+                                        ..Default::default()
+                                    }),
+                                );
+                                track_event(
+                                    EventType::EditDeck,
+                                    EventData {
+                                        action: "Card search popup".into(),
+                                        source: Some("Tag".into()),
+                                    },
+                                );
+                            },
+                            "{tag}"
+                        }
                     }
                 }
                 TextSegment::Cheers(cheers) => {

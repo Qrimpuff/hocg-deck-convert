@@ -64,6 +64,12 @@
     max-width: 60rem;
 }
 
+/* modal size for card search */
+.card-search-modal {
+    width: 100% !important;
+    max-width: 40rem;
+}
+
 /* fix badge text clipping */
 .badge.card-amount {
     line-height: 0.8 !important;
