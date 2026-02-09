@@ -95,6 +95,7 @@ pub enum FilterField {
     CardName,
     OshiSkill,
     Tag,
+    Extra,
 }
 
 #[derive(PartialEq, Eq, Clone, Default)]
@@ -124,6 +125,16 @@ impl TextFilter {
             full_match: true,
             exact_match: false,
             case_sensitive: false,
+        }
+    }
+
+    pub fn partial_match(field: FilterField, text: &str) -> Self {
+        TextFilter {
+            text: (text.to_string(), false),
+            field,
+            full_match: false,
+            exact_match: true,
+            case_sensitive: true,
         }
     }
 
@@ -367,6 +378,7 @@ fn filter_cards(
     let mut filters_card_name = filters_texts.remove(&FilterField::CardName);
     let mut filters_oshi_skill = filters_texts.remove(&FilterField::OshiSkill);
     let mut filters_tag = filters_texts.remove(&FilterField::Tag);
+    let mut filters_extra = filters_texts.remove(&FilterField::Extra);
 
     all_cards
         .iter()
@@ -407,6 +419,20 @@ fn filter_cards(
                 .oshi_skills
                 .iter()
                 .any(|skill| TextFilter::multi_check_localized(filters, &skill.name));
+            found
+        })
+        // filter by extra, if specified
+        .filter(|(card, _)| {
+            // extract "Extra" filter
+            let Some(ref mut filters) = filters_extra else {
+                return true;
+            };
+
+            let mut found = filters.is_empty();
+            found |= card
+                .extra
+                .as_ref()
+                .is_some_and(|extra| TextFilter::multi_check_localized(filters, extra));
             found
         })
         // filter by card type

@@ -817,7 +817,7 @@ pub fn CardDetailsContent(
                         if is_link {
                             span { class: "tag",
                                 a {
-                                    title: r#"Find card tagged "{tag}""#,
+                                    title: r#"Find cards tagged "{tag}""#,
                                     onclick: move |evt| {
                                         evt.prevent_default();
                                         show_popup(
@@ -1156,10 +1156,14 @@ enum TextSegment {
     Text(String),
     /// e.g. 〈Tsunomaki Watame〉
     CardName(String),
-    // e.g. SP Oshi Skill "Ollie Revives"
+    /// e.g. with "PC" in its card name
+    PartialCardName(String),
+    /// e.g. SP Oshi Skill "Ollie Revives"
     OshiSkill(String),
     /// e.g. #Gen 3
     Tag(String),
+    /// e.g. Extra "You may include any number of this holomem in the deck"
+    Extra(String),
     /// e.g. a green cheer, 1~2 yellow cheers
     Cheers(Vec<hocg::Color>),
 }
@@ -1170,11 +1174,16 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
 
     let re = RE.get_or_init(|| {
         const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
+        const IN_CARD_PATTERN: &str = r#"(?P<in_card>(?P<i_en_1>")(?P<i_name_en>[^"]+)(?P<i_en_2>" in its card name)|(?P<i_jp_1>カード名に「)(?P<i_name_jp>[^」]+)(?P<i_jp_2>」))"#;
         const TAG_PATTERN: &str = r"(?P<tag>#(?:\s?[^\sを持つ]+){1,5})";
         const CHEER_PATTERN: &str = r"(?P<yell>(白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_text>エール|\scheers?)?)";
         const SKILL_PATTERN: &str = r#"(?P<skill>(?P<s_text>oshi skill\s|推しスキル)(?P<s_b1>["「])(?P<s_name>[^"」]+)(?P<s_b2>["」]))"#;
+        const EXTRA_PATTERN: &str = r#"(?P<extra>(?P<e_text>extra\s|エクストラ)(?P<e_b1>["「])(?P<e_name>[^"」]+)(?P<e_b2>["」]))"#;
         Regex::new(
-            format!("(?i){CARD_PATTERN}|{TAG_PATTERN}|{CHEER_PATTERN}|{SKILL_PATTERN}").as_str(),
+            format!(
+                "(?i){CARD_PATTERN}|{IN_CARD_PATTERN}|{TAG_PATTERN}|{CHEER_PATTERN}|{SKILL_PATTERN}|{EXTRA_PATTERN}"
+            )
+            .as_str(),
         )
         .unwrap()
     });
@@ -1194,6 +1203,24 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
             segments.push(TextSegment::Text(cap["c_b1"].to_string()));
             segments.push(TextSegment::CardName(card_name.as_str().to_string()));
             segments.push(TextSegment::Text(cap["c_b2"].to_string()));
+
+        // Partial card name
+        } else if let Some(card_name) = cap.name("i_name_en").or_else(|| cap.name("i_name_jp")) {
+            segments.push(TextSegment::Text(
+                cap.name("i_en_1")
+                    .or_else(|| cap.name("i_jp_1"))
+                    .map(|m| m.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            ));
+            segments.push(TextSegment::PartialCardName(card_name.as_str().to_string()));
+            segments.push(TextSegment::Text(
+                cap.name("i_en_2")
+                    .or_else(|| cap.name("i_jp_2"))
+                    .map(|m| m.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            ));
 
         // Oshi skill
         } else if let Some(skill_name) = cap.name("s_name") {
@@ -1231,6 +1258,13 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
             } else {
                 segments.push(TextSegment::Text(tag_str.as_str().to_string()));
             }
+
+        // Extra
+        } else if let Some(extra) = cap.name("e_name") {
+            segments.push(TextSegment::Text(cap["e_text"].to_string()));
+            segments.push(TextSegment::Text(cap["e_b1"].to_string()));
+            segments.push(TextSegment::Extra(extra.as_str().to_string()));
+            segments.push(TextSegment::Text(cap["e_b2"].to_string()));
 
         // Cheer icon
         } else if let Some(cheer_str) = cap.name("yell") {
@@ -1298,7 +1332,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                 TextSegment::CardName(name) => {
                     rsx! {
                         a {
-                            title: r#"Find card named "{name}""#,
+                            title: r#"Find cards named "{name}""#,
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 show_popup(
@@ -1321,10 +1355,36 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                         }
                     }
                 }
+                TextSegment::PartialCardName(part) => {
+                    rsx! {
+                        a {
+                            title: r#"Find cards with "{part}" in their name"#,
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                show_popup(
+                                    Popup::CardSearch(Filters {
+                                        texts: vec![TextFilter::partial_match(FilterField::CardName, &part)],
+                                        rarity: GLOBAL_RARITY.read().clone(),
+                                        release: *GLOBAL_RELEASE.read(),
+                                        ..Default::default()
+                                    }),
+                                );
+                                track_event(
+                                    EventType::EditDeck,
+                                    EventData {
+                                        action: "Card search popup".into(),
+                                        source: Some("Partial card name".into()),
+                                    },
+                                );
+                            },
+                            "{part}"
+                        }
+                    }
+                }
                 TextSegment::OshiSkill(skill) => {
                     rsx! {
                         a {
-                            title: r#"Find card with oshi skill "{skill}""#,
+                            title: r#"Find cards with oshi skill "{skill}""#,
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 show_popup(
@@ -1350,7 +1410,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                 TextSegment::Tag(tag) => {
                     rsx! {
                         a {
-                            title: r#"Find card tagged "{tag}""#,
+                            title: r#"Find cards tagged "{tag}""#,
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 show_popup(
@@ -1370,6 +1430,32 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                                 );
                             },
                             "{tag}"
+                        }
+                    }
+                }
+                TextSegment::Extra(extra) => {
+                    rsx! {
+                        a {
+                            title: r#"Find cards with extra "{extra}""#,
+                            onclick: move |evt| {
+                                evt.prevent_default();
+                                show_popup(
+                                    Popup::CardSearch(Filters {
+                                        texts: vec![TextFilter::full_match(FilterField::Extra, &extra)],
+                                        rarity: GLOBAL_RARITY.read().clone(),
+                                        release: *GLOBAL_RELEASE.read(),
+                                        ..Default::default()
+                                    }),
+                                );
+                                track_event(
+                                    EventType::EditDeck,
+                                    EventData {
+                                        action: "Card search popup".into(),
+                                        source: Some("Extra".into()),
+                                    },
+                                );
+                            },
+                            "{extra}"
                         }
                     }
                 }
