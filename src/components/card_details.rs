@@ -24,7 +24,8 @@ static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLan
 #[derive(Serialize)]
 struct EventData {
     action: String,
-    source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    filter_type: Option<String>,
 }
 
 #[component]
@@ -138,7 +139,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                                 EventType::EditDeck,
                                 EventData {
                                     action: "Details language EN".into(),
-                                    source: None,
+                                    filter_type: None,
                                 },
                             );
                         },
@@ -154,7 +155,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                                 EventType::EditDeck,
                                 EventData {
                                     action: "Details language JP".into(),
-                                    source: None,
+                                    filter_type: None,
                                 },
                             );
                         },
@@ -726,7 +727,7 @@ pub fn CardDetailsContent(
                                 EventType::EditDeck,
                                 EventData {
                                     action: "Card zoom".into(),
-                                    source: None,
+                                    filter_type: None,
                                 },
                             );
                         },
@@ -832,7 +833,7 @@ pub fn CardDetailsContent(
                                             EventType::EditDeck,
                                             EventData {
                                                 action: "Card search popup".into(),
-                                                source: Some("Tag".into()),
+                                                filter_type: Some("Tag".into()),
                                             },
                                         );
                                     },
@@ -1347,7 +1348,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Card search popup".into(),
-                                        source: Some("Card name".into()),
+                                        filter_type: Some("Card name".into()),
                                     },
                                 );
                             },
@@ -1373,7 +1374,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Card search popup".into(),
-                                        source: Some("Partial card name".into()),
+                                        filter_type: Some("Partial card name".into()),
                                     },
                                 );
                             },
@@ -1399,7 +1400,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Card search popup".into(),
-                                        source: Some("Oshi skill".into()),
+                                        filter_type: Some("Oshi skill".into()),
                                     },
                                 );
                             },
@@ -1425,7 +1426,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Card search popup".into(),
-                                        source: Some("Tag".into()),
+                                        filter_type: Some("Tag".into()),
                                     },
                                 );
                             },
@@ -1451,7 +1452,7 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                                     EventType::EditDeck,
                                     EventData {
                                         action: "Card search popup".into(),
-                                        source: Some("Extra".into()),
+                                        filter_type: Some("Extra".into()),
                                     },
                                 );
                             },

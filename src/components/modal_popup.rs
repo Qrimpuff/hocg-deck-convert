@@ -134,10 +134,7 @@ pub fn ModelPopup(
 
     rsx! {
         div { class: "modal is-active",
-            div {
-                class: "modal-background",
-                onclick: close,
-            }
+            div { class: "modal-background", onclick: close }
             if modal_card {
                 div { class: "modal-card", class: "{modal_class}",
                     div { class: "modal-card-details" }
