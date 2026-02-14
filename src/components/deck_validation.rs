@@ -6,6 +6,19 @@ use crate::{
     sources::{CommonDeck, ImageOptions},
 };
 
+pub fn has_missing_proxies(
+    deck: &CommonDeck,
+    db: &CardsDatabase,
+    card_lang: CardLanguage,
+) -> bool {
+    deck.all_cards()
+        .filter(|card| card.card_type(db) != Some(CardType::Cheer))
+        .any(|card| {
+            card.image_path(db, card_lang, ImageOptions::proxy_validation())
+                .is_none()
+        })
+}
+
 #[component]
 pub fn DeckValidation(
     deck_check: bool,
@@ -29,16 +42,8 @@ pub fn DeckValidation(
         warnings.extend(deck.validate(&db, allow_unreleased, *card_lang.read()));
     }
 
-    // warn on missing english proxy
-    if proxy_check
-        && deck
-            .all_cards()
-            .filter(|c| c.card_type(&db) != Some(CardType::Cheer))
-            .any(|c| {
-                c.image_path(&db, *card_lang.read(), ImageOptions::proxy_validation())
-                    .is_none()
-            })
-    {
+    // warn on missing proxies
+    if proxy_check && has_missing_proxies(&deck, &db, *card_lang.read()) {
         match *card_lang.read() {
             CardLanguage::Japanese => warnings.push("Missing Japanese proxies.".into()),
             CardLanguage::English => warnings.push("Missing English proxies.".into()),

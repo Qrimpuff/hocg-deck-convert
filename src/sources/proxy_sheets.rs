@@ -10,9 +10,8 @@ use futures::lock::Mutex;
 use printpdf::*;
 use serde::Serialize;
 
-use super::{CardsDatabase, CommonDeck};
-use crate::components::deck_validation::DeckValidation;
-use crate::sources::ImageOptions;
+use super::{CardsDatabase, CommonDeck, ImageOptions};
+use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
 use crate::{CardLanguage, EventType, PREVIEW_CARD_LANG, download_file, track_event};
 
 #[derive(Clone, Copy, Serialize)]
@@ -173,6 +172,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
     struct EventData {
         format: &'static str,
         language: CardLanguage,
+        missing_proxies: bool,
         paper_size: PaperSize,
         include_cheers: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,6 +201,11 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
         };
         let file_name = common_deck.file_name(&db.read());
         let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
+        let missing_proxies = has_missing_proxies(
+            &common_deck,
+            &db.read(),
+            *card_lang.read(),
+        );
         match generate_pdf(
             &common_deck,
             &db.read(),
@@ -217,6 +222,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                     EventData {
                         format: "Proxy sheets",
                         language: *card_lang.read(),
+                        missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
                         error: None,
@@ -230,6 +236,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                     EventData {
                         format: "Proxy sheets",
                         language: *card_lang.read(),
+                        missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
                         error: Some(e.to_string()),
