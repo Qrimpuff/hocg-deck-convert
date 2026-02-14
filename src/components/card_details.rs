@@ -1137,13 +1137,16 @@ fn CheersDisplay(
 
     rsx! {
         for (cheer_img , cheer_alt) in cheers {
-            span { class: "icon-text", vertical_align: "sub",
+            span {
+                class: "icon-text",
+                vertical_align: "sub",
+                user_select: if no_title { "none" },
                 span {
                     class: "icon",
-                    class: if is_small { "is-small" } else { "" },
+                    class: if is_small { "is-small" },
                     margin_right: "0.1rem",
                     img {
-                        title: if !no_title { "{cheer_alt}" } else { "" },
+                        title: if !no_title { "{cheer_alt}" },
                         src: "{cheer_img}",
                     }
                 }
@@ -1177,7 +1180,7 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
         const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
         const IN_CARD_PATTERN: &str = r#"(?P<in_card>(?P<i_en_1>")(?P<i_name_en>[^"]+)(?P<i_en_2>" in its card name)|(?P<i_jp_1>カード名に「)(?P<i_name_jp>[^」]+)(?P<i_jp_2>」))"#;
         const TAG_PATTERN: &str = r#"(?P<tag>#(?:\s?[^\sを持つ"「〈<\[]+){1,5})"#;
-        const CHEER_PATTERN: &str = r"(?P<yell>(白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_text>エール|\scheers?)?)";
+        const CHEER_PATTERN: &str = r"(?P<yell>(?P<y_p1>-\d\s)?(?P<y_color>白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_p2>エール|-\d|\scheers?)?)";
         const SKILL_PATTERN: &str = r#"(?P<skill>(?P<s_text>oshi skill\s|推しスキル)(?P<s_b1>["「])(?P<s_name>[^"」]+)(?P<s_b2>["」]))"#;
         const EXTRA_PATTERN: &str = r#"(?P<extra>(?P<e_text>extra\s|エクストラ)(?P<e_b1>["「])(?P<e_name>[^"」]+)(?P<e_b2>["」]))"#;
         Regex::new(
@@ -1268,8 +1271,8 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
             segments.push(TextSegment::Text(cap["e_b2"].to_string()));
 
         // Cheer icon
-        } else if let Some(cheer_str) = cap.name("yell") {
-            let s = cheer_str.as_str().to_lowercase();
+        } else if let Some(color_str) = cap.name("y_color") {
+            let s = color_str.as_str().to_lowercase();
             let color = if s.contains("白") || s.contains("white") {
                 hocg::Color::White
             } else if s.contains("緑") || s.contains("green") {
@@ -1286,15 +1289,25 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
                 hocg::Color::Colorless
             };
 
-            // just add the cheer icon, it's more pleasant with the full text
-            if cap.name("y_text").is_some() {
-                // there is always "cheers" after a valid color
+            let valid_cheer = cap.name("y_p1").is_some()
+                || cap.name("y_p2").is_some()
+                || color == hocg::Color::Colorless;
+
+            if valid_cheer {
+                if let Some(p1) = cap.name("y_p1") {
+                    // could contain a negative number
+                    segments.push(TextSegment::Text(p1.as_str().to_string()));
+                }
+
+                // add cheer icon while keeping original color text
                 segments.push(TextSegment::Cheers(vec![color]));
-            } else if color == hocg::Color::Colorless {
-                // no "cheer" text for colorless
-                segments.push(TextSegment::Cheers(vec![color]));
+                segments.push(TextSegment::Text(color_str.as_str().to_string()));
+
+                if let Some(p2) = cap.name("y_p2") {
+                    // could contain "cheer" or "エール"
+                    segments.push(TextSegment::Text(p2.as_str().to_string()));
+                }
             }
-            segments.push(TextSegment::Text(cheer_str.as_str().to_string()));
         }
 
         last_end = m.end();
