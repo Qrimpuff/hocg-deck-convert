@@ -109,8 +109,6 @@ function prefetchCards(registration) {
         .catch(console.error);
 }
 
-let progressTimeout;
-
 function formatBytes(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -121,13 +119,9 @@ function formatBytes(bytes) {
 
 function updateProgressUI(loaded, total, size = 0) {
     let container = document.getElementById('pwa-prefetch-progress');
+    const hasDownloadedData = size > 0;
 
     if (loaded >= total) {
-        if (progressTimeout) {
-            clearTimeout(progressTimeout);
-            progressTimeout = null;
-        }
-
         if (container && container.style.opacity !== '0') {
             const title = container.querySelector('#pwa-progress-title');
             if (title) title.textContent = 'Offline download complete!';
@@ -157,14 +151,12 @@ function updateProgressUI(loaded, total, size = 0) {
         return;
     }
 
+    if (!container && !hasDownloadedData) {
+        return;
+    }
+
     if (!container) {
-        if (!progressTimeout) {
-            // Delay UI so quick runs do not flash a toast.
-            progressTimeout = setTimeout(() => {
-                createProgressContainer(loaded, total, size);
-                progressTimeout = null;
-            }, 1000);
-        }
+        createProgressContainer(loaded, total, size);
         return;
     }
 
@@ -209,7 +201,7 @@ function createProgressContainer(loaded, total, size = 0) {
     container = document.createElement('div');
     container.id = 'pwa-prefetch-progress';
     container.className = 'notification';
-    container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; width: 320px; z-index: 9999; box-shadow: 0 0.5em 1em -0.125em rgba(10,10,10,.1), 0 0px 0 1px rgba(10,10,10,.02);';
+    container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; width: 320px; z-index: 9999; box-shadow: 0 0.5em 1em -0.125em rgba(10,10,10,.1), 0 0px 0 1px rgba(10,10,10,.02); opacity: 0; transform: translateY(8px); transition: opacity 0.3s ease, transform 0.3s ease;';
     container.innerHTML = `
         <div id="pwa-progress-expanded">
             <div class="is-flex is-justify-content-space-between is-align-items-center mb-2">
@@ -233,6 +225,11 @@ function createProgressContainer(loaded, total, size = 0) {
         </div>
     `;
     document.body.appendChild(container);
+
+    requestAnimationFrame(() => {
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+    });
 
     const collapse = container.querySelector('#pwa-progress-collapse');
     if (collapse) {

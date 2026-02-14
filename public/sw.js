@@ -362,7 +362,7 @@ self.addEventListener('message', (event) => {
         let totalBytes = 0;
 
         // Rolling worker pool.
-        const CONCURRENCY = self.navigator.hardwareConcurrency || 4;
+        const CONCURRENCY = (self.navigator.hardwareConcurrency || 4) * 4;
         const PROGRESS_THROTTLE_MS = 16; // 60 fps
         let lastProgressAt = 0;
 
