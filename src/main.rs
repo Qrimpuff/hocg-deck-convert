@@ -35,6 +35,8 @@ use crate::{
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const GIT_HASH: Option<&str> = option_env!("GIT_HASH");
+const GIT_TIMESTAMP: Option<&str> = option_env!("GIT_TIMESTAMP");
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
 
 static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);
@@ -259,6 +261,21 @@ fn App() -> Element {
                     "."
                 }
                 p { "Please support the official card game." }
+                p {
+                    span {
+                        "v{VERSION}"
+                        if let Some(git_hash) = GIT_HASH {
+                            " ("
+                            span {
+                                class: "has-tooltip-arrow has-tooltip-top",
+                                border_bottom_color: "currentColor",
+                                "data-tooltip": if let Some(git_timestamp) = GIT_TIMESTAMP { format!("{git_timestamp}") },
+                                "{git_hash}"
+                            }
+                            ")"
+                        }
+                    }
+                }
             }
 
             ModalPopupStack {}

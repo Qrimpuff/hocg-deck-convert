@@ -1,10 +1,41 @@
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
+
+fn git_output(args: &[&str]) -> Option<String> {
+    Command::new("git")
+        .args(args)
+        .output()
+        .ok()
+        .and_then(|out| {
+            if out.status.success() {
+                Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .filter(|s| !s.is_empty())
+}
 
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed=public");
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=.git/refs/heads");
+    println!("cargo:rerun-if-changed=.git/packed-refs");
+
+    // Get short git hash for current HEAD.
+    let git_hash = git_output(&["rev-parse", "--short=8", "HEAD"]);
+    // Get commit timestamp (ISO-8601) for tooltip display.
+    let git_timestamp = git_output(&["show", "-s", "--format=%cI", "HEAD"]);
+
+    if let Some(git_hash) = git_hash {
+        println!("cargo:rustc-env=GIT_HASH={}", git_hash);
+    }
+    if let Some(git_timestamp) = git_timestamp {
+        println!("cargo:rustc-env=GIT_TIMESTAMP={}", git_timestamp);
+    }
 
     let version = env::var("CARGO_PKG_VERSION").unwrap();
     let sw_path = Path::new("public/sw.js");
