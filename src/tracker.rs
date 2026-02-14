@@ -45,6 +45,8 @@ pub fn track_event<T>(event: EventType, data: T)
 where
     T: serde::ser::Serialize,
 {
+    let is_entry = matches!(event, EventType::Entry);
+
     let event = match event {
         EventType::Entry => Some("$pageview"),
         EventType::Import(_fmt) => Some("import"),
@@ -87,6 +89,26 @@ where
     });
 
     if let Value::Object(properties) = &mut properties {
+        // append standalone mode info for entry event, which is used to track PWA usage
+        if is_entry {
+            let standalone_display_mode = window()
+                .match_media("(display-mode: standalone)")
+                .ok()
+                .flatten()
+                .map(|mq| mq.matches())
+                .unwrap_or(false);
+
+            let android_app_referrer = document().referrer().starts_with("android-app://");
+            let is_standalone = standalone_display_mode || android_app_referrer;
+
+            properties.insert("is_standalone".into(), is_standalone.into());
+            properties.insert(
+                "standalone_display_mode".into(),
+                standalone_display_mode.into(),
+            );
+            properties.insert("android_app_referrer".into(), android_app_referrer.into());
+        }
+
         // insert version into properties
         properties.insert("version".into(), VERSION.into());
         // append event data into properties

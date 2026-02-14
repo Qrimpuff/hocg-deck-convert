@@ -1,6 +1,6 @@
 [package]
 name = "hocg-deck-convert"
-version = "0.2.8"
+version = "0.2.9"
 authors = ["Qrimpuff <qrimpuff@gmail.com>"]
 publish = false
 license = "MIT"
@@ -32,7 +32,7 @@ unicode-normalization = "0.1.25"
 uuid = { version = "1.20.0", features = ["js", "v4", "v7"] }
 wana_kana = "4.0.0"
 wasm-bindgen = { version = "0.2.108", features = ["serde"] }
-web-sys = { version = "0.3.85", features = ["Navigator", "Screen"] }
+web-sys = { version = "0.3.85", features = ["Navigator", "Screen", "Window", "MediaQueryList"] }
 
 [profile]
 
