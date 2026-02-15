@@ -774,7 +774,13 @@ impl CommonDeck {
             .map_or(0, |c| c.amount)
     }
 
-    pub fn add_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {
+    pub fn add_card(
+        &mut self,
+        card: CommonCard,
+        card_type: CardType,
+        db: &CardsDatabase,
+        sort: bool,
+    ) {
         match card.card_type(db).unwrap_or(card_type) {
             CardType::Oshi => self.oshi = Some(card.clone()),
             CardType::Main => self.main_deck.push(card),
@@ -783,10 +789,12 @@ impl CommonDeck {
         self.merge();
 
         // sort the decks
-        self.main_deck
-            .sort_by_cached_key(|c| (c.card_info(db), c.illustration_idx));
-        self.cheer_deck
-            .sort_by_cached_key(|c| (c.card_info(db), c.illustration_idx));
+        if sort {
+            self.main_deck
+                .sort_by_cached_key(|c| (c.card_info(db), c.illustration_idx));
+            self.cheer_deck
+                .sort_by_cached_key(|c| (c.card_info(db), c.illustration_idx));
+        }
     }
 
     pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {

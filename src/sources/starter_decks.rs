@@ -411,6 +411,87 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
                     ],
                 },
             },
+            // hSD12 - スタートデッキ 推し Advent
+            DeckEntry {
+                deck_id: "hSD12-001".into(),
+                display: "hSD12 - Start Deck [Advent]".into(),
+                oshi_options: Some(vec![
+                    card("hSD12-001", (Japanese, 1750), 1, db),
+                    card("hSD12-002", (Japanese, 1751), 1, db),
+                ]),
+                deck: CommonDeck {
+                    name: Some("Start Deck [Advent]".into()),
+                    oshi: Some(card("hSD12-001", (Japanese, 1750), 1, db)),
+                    main_deck: vec![
+                        card("hSD12-003", (Japanese, 1752), 2, db),
+                        card("hSD12-004", (Japanese, 1753), 2, db),
+                        card("hSD12-005", (Japanese, 1754), 2, db),
+                        card("hSD12-006", (Japanese, 1755), 2, db),
+                        card("hSD12-007", (Japanese, 1756), 3, db),
+                        card("hSD12-008", (Japanese, 1757), 2, db),
+                        card("hSD12-009", (Japanese, 1758), 3, db),
+                        card("hSD12-010", (Japanese, 1759), 3, db),
+                        card("hSD12-011", (Japanese, 1760), 3, db),
+                        card("hSD12-012", (Japanese, 1761), 2, db),
+                        card("hSD12-013", (Japanese, 1762), 2, db),
+                        card("hSD12-014", (Japanese, 1763), 2, db),
+                        card("hSD12-015", (Japanese, 1764), 2, db),
+                        card("hSD12-016", (Japanese, 1765), 2, db),
+                        card("hBP04-050", (Japanese, 1766), 3, db),
+                        card("hBP04-063", (Japanese, 1767), 3, db),
+                        card("hSD01-016", (Japanese, 16), 4, db),
+                        card("hBP01-108", (Japanese, 149), 1, db),
+                        card("hBP04-096", (Japanese, 960), 2, db),
+                        card("hBP01-104", (Japanese, 145), 2, db),
+                        card("hBP02-077", (Japanese, 344), 1, db),
+                        card("hBP05-074", (Japanese, 1768), 2, db),
+                    ],
+                    cheer_deck: vec![
+                        card("hY04-001", (Japanese, 171), 10, db),
+                        card("hY05-001", (Japanese, 267), 10, db),
+                    ],
+                },
+            },
+            // hSD13 - スタートデッキ 推し Justice
+            DeckEntry {
+                deck_id: "hSD13-001".into(),
+                display: "hSD13 - Start Deck [Justice]".into(),
+                oshi_options: Some(vec![
+                    card("hSD13-001", (Japanese, 1769), 1, db),
+                    card("hSD13-002", (Japanese, 1770), 1, db),
+                ]),
+                deck: CommonDeck {
+                    name: Some("Start Deck [Justice]".into()),
+                    oshi: Some(card("hSD13-001", (Japanese, 1769), 1, db)),
+                    main_deck: vec![
+                        card("hSD13-003", (Japanese, 1771), 6, db),
+                        card("hSD13-004", (Japanese, 1772), 2, db),
+                        card("hSD13-005", (Japanese, 1773), 2, db),
+                        card("hSD13-006", (Japanese, 1774), 2, db),
+                        card("hSD13-007", (Japanese, 1775), 3, db),
+                        card("hSD13-008", (Japanese, 1776), 4, db),
+                        card("hSD13-009", (Japanese, 1777), 2, db),
+                        card("hSD13-010", (Japanese, 1778), 2, db),
+                        card("hSD13-011", (Japanese, 1779), 2, db),
+                        card("hSD13-012", (Japanese, 1780), 2, db),
+                        card("hSD13-013", (Japanese, 1781), 3, db),
+                        card("hSD13-014", (Japanese, 1782), 2, db),
+                        card("hSD13-015", (Japanese, 1783), 2, db),
+                        card("hSD13-016", (Japanese, 1784), 2, db),
+                        card("hSD13-017", (Japanese, 1785), 2, db),
+                        card("hSD13-018", (Japanese, 1786), 2, db),
+                        card("hSD01-016", (Japanese, 16), 4, db),
+                        card("hSD01-019", (Japanese, 19), 1, db),
+                        card("hBP01-104", (Japanese, 145), 2, db),
+                        card("hBP05-074", (Japanese, 1768), 2, db),
+                        card("hBP03-088", (Japanese, 652), 1, db),
+                    ],
+                    cheer_deck: vec![
+                        card("hY03-001", (Japanese, 170), 10, db),
+                        card("hY06-001", (Japanese, 561), 10, db),
+                    ],
+                },
+            },
         ]
     })
 }
@@ -446,6 +527,7 @@ pub fn Import(
             .read()
             .as_ref()
             .and_then(|idx| starter_decks(&db.read()).get(*idx));
+        *oshi_option_idx.write() = Some(0);
 
         debug!("{:?}", deck);
         if let Some(deck) = deck {
@@ -473,7 +555,7 @@ pub fn Import(
         debug!("{:?}", oshi);
         if let Some(oshi) = oshi {
             let mut deck = common_deck.write();
-            deck.add_card(oshi.clone(), crate::CardType::Oshi, &db.read());
+            deck.add_card(oshi.clone(), crate::CardType::Oshi, &db.read(), false);
 
             track_event(
                 EventType::Import("Starter deck".into()),
@@ -505,7 +587,7 @@ pub fn Import(
                             load_deck();
                         },
                         for (idx , deck) in starter_decks(&db.read()).iter().enumerate() {
-                            option { value: "{idx}", "{deck.display}" }
+                            option { value: "{idx}", selected: *starter_deck_idx.read() == Some(idx), "{deck.display}" }
                         }
                     }
                 }
@@ -525,11 +607,17 @@ pub fn Import(
                             },
                             for (idx , oshi) in oshi_options.iter().enumerate() {
                                 if let Some(oshi) = oshi.card_info(&db.read()) {
-                                    option { value: "{idx}",
+                                    option {
+                                        value: "{idx}",
+                                        selected: *oshi_option_idx.read() == Some(idx),
                                         "{oshi.card_number} - {oshi.name.english.as_deref().or(oshi.name.japanese.as_deref()).unwrap_or(\"Unknown\")}"
                                     }
                                 } else {
-                                    option { value: "{idx}", "{oshi.card_number}" }
+                                    option {
+                                        value: "{idx}",
+                                        selected: *oshi_option_idx.read() == Some(idx),
+                                        "{oshi.card_number}"
+                                    }
                                 }
                             }
                         }

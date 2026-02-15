@@ -112,7 +112,7 @@ pub fn Card(
             let mut deck = common_deck.write();
             let mut card = _card.clone();
             card.amount = 1;
-            deck.add_card(card, card_type, &db.read());
+            deck.add_card(card, card_type, &db.read(), true);
 
             track_event(
                 EventType::EditDeck,
