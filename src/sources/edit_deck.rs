@@ -41,6 +41,9 @@ pub fn Import(
         );
     };
 
+    // sort the deck when entering the edit page
+    use_effect(move || common_deck.write().sort(&db.read()));
+
     rsx! {
         div { class: "field",
             label { "for": "edit_deck_name", class: "label", "Deck name" }

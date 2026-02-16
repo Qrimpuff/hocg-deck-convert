@@ -201,11 +201,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
         };
         let file_name = common_deck.file_name(&db.read());
         let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
-        let missing_proxies = has_missing_proxies(
-            &common_deck,
-            &db.read(),
-            *card_lang.read(),
-        );
+        let missing_proxies = has_missing_proxies(&common_deck, &db.read(), *card_lang.read());
         match generate_pdf(
             &common_deck,
             &db.read(),

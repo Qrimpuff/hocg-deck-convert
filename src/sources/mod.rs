@@ -790,11 +790,41 @@ impl CommonDeck {
 
         // sort the decks
         if sort {
-            self.main_deck
-                .sort_by_cached_key(|c| (c.card_info(db), c.illustration_idx));
-            self.cheer_deck
-                .sort_by_cached_key(|c| (c.card_info(db), c.illustration_idx));
+            self.sort(db);
         }
+    }
+
+    pub fn sort(&mut self, db: &CardsDatabase) {
+        let cheers_colors = self
+            .cheer_deck
+            .iter()
+            .filter_map(|c| c.card_info(db))
+            .flat_map(|c| c.colors.clone())
+            .unique()
+            .collect_vec();
+
+        self.main_deck.sort_by_cached_key(|c| {
+            (
+                c.card_info(db).map(|c| {
+                    c.sort_key_deck(
+                        self.oshi.as_ref().and_then(|o| o.card_info(db)),
+                        &cheers_colors,
+                    )
+                }),
+                c.illustration_idx,
+            )
+        });
+        self.cheer_deck.sort_by_cached_key(|c| {
+            (
+                c.card_info(db).map(|c| {
+                    c.sort_key_deck(
+                        self.oshi.as_ref().and_then(|o| o.card_info(db)),
+                        &cheers_colors,
+                    )
+                }),
+                c.illustration_idx,
+            )
+        });
     }
 
     pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {

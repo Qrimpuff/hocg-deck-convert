@@ -587,7 +587,11 @@ pub fn Import(
                             load_deck();
                         },
                         for (idx , deck) in starter_decks(&db.read()).iter().enumerate() {
-                            option { value: "{idx}", selected: *starter_deck_idx.read() == Some(idx), "{deck.display}" }
+                            option {
+                                value: "{idx}",
+                                selected: *starter_deck_idx.read() == Some(idx),
+                                "{deck.display}"
+                            }
                         }
                     }
                 }

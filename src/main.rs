@@ -87,18 +87,19 @@ fn App() -> Element {
             return;
         };
 
-        let mut all_cards = card_db.values().cloned().collect_vec();
+        let mut all_cards = card_db.values().collect_vec();
         // that sort is costly, so we do it only once
-        all_cards.sort();
+        all_cards.sort_by_key(|c| c.sort_key());
 
-        *CARDS_DB.write() = card_db;
         *ALL_CARDS_SORTED.write() = all_cards
             .into_iter()
+            .cloned()
             .map(|card| {
                 let cache = prepare_text_cache(&card);
                 (card, cache)
             })
             .collect();
+        *CARDS_DB.write() = card_db;
     });
 
     rsx! {

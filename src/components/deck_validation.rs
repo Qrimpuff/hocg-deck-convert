@@ -6,11 +6,7 @@ use crate::{
     sources::{CommonDeck, ImageOptions},
 };
 
-pub fn has_missing_proxies(
-    deck: &CommonDeck,
-    db: &CardsDatabase,
-    card_lang: CardLanguage,
-) -> bool {
+pub fn has_missing_proxies(deck: &CommonDeck, db: &CardsDatabase, card_lang: CardLanguage) -> bool {
     deck.all_cards()
         .filter(|card| card.card_type(db) != Some(CardType::Cheer))
         .any(|card| {
