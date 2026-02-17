@@ -4,7 +4,9 @@ use std::{
     str::FromStr,
 };
 
-use hocg_fan_sim_assets_model::{self as hocg, CardIllustration, CardsDatabase};
+use hocg_fan_sim_assets_model::{
+    self as hocg, CardIllustration, CardOrderingOptions, CardsDatabase,
+};
 use icu::decimal::{DecimalFormatter, input::Decimal};
 use icu::locale::locale;
 use indexmap::IndexMap;
@@ -795,6 +797,7 @@ impl CommonDeck {
     }
 
     pub fn sort(&mut self, db: &CardsDatabase) {
+        // cheers bias
         let cheers_colors = self
             .cheer_deck
             .iter()
@@ -802,26 +805,34 @@ impl CommonDeck {
             .flat_map(|c| c.colors.clone())
             .unique()
             .collect_vec();
+        // oshi bias
+        let oshi_card = self.oshi.as_ref().and_then(|o| o.card_info(db)).cloned();
+        // similar tags to the oshi card
+        let tags = oshi_card
+            .iter()
+            .flat_map(|o| {
+                let o_names = o.names();
+                db.values()
+                    .filter(move |c| o_names.iter().any(|n| c.names().contains(n)))
+            })
+            .flat_map(|c| &c.tags)
+            .flat_map(|t| [&t.japanese, &t.english])
+            .flatten()
+            .unique()
+            .cloned()
+            .collect_vec();
+
+        let sort_opt = CardOrderingOptions::deck_sort(oshi_card, cheers_colors, tags);
 
         self.main_deck.sort_by_cached_key(|c| {
             (
-                c.card_info(db).map(|c| {
-                    c.sort_key_deck(
-                        self.oshi.as_ref().and_then(|o| o.card_info(db)),
-                        &cheers_colors,
-                    )
-                }),
+                c.card_info(db).map(|c| sort_opt.for_card(c)),
                 c.illustration_idx,
             )
         });
         self.cheer_deck.sort_by_cached_key(|c| {
             (
-                c.card_info(db).map(|c| {
-                    c.sort_key_deck(
-                        self.oshi.as_ref().and_then(|o| o.card_info(db)),
-                        &cheers_colors,
-                    )
-                }),
+                c.card_info(db).map(|c| sort_opt.for_card(c)),
                 c.illustration_idx,
             )
         });

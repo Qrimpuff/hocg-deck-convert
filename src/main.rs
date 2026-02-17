@@ -15,7 +15,7 @@ use gloo::{
     file::{Blob, BlobContents},
     utils::document,
 };
-use hocg_fan_sim_assets_model::{self as hocg};
+use hocg_fan_sim_assets_model::{self as hocg, CardOrderingOptions};
 use hocg_fan_sim_assets_model::{CardsDatabase, Language};
 use itertools::Itertools;
 use price_check::PriceCache;
@@ -89,7 +89,8 @@ fn App() -> Element {
 
         let mut all_cards = card_db.values().collect_vec();
         // that sort is costly, so we do it only once
-        all_cards.sort_by_key(|c| c.sort_key());
+        let sort_opt = CardOrderingOptions::default();
+        all_cards.sort_by_key(|c| sort_opt.for_card(c));
 
         *ALL_CARDS_SORTED.write() = all_cards
             .into_iter()

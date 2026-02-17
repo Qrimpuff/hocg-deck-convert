@@ -2340,7 +2340,7 @@ dependencies = [
 [[package]]
 name = "hocg-fan-sim-assets-model"
 version = "0.1.0"
-source = "git+https://github.com/Qrimpuff/hocg-fan-sim-assets#71196a0474a514e65ab51bea35a599e182eb908a"
+source = "git+https://github.com/Qrimpuff/hocg-fan-sim-assets#d75d1f2e05a9274bab5faabdd8ba68e0ee449cfe"
 dependencies = [
  "serde",
 ]
