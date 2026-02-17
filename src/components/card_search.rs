@@ -671,6 +671,20 @@ pub fn CardSearch(
         }
     };
 
+    let filter_count = use_memo(move || {
+        [
+            *filter_card_type.read() != FilterCardType::All,
+            *filter_color.read() != FilterColor::All,
+            *filter_bloom_level.read() != FilterBloomLevel::All,
+            *filter_tag.read() != FilterTag::All,
+            *filter_rarity.read() != FilterRarity::All,
+            *filter_release.read() != FilterRelease::All,
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count()
+    });
+
     let filtered_cards = use_memo(move || {
         let all_cards = ALL_CARDS_SORTED.read();
         let filter_text = cards_filter.read();
@@ -762,6 +776,9 @@ pub fn CardSearch(
                         }
                     }
                     "Advanced filtering"
+                    if *filter_count.read() > 0 {
+                        " ({filter_count})"
+                    }
                 }
             }
             if *show_filters.read() {
