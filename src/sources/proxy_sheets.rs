@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::io::Cursor;
 use std::{collections::HashMap, sync::Arc};
-//some fix 
+//some fix v2
 use ::image::imageops::FilterType;
 use ::image::ImageFormat;
 use dioxus::prelude::*;
@@ -311,229 +311,251 @@ async fn generate_pdf(
         let bleed_px = mm_to_px(DPI, bleed_mm);
         let stroke_px = mm_to_px(DPI, stroke_mm).max(1);
 
-        // NOTE: this overlay currently draws cropmarks only for the top-left 3x3 area.
-        if layout.fit_w >= 3 && layout.fit_h >= 3 {
-            for row in 0..3usize {
-                for col in 0..3usize {
-                    let idx_in_page = row * layout.fit_w + col;
+// NOTE: this overlay currently draws cropmarks only for the top-left 3x3 area.
+if layout.fit_w >= 3 && layout.fit_h >= 3 {
+    for row in 0..3usize {
+        for col in 0..3usize {
+            let idx_in_page = row * layout.fit_w + col;
 
-                    // Use the SAME snapped card position used for PDF placement.
-                    let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT, DPI);
+            // Use the SAME snapped card position used for PDF placement.
+            let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT, DPI);
 
-                    // Card cut box in PDF mm coordinates
-                    let x_left_mm = tx.0 + bleed_mm;
-                    let x_right_mm = x_left_mm + CARD_WIDTH.0;
-                    let y_bottom_mm = ty.0 + bleed_mm;
-                    let y_top_mm = y_bottom_mm + CARD_HEIGHT.0;
+            // Card cut box in PDF mm coordinates
+            let x_left_mm = tx.0 + bleed_mm;
+            let x_right_mm = x_left_mm + CARD_WIDTH.0;
+            let y_bottom_mm = ty.0 + bleed_mm;
+            let y_top_mm = y_bottom_mm + CARD_HEIGHT.0;
 
-                    // Convert to raster px (origin top-left)
-                    let x_left_px = mm_to_px(DPI, x_left_mm) + bleed_px;
-                    let x_right_px = mm_to_px(DPI, x_right_mm) - bleed_px;
+            // Convert to raster px (origin top-left)
+            let x_left_px = mm_to_px(DPI, x_left_mm) + bleed_px;
+            let x_right_px = mm_to_px(DPI, x_right_mm) - bleed_px;
 
-                    let y_bottom_px = pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_bottom_mm) - bleed_px;
-                    let y_top_px = pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_top_mm) + bleed_px;
+            let y_bottom_px =
+                pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_bottom_mm) - bleed_px;
+            let y_top_px =
+                pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_top_mm) + bleed_px;
 
-                    // Outer corners
-                    if row == 0 && col == 0 {
-                        corner_l_px(
-                            &mut overlay,
-                            x_left_px,
-                            y_top_px,
-                            -1,
-                            -1,
-                            l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
-                    if row == 0 && col == 2 {
-                        corner_l_px(
-                            &mut overlay,
-                            x_right_px,
-                            y_top_px,
-                            1,
-                            -1,
-                            l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
-                    if row == 2 && col == 0 {
-                        corner_l_px(
-                            &mut overlay,
-                            x_left_px,
-                            y_bottom_px,
-                            -1,
-                            1,
-                            l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
-                    if row == 2 && col == 2 {
-                        corner_l_px(
-                            &mut overlay,
-                            x_right_px,
-                            y_bottom_px,
-                            1,
-                            1,
-                            l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
+            // === NEW: centers of the gaps (exact middle between cards) ===
+            let gap_half_mm = layout.gap.0 / 2.0;
 
-                    // Top edge (center column): vertical ticks down from above
-                    if row == 0 && col == 1 {
-                        draw_line_thick(
-                            &mut overlay,
-                            x_left_px,
-                            y_top_px - l_px,
-                            x_left_px,
-                            y_top_px,
-                            stroke_px,
-                            color,
-                        );
-                        draw_line_thick(
-                            &mut overlay,
-                            x_right_px,
-                            y_top_px - l_px,
-                            x_right_px,
-                            y_top_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
+            // Vertical gap centers (between columns)
+            // For col=1, left gap center is at x_left - gap/2 (gap between col0 and col1)
+            // For col=1, right gap center is at x_right + gap/2 (gap between col1 and col2)
+            let x_gap_left_px = mm_to_px(DPI, x_left_mm - gap_half_mm);
+            let x_gap_right_px = mm_to_px(DPI, x_right_mm + gap_half_mm);
 
-                    // Bottom edge (center column): vertical ticks down
-                    if row == 2 && col == 1 {
-                        draw_line_thick(
-                            &mut overlay,
-                            x_left_px,
-                            y_bottom_px,
-                            x_left_px,
-                            y_bottom_px + l_px,
-                            stroke_px,
-                            color,
-                        );
-                        draw_line_thick(
-                            &mut overlay,
-                            x_right_px,
-                            y_bottom_px,
-                            x_right_px,
-                            y_bottom_px + l_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
+            // Horizontal gap centers (between rows)
+            // For row=1, top gap center is at y_top + gap/2 (gap between row0 and row1)
+            // For row=1, bottom gap center is at y_bottom - gap/2 (gap between row1 and row2)
+            let y_gap_top_px = pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_top_mm + gap_half_mm);
+            let y_gap_bottom_px =
+                pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_bottom_mm - gap_half_mm);
 
-                    // Left edge (center row): horizontal ticks
-                    if row == 1 && col == 0 {
-                        draw_line_thick(
-                            &mut overlay,
-                            x_left_px - l_px,
-                            y_top_px,
-                            x_left_px,
-                            y_top_px,
-                            stroke_px,
-                            color,
-                        );
-                        draw_line_thick(
-                            &mut overlay,
-                            x_left_px - l_px,
-                            y_bottom_px,
-                            x_left_px,
-                            y_bottom_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
+            // Outer corners
+            if row == 0 && col == 0 {
+                corner_l_px(
+                    &mut overlay,
+                    x_left_px,
+                    y_top_px,
+                    -1,
+                    -1,
+                    l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
+            if row == 0 && col == 2 {
+                corner_l_px(
+                    &mut overlay,
+                    x_right_px,
+                    y_top_px,
+                    1,
+                    -1,
+                    l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
+            if row == 2 && col == 0 {
+                corner_l_px(
+                    &mut overlay,
+                    x_left_px,
+                    y_bottom_px,
+                    -1,
+                    1,
+                    l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
+            if row == 2 && col == 2 {
+                corner_l_px(
+                    &mut overlay,
+                    x_right_px,
+                    y_bottom_px,
+                    1,
+                    1,
+                    l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
 
-                    // Right edge (center row): horizontal ticks
-                    if row == 1 && col == 2 {
-                        draw_line_thick(
-                            &mut overlay,
-                            x_right_px,
-                            y_top_px,
-                            x_right_px + l_px,
-                            y_top_px,
-                            stroke_px,
-                            color,
-                        );
-                        draw_line_thick(
-                            &mut overlay,
-                            x_right_px,
-                            y_bottom_px,
-                            x_right_px + l_px,
-                            y_bottom_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
+            // Top edge (center column): vertical ticks DOWN from above
+            // BEFORE: used x_left_px / x_right_px (card edges)
+            // NOW: use centers of the vertical gaps
+            if row == 0 && col == 1 {
+                draw_line_thick(
+                    &mut overlay,
+                    x_gap_left_px,
+                    y_top_px - l_px,
+                    x_gap_left_px,
+                    y_top_px,
+                    stroke_px,
+                    color,
+                );
+                draw_line_thick(
+                    &mut overlay,
+                    x_gap_right_px,
+                    y_top_px - l_px,
+                    x_gap_right_px,
+                    y_top_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
 
-                    // Inner crosses (center slot)
-                    if row == 1 && col == 1 {
-                        corner_cross_px(
-                            &mut overlay,
-                            x_right_px,
-                            y_top_px,
-                            1,
-                            -1,
-                            inner_l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        corner_cross_px(
-                            &mut overlay,
-                            x_right_px,
-                            y_bottom_px,
-                            1,
-                            1,
-                            inner_l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        corner_cross_px(
-                            &mut overlay,
-                            x_left_px,
-                            y_bottom_px,
-                            -1,
-                            1,
-                            inner_l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        corner_cross_px(
-                            &mut overlay,
-                            x_left_px,
-                            y_top_px,
-                            -1,
-                            -1,
-                            inner_l_px,
-                            gap_px,
-                            stroke_px,
-                            color,
-                        );
-                        continue;
-                    }
-                }
+            // Bottom edge (center column): vertical ticks UP
+            if row == 2 && col == 1 {
+                draw_line_thick(
+                    &mut overlay,
+                    x_gap_left_px,
+                    y_bottom_px,
+                    x_gap_left_px,
+                    y_bottom_px + l_px,
+                    stroke_px,
+                    color,
+                );
+                draw_line_thick(
+                    &mut overlay,
+                    x_gap_right_px,
+                    y_bottom_px,
+                    x_gap_right_px,
+                    y_bottom_px + l_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
+
+            // Left edge (center row): horizontal ticks
+            // BEFORE: used y_top_px / y_bottom_px (card edges)
+            // NOW: use centers of the horizontal gaps
+            if row == 1 && col == 0 {
+                draw_line_thick(
+                    &mut overlay,
+                    x_left_px - l_px,
+                    y_gap_top_px,
+                    x_left_px,
+                    y_gap_top_px,
+                    stroke_px,
+                    color,
+                );
+                draw_line_thick(
+                    &mut overlay,
+                    x_left_px - l_px,
+                    y_gap_bottom_px,
+                    x_left_px,
+                    y_gap_bottom_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
+
+            // Right edge (center row): horizontal ticks
+            if row == 1 && col == 2 {
+                draw_line_thick(
+                    &mut overlay,
+                    x_right_px,
+                    y_gap_top_px,
+                    x_right_px + l_px,
+                    y_gap_top_px,
+                    stroke_px,
+                    color,
+                );
+                draw_line_thick(
+                    &mut overlay,
+                    x_right_px,
+                    y_gap_bottom_px,
+                    x_right_px + l_px,
+                    y_gap_bottom_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
+            }
+
+            // Inner crosses (center slot) -> put them at the intersections of the gap centers
+            if row == 1 && col == 1 {
+                corner_cross_px(
+                    &mut overlay,
+                    x_gap_right_px,
+                    y_gap_top_px,
+                    1,
+                    -1,
+                    inner_l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                corner_cross_px(
+                    &mut overlay,
+                    x_gap_right_px,
+                    y_gap_bottom_px,
+                    1,
+                    1,
+                    inner_l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                corner_cross_px(
+                    &mut overlay,
+                    x_gap_left_px,
+                    y_gap_bottom_px,
+                    -1,
+                    1,
+                    inner_l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                corner_cross_px(
+                    &mut overlay,
+                    x_gap_left_px,
+                    y_gap_top_px,
+                    -1,
+                    -1,
+                    inner_l_px,
+                    gap_px,
+                    stroke_px,
+                    color,
+                );
+                continue;
             }
         }
+    }
+}
 
         let mut overlay_bytes = Cursor::new(vec![]);
         ::image::DynamicImage::ImageRgba8(overlay).write_to(&mut overlay_bytes, ImageFormat::Png)?;
