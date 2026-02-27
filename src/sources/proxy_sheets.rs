@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::io::Cursor;
 use std::{collections::HashMap, sync::Arc};
-
+//some fix 
 use ::image::imageops::FilterType;
 use ::image::ImageFormat;
 use dioxus::prelude::*;
@@ -57,6 +57,7 @@ impl Layout {
             };
         }
 
+        // Center the grid on the page
         margin_x = (page_width - (card_w + gap) * (fit_w as f32)) / 2.0;
         margin_y = (page_height - (card_h + gap) * (fit_h as f32)) / 2.0;
 
@@ -72,19 +73,37 @@ impl Layout {
         }
     }
 
-    fn card_translate(&self, idx_in_page: usize, card_w: Mm, card_h: Mm) -> (Mm, Mm) {
+    /// Returns the bottom-left translation (Mm) for the card slot.
+    /// IMPORTANT: we snap coordinates to the same pixel grid used by the cropmarks overlay,
+    /// to avoid cumulative drift caused by float->int rounding.
+    fn card_translate(&self, idx_in_page: usize, card_w: Mm, card_h: Mm, dpi: f32) -> (Mm, Mm) {
         let col = idx_in_page % self.fit_w;
         let row = idx_in_page / self.fit_w;
 
         let x = self.margin_x + (card_w + self.gap) * (col as f32);
 
         // PDF origin is bottom-left; place rows from top to bottom.
-        let y = self.page_height
-            - self.margin_y
-            - (card_h + self.gap) * (1.0 + row as f32);
+        let y = self.page_height - self.margin_y - (card_h + self.gap) * (1.0 + row as f32);
 
-        (x, y)
+        (snap_mm_to_px_grid(dpi, x), snap_mm_to_px_grid(dpi, y))
     }
+}
+
+fn mm_to_px(dpi: f32, mm: f32) -> i32 {
+    (dpi * 0.0393701 * mm).round() as i32
+}
+
+fn px_to_mm(dpi: f32, px: i32) -> Mm {
+    Mm((px as f32) / (dpi * 0.0393701))
+}
+
+fn snap_mm_to_px_grid(dpi: f32, mm: Mm) -> Mm {
+    px_to_mm(dpi, mm_to_px(dpi, mm.0))
+}
+
+/// Convert PDF-space Y (mm from bottom) to raster Y (px from top)
+fn pdf_y_mm_to_raster_y_px(dpi: f32, page_h_px: i32, y_mm_from_bottom: f32) -> i32 {
+    page_h_px - mm_to_px(dpi, y_mm_from_bottom)
 }
 
 async fn generate_pdf(
@@ -162,8 +181,7 @@ async fn generate_pdf(
                 ImageFormat::Png,
             )?;
 
-            let raw =
-                RawImage::decode_from_bytes_async(&bytes.into_inner(), &mut vec![]).await?;
+            let raw = RawImage::decode_from_bytes_async(&bytes.into_inner(), &mut vec![]).await?;
 
             let key: CacheKey<'_> = Some((&card.card_number, card.illustration_idx));
             img_cache.lock().await.insert(key, raw);
@@ -182,11 +200,10 @@ async fn generate_pdf(
         .collect();
 
     // ==== Optional cropmarks overlay (raster PNG) ====
+    //
+    // Key point: we compute cropmarks from the SAME snapped card positions used to place the cards.
+    // We work in PDF mm-coordinates, then convert to raster pixels with a Y-axis flip.
     let overlay_id: Option<XObjectId> = if include_cropmarks {
-        fn mm_to_px(dpi: f32, mm: f32) -> i32 {
-            (dpi * 0.0393701 * mm).round() as i32
-        }
-
         fn draw_line_thick(
             img: &mut ::image::RgbaImage,
             x1: i32,
@@ -236,25 +253,17 @@ async fn generate_pdf(
             }
         }
 
-        fn corner_l(
-            dpi: f32,
+        fn corner_l_px(
             img: &mut ::image::RgbaImage,
-            x_mm: f32,
-            y_mm: f32,
+            x: i32,
+            y: i32,
             dir_x: i32,
             dir_y: i32,
-            l_mm: f32,
-            gap_mm: f32,
-            stroke_mm: f32,
+            l: i32,
+            gap: i32,
+            stroke: i32,
             color: ::image::Rgba<u8>,
         ) {
-            let l = mm_to_px(dpi, l_mm);
-            let gap = mm_to_px(dpi, gap_mm);
-            let stroke = mm_to_px(dpi, stroke_mm).max(1);
-
-            let x = mm_to_px(dpi, x_mm);
-            let y = mm_to_px(dpi, y_mm);
-
             let hx1 = if dir_x < 0 { x - gap - l } else { x + gap };
             let hx2 = if dir_x < 0 { x - gap } else { x + gap + l };
             draw_line_thick(img, hx1, y, hx2, y, stroke, color);
@@ -264,30 +273,29 @@ async fn generate_pdf(
             draw_line_thick(img, x, vy1, x, vy2, stroke, color);
         }
 
-        fn corner_cross(
-            dpi: f32,
+        fn corner_cross_px(
             img: &mut ::image::RgbaImage,
-            x_mm: f32,
-            y_mm: f32,
+            x: i32,
+            y: i32,
             dir_x: i32,
             dir_y: i32,
-            len_mm: f32,
-            gap_mm: f32,
-            stroke_mm: f32,
+            len: i32,
+            gap: i32,
+            stroke: i32,
             color: ::image::Rgba<u8>,
         ) {
-            corner_l(
-                dpi, img, x_mm, y_mm, dir_x, dir_y, len_mm, gap_mm, stroke_mm, color,
-            );
-            corner_l(
-                dpi, img, x_mm, y_mm, -dir_x, -dir_y, len_mm, gap_mm, stroke_mm, color,
-            );
+            corner_l_px(img, x, y, dir_x, dir_y, len, gap, stroke, color);
+            corner_l_px(img, x, y, -dir_x, -dir_y, len, gap, stroke, color);
         }
 
-        let page_w_px = mm_to_px(DPI, page_width.0).max(1) as u32;
-        let page_h_px = mm_to_px(DPI, page_height.0).max(1) as u32;
-        let mut overlay =
-            ::image::RgbaImage::from_pixel(page_w_px, page_h_px, ::image::Rgba([0, 0, 0, 0]));
+        let page_w_px = mm_to_px(DPI, page_width.0).max(1);
+        let page_h_px = mm_to_px(DPI, page_height.0).max(1);
+
+        let mut overlay = ::image::RgbaImage::from_pixel(
+            page_w_px as u32,
+            page_h_px as u32,
+            ::image::Rgba([0, 0, 0, 0]),
+        );
 
         // Cropmark parameters (in mm)
         let l_mm = 3.0_f32;
@@ -297,216 +305,228 @@ async fn generate_pdf(
         let bleed_mm = 0.0_f32;
         let color = ::image::Rgba([0x68, 0x68, 0x68, 0xFF]);
 
-        // NOTE: This overlay is currently drawn for a 3x3 grid only.
+        let l_px = mm_to_px(DPI, l_mm);
+        let inner_l_px = mm_to_px(DPI, inner_l_mm);
+        let gap_px = mm_to_px(DPI, gap_mm);
+        let bleed_px = mm_to_px(DPI, bleed_mm);
+        let stroke_px = mm_to_px(DPI, stroke_mm).max(1);
+
+        // NOTE: this overlay currently draws cropmarks only for the top-left 3x3 area.
         if layout.fit_w >= 3 && layout.fit_h >= 3 {
-            for row in 0..3 {
-                for col in 0..3 {
-                    let slot_x =
-                        layout.margin_x.0 + (CARD_WIDTH.0 + layout.gap.0) * (col as f32);
-                    let slot_y =
-                        layout.margin_y.0 + (CARD_HEIGHT.0 + layout.gap.0) * (row as f32);
+            for row in 0..3usize {
+                for col in 0..3usize {
+                    let idx_in_page = row * layout.fit_w + col;
 
-                    let x_left_cut = slot_x + bleed_mm;
-                    let x_right_cut = x_left_cut + CARD_WIDTH.0;
-                    let y_top_cut = slot_y + bleed_mm;
-                    let y_bot_cut = y_top_cut + CARD_HEIGHT.0;
+                    // Use the SAME snapped card position used for PDF placement.
+                    let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT, DPI);
 
+                    // Card cut box in PDF mm coordinates
+                    let x_left_mm = tx.0 + bleed_mm;
+                    let x_right_mm = x_left_mm + CARD_WIDTH.0;
+                    let y_bottom_mm = ty.0 + bleed_mm;
+                    let y_top_mm = y_bottom_mm + CARD_HEIGHT.0;
+
+                    // Convert to raster px (origin top-left)
+                    let x_left_px = mm_to_px(DPI, x_left_mm) + bleed_px;
+                    let x_right_px = mm_to_px(DPI, x_right_mm) - bleed_px;
+
+                    let y_bottom_px = pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_bottom_mm) - bleed_px;
+                    let y_top_px = pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_top_mm) + bleed_px;
+
+                    // Outer corners
                     if row == 0 && col == 0 {
-                        corner_l(
-                            DPI,
+                        corner_l_px(
                             &mut overlay,
-                            x_left_cut,
-                            y_top_cut,
+                            x_left_px,
+                            y_top_px,
                             -1,
                             -1,
-                            l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
                     if row == 0 && col == 2 {
-                        corner_l(
-                            DPI,
+                        corner_l_px(
                             &mut overlay,
-                            x_right_cut,
-                            y_top_cut,
+                            x_right_px,
+                            y_top_px,
                             1,
                             -1,
-                            l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
                     if row == 2 && col == 0 {
-                        corner_l(
-                            DPI,
+                        corner_l_px(
                             &mut overlay,
-                            x_left_cut,
-                            y_bot_cut,
+                            x_left_px,
+                            y_bottom_px,
                             -1,
                             1,
-                            l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
                     if row == 2 && col == 2 {
-                        corner_l(
-                            DPI,
+                        corner_l_px(
                             &mut overlay,
-                            x_right_cut,
-                            y_bot_cut,
+                            x_right_px,
+                            y_bottom_px,
                             1,
                             1,
-                            l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
 
+                    // Top edge (center column): vertical ticks down from above
                     if row == 0 && col == 1 {
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_left_cut),
-                            mm_to_px(DPI, y_top_cut - l_mm),
-                            mm_to_px(DPI, x_left_cut),
-                            mm_to_px(DPI, y_top_cut),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_left_px,
+                            y_top_px - l_px,
+                            x_left_px,
+                            y_top_px,
+                            stroke_px,
                             color,
                         );
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_right_cut),
-                            mm_to_px(DPI, y_top_cut - l_mm),
-                            mm_to_px(DPI, x_right_cut),
-                            mm_to_px(DPI, y_top_cut),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_right_px,
+                            y_top_px - l_px,
+                            x_right_px,
+                            y_top_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
 
+                    // Bottom edge (center column): vertical ticks down
                     if row == 2 && col == 1 {
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_left_cut),
-                            mm_to_px(DPI, y_bot_cut),
-                            mm_to_px(DPI, x_left_cut),
-                            mm_to_px(DPI, y_bot_cut + l_mm),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_left_px,
+                            y_bottom_px,
+                            x_left_px,
+                            y_bottom_px + l_px,
+                            stroke_px,
                             color,
                         );
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_right_cut),
-                            mm_to_px(DPI, y_bot_cut),
-                            mm_to_px(DPI, x_right_cut),
-                            mm_to_px(DPI, y_bot_cut + l_mm),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_right_px,
+                            y_bottom_px,
+                            x_right_px,
+                            y_bottom_px + l_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
 
+                    // Left edge (center row): horizontal ticks
                     if row == 1 && col == 0 {
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_left_cut - l_mm),
-                            mm_to_px(DPI, y_top_cut),
-                            mm_to_px(DPI, x_left_cut),
-                            mm_to_px(DPI, y_top_cut),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_left_px - l_px,
+                            y_top_px,
+                            x_left_px,
+                            y_top_px,
+                            stroke_px,
                             color,
                         );
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_left_cut - l_mm),
-                            mm_to_px(DPI, y_bot_cut),
-                            mm_to_px(DPI, x_left_cut),
-                            mm_to_px(DPI, y_bot_cut),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_left_px - l_px,
+                            y_bottom_px,
+                            x_left_px,
+                            y_bottom_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
 
+                    // Right edge (center row): horizontal ticks
                     if row == 1 && col == 2 {
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_right_cut),
-                            mm_to_px(DPI, y_top_cut),
-                            mm_to_px(DPI, x_right_cut + l_mm),
-                            mm_to_px(DPI, y_top_cut),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_right_px,
+                            y_top_px,
+                            x_right_px + l_px,
+                            y_top_px,
+                            stroke_px,
                             color,
                         );
                         draw_line_thick(
                             &mut overlay,
-                            mm_to_px(DPI, x_right_cut),
-                            mm_to_px(DPI, y_bot_cut),
-                            mm_to_px(DPI, x_right_cut + l_mm),
-                            mm_to_px(DPI, y_bot_cut),
-                            mm_to_px(DPI, stroke_mm).max(1),
+                            x_right_px,
+                            y_bottom_px,
+                            x_right_px + l_px,
+                            y_bottom_px,
+                            stroke_px,
                             color,
                         );
                         continue;
                     }
 
+                    // Inner crosses (center slot)
                     if row == 1 && col == 1 {
-                        corner_cross(
-                            DPI,
+                        corner_cross_px(
                             &mut overlay,
-                            x_right_cut,
-                            y_top_cut,
+                            x_right_px,
+                            y_top_px,
                             1,
                             -1,
-                            inner_l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            inner_l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
-                        corner_cross(
-                            DPI,
+                        corner_cross_px(
                             &mut overlay,
-                            x_right_cut,
-                            y_bot_cut,
+                            x_right_px,
+                            y_bottom_px,
                             1,
                             1,
-                            inner_l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            inner_l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
-                        corner_cross(
-                            DPI,
+                        corner_cross_px(
                             &mut overlay,
-                            x_left_cut,
-                            y_bot_cut,
+                            x_left_px,
+                            y_bottom_px,
                             -1,
                             1,
-                            inner_l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            inner_l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
-                        corner_cross(
-                            DPI,
+                        corner_cross_px(
                             &mut overlay,
-                            x_left_cut,
-                            y_top_cut,
+                            x_left_px,
+                            y_top_px,
                             -1,
                             -1,
-                            inner_l_mm,
-                            gap_mm,
-                            stroke_mm,
+                            inner_l_px,
+                            gap_px,
+                            stroke_px,
                             color,
                         );
                         continue;
@@ -517,8 +537,7 @@ async fn generate_pdf(
 
         let mut overlay_bytes = Cursor::new(vec![]);
         ::image::DynamicImage::ImageRgba8(overlay).write_to(&mut overlay_bytes, ImageFormat::Png)?;
-        let overlay_raw =
-            RawImage::decode_from_bytes_async(&overlay_bytes.into_inner(), &mut vec![]).await?;
+        let overlay_raw = RawImage::decode_from_bytes_async(&overlay_bytes.into_inner(), &mut vec![]).await?;
         Some(doc.add_image(&overlay_raw))
     } else {
         None
@@ -535,7 +554,7 @@ async fn generate_pdf(
 
                 let key: CacheKey<'_> = Some((&card.card_number, card.illustration_idx));
                 if let Some(image_id) = image_ids.get(&key) {
-                    let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT);
+                    let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT, DPI);
                     ops.push(Op::UseXobject {
                         id: image_id.clone(),
                         transform: XObjectTransform {
@@ -548,7 +567,7 @@ async fn generate_pdf(
                 }
             }
 
-            // Do not move overlay_id into the closure; clone the inner id for each page.
+            // Overlay cropmarks above everything (optional)
             if let Some(oid) = overlay_id.clone() {
                 ops.push(Op::UseXobject {
                     id: oid,
