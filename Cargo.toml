@@ -1,6 +1,6 @@
 [package]
 name = "hocg-deck-convert"
-version = "0.2.11"
+version = "0.2.12"
 authors = ["Qrimpuff <qrimpuff@gmail.com>"]
 publish = false
 license = "MIT"
@@ -20,7 +20,7 @@ imageproc = "0.26.1"
 indexmap = { version = "2.13.0", features = ["serde"] }
 itertools = "0.14.0"
 jiff = { version = "0.2.20", features = ["js", "serde"] }
-printpdf = { version = "0.8.2", features = ["png"] }
+printpdf = { version = "0.9.1", features = ["png"] }
 regex = "1.12.3"
 reqwest = { version = "0.13.2", features = [
     "json",
