@@ -10,11 +10,13 @@ edition = "2024"
 hocg-fan-sim-assets-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-assets" }
 
 base64 = "0.22.1"
+bitflags = "2.11.0"
 dioxus = { version = "0.7.3", features = ["web", "router"] }
 futures = "0.3.31"
 gloo = "0.11.0"
 icu = "2.1.1"
 image = { version = "0.25.9", features = ["png", "webp"] }
+imageproc = "0.26.1"
 indexmap = { version = "2.13.0", features = ["serde"] }
 itertools = "0.14.0"
 jiff = { version = "0.2.20", features = ["js", "serde"] }

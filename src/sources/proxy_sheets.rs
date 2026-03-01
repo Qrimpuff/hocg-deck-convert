@@ -1,20 +1,22 @@
 use std::error::Error;
 use std::io::Cursor;
 use std::{collections::HashMap, sync::Arc};
-//some fix v2
-use ::image::imageops::FilterType;
+
 use ::image::ImageFormat;
+use ::image::imageops::FilterType;
+use bitflags::bitflags;
 use dioxus::prelude::*;
 use futures::future::try_join_all;
 use futures::lock::Mutex;
+use imageproc::drawing::draw_line_segment_mut;
 use printpdf::*;
 use serde::Serialize;
 
 use super::{CardsDatabase, CommonDeck, ImageOptions};
-use crate::components::deck_validation::{has_missing_proxies, DeckValidation};
-use crate::{download_file, track_event, CardLanguage, EventType, PREVIEW_CARD_LANG};
+use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
+use crate::{CardLanguage, EventType, PREVIEW_CARD_LANG, download_file, track_event};
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, PartialEq, Eq)]
 enum PaperSize {
     A4,
     Letter,
@@ -24,16 +26,34 @@ enum PaperSize {
 struct Layout {
     page_width: Mm,
     page_height: Mm,
+    dpi: f32,
     margin_x: Mm,
     margin_y: Mm,
     gap: Mm,
+    card_w: Mm,
+    card_h: Mm,
     fit_w: usize,
     fit_h: usize,
     cards_per_page: usize,
 }
 
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    pub struct CropMarkFlags: u8 {
+        const NORTH = 1;
+        const SOUTH = 1 << 1;
+        const WEST = 1 << 2;
+        const EAST = 1 << 3;
+
+        const NS = Self::NORTH.bits() | Self::SOUTH.bits();
+        const WE = Self::WEST.bits() | Self::EAST.bits();
+        const CROSS = Self::NS.bits() | Self::WE.bits();
+    }
+}
+
 impl Layout {
-    fn compute(page_width: Mm, page_height: Mm, card_w: Mm, card_h: Mm) -> Self {
+    fn compute(page_width: Mm, page_height: Mm, dpi: f32, card_w: Mm, card_h: Mm) -> Self {
+        // TODO maybe custom margin and gap
         let mut margin_x = Mm(5.0);
         let mut margin_y = Mm(5.0);
         let gap = Mm(0.5);
@@ -44,29 +64,21 @@ impl Layout {
         let fit_w = fit_w_f.max(0.0) as usize;
         let fit_h = fit_h_f.max(0.0) as usize;
 
-        if fit_w == 0 || fit_h == 0 {
-            return Self {
-                page_width,
-                page_height,
-                margin_x,
-                margin_y,
-                gap,
-                fit_w,
-                fit_h,
-                cards_per_page: 0,
-            };
-        }
-
         // Center the grid on the page
-        margin_x = (page_width - (card_w + gap) * (fit_w as f32)) / 2.0;
-        margin_y = (page_height - (card_h + gap) * (fit_h as f32)) / 2.0;
+        if fit_w > 0 && fit_h > 0 {
+            margin_x = (page_width - (card_w + gap) * (fit_w as f32)) / 2.0;
+            margin_y = (page_height - (card_h + gap) * (fit_h as f32)) / 2.0;
+        }
 
         Self {
             page_width,
             page_height,
+            dpi,
             margin_x,
             margin_y,
             gap,
+            card_w,
+            card_h,
             fit_w,
             fit_h,
             cards_per_page: fit_w * fit_h,
@@ -74,36 +86,140 @@ impl Layout {
     }
 
     /// Returns the bottom-left translation (Mm) for the card slot.
-    /// IMPORTANT: we snap coordinates to the same pixel grid used by the cropmarks overlay,
-    /// to avoid cumulative drift caused by float->int rounding.
-    fn card_translate(&self, idx_in_page: usize, card_w: Mm, card_h: Mm, dpi: f32) -> (Mm, Mm) {
+    fn card_translate(&self, idx_in_page: usize) -> (Mm, Mm) {
         let col = idx_in_page % self.fit_w;
         let row = idx_in_page / self.fit_w;
 
-        let x = self.margin_x + (card_w + self.gap) * (col as f32);
+        let x = self.margin_x + (self.card_w + self.gap) * (col as f32);
 
         // PDF origin is bottom-left; place rows from top to bottom.
-        let y = self.page_height - self.margin_y - (card_h + self.gap) * (1.0 + row as f32);
+        let y = self.page_height
+            - self.margin_y
+            - (self.card_h + self.gap) * (row as f32)
+            - self.card_h;
 
-        (snap_mm_to_px_grid(dpi, x), snap_mm_to_px_grid(dpi, y))
+        (x, y)
+    }
+
+    /// Returns the positions of crop marks (Mm) for all card slots.
+    fn crop_marks_positions(&self) -> Vec<(Mm, Mm, CropMarkFlags)> {
+        let half_gap = self.gap / 2.0;
+
+        let mut positions = Vec::new();
+
+        for row in 0..self.fit_h {
+            for col in 0..self.fit_w {
+                // Cross shapes
+                let flags = if row == 0 {
+                    CropMarkFlags::NORTH
+                } else {
+                    CropMarkFlags::empty()
+                } | if col == 0 {
+                    CropMarkFlags::WEST
+                } else {
+                    CropMarkFlags::empty()
+                };
+
+                let idx_in_page = row * self.fit_w + col;
+                let (mut tx, mut ty) = self.card_translate(idx_in_page);
+
+                // Convert to origin top-left for easier use in the overlay
+                ty = self.page_height - ty - self.card_h;
+
+                // Adjust for gaps
+                tx -= half_gap;
+                ty -= half_gap;
+
+                positions.push((
+                    tx,
+                    ty,
+                    // Cross in the centers
+                    if flags.is_empty() {
+                        CropMarkFlags::CROSS
+                    } else {
+                        flags
+                    },
+                ));
+
+                // Add bottom and right edges
+                if row == self.fit_h - 1 {
+                    let ty = ty + self.card_h + self.gap;
+                    let flags = flags | CropMarkFlags::SOUTH;
+                    positions.push((tx, ty, flags));
+                }
+                if col == self.fit_w - 1 {
+                    let tx = tx + self.card_w + self.gap;
+                    let flags = flags | CropMarkFlags::EAST;
+                    positions.push((tx, ty, flags));
+                }
+                if row == self.fit_h - 1 && col == self.fit_w - 1 {
+                    let ty = ty + self.card_h + self.gap;
+                    let tx = tx + self.card_w + self.gap;
+                    let flags = flags | CropMarkFlags::SOUTH | CropMarkFlags::EAST;
+                    positions.push((tx, ty, flags));
+                }
+            }
+        }
+
+        positions
     }
 }
 
-fn mm_to_px(dpi: f32, mm: f32) -> i32 {
-    (dpi * 0.0393701 * mm).round() as i32
+impl CropMarkFlags {
+    fn draw_crop_mark(
+        &self,
+        img: &mut ::image::RgbaImage,
+        x: u32,
+        y: u32,
+        len: u32,
+        thickness: u32,
+        color: ::image::Rgba<u8>,
+    ) {
+        let len_x = if self.contains(CropMarkFlags::WE) {
+            len / 2
+        } else {
+            len
+        };
+
+        let len_y = if self.contains(CropMarkFlags::NS) {
+            len / 2
+        } else {
+            len
+        };
+
+        if self.contains(CropMarkFlags::NORTH) {
+            draw_line_thick_mut(img, (x, y), (x, y - len_y), thickness, color);
+        }
+        if self.contains(CropMarkFlags::SOUTH) {
+            draw_line_thick_mut(img, (x, y), (x, y + len_y), thickness, color);
+        }
+        if self.contains(CropMarkFlags::WEST) {
+            draw_line_thick_mut(img, (x, y), (x - len_x, y), thickness, color);
+        }
+        if self.contains(CropMarkFlags::EAST) {
+            draw_line_thick_mut(img, (x, y), (x + len_x, y), thickness, color);
+        }
+    }
 }
 
-fn px_to_mm(dpi: f32, px: i32) -> Mm {
-    Mm((px as f32) / (dpi * 0.0393701))
-}
+fn draw_line_thick_mut(
+    img: &mut ::image::RgbaImage,
+    (x1, y1): (u32, u32),
+    (x2, y2): (u32, u32),
+    thickness: u32,
+    color: ::image::Rgba<u8>,
+) {
+    let r = (thickness / 2) as i32;
 
-fn snap_mm_to_px_grid(dpi: f32, mm: Mm) -> Mm {
-    px_to_mm(dpi, mm_to_px(dpi, mm.0))
-}
-
-/// Convert PDF-space Y (mm from bottom) to raster Y (px from top)
-fn pdf_y_mm_to_raster_y_px(dpi: f32, page_h_px: i32, y_mm_from_bottom: f32) -> i32 {
-    page_h_px - mm_to_px(dpi, y_mm_from_bottom)
+    for oy in 0..thickness as i32 {
+        for ox in 0..thickness as i32 {
+            let x1 = x1 as i32 + ox - r;
+            let y1 = y1 as i32 + oy - r;
+            let x2 = x2 as i32 + ox - r;
+            let y2 = y2 as i32 + oy - r;
+            draw_line_segment_mut(img, (x1 as f32, y1 as f32), (x2 as f32, y2 as f32), color);
+        }
+    }
 }
 
 async fn generate_pdf(
@@ -112,9 +228,8 @@ async fn generate_pdf(
     card_lang: CardLanguage,
     paper_size: PaperSize,
     include_cheers: bool,
-    include_cropmarks: bool,
+    include_crop_marks: bool,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
-    // ==== Output / card constants ====
     const DPI: f32 = 300.0;
     const INCH_PER_MM: f32 = 0.0393701;
     const CARD_WIDTH: Mm = Mm(63.5);
@@ -128,41 +243,41 @@ async fn generate_pdf(
         PaperSize::Letter => (Mm(215.9), Mm(279.4)),
     };
 
-    let layout = Layout::compute(page_width, page_height, CARD_WIDTH, CARD_HEIGHT);
+    let layout = Layout::compute(page_width, page_height, DPI, CARD_WIDTH, CARD_HEIGHT);
     if layout.cards_per_page == 0 {
         return Err("Paper size is too small to fit any card with current margins/gap".into());
     }
 
-    // ==== Build the list of cards to print (expanded by amount) ====
-    let base_iter: Box<dyn Iterator<Item = &crate::CommonCard>> = if include_cheers {
+    // Build the list of cards to print
+    let cards: Box<dyn Iterator<Item = &crate::CommonCard>> = if include_cheers {
         Box::new(deck.all_cards())
     } else {
         Box::new(deck.oshi.iter().chain(deck.main_deck.iter()))
     };
-
-    let cards: Vec<crate::CommonCard> = base_iter
-        .filter(|c| c.image_path(db, card_lang, ImageOptions::proxy_print()).is_some())
+    let cards: Vec<_> = cards
+        .filter(|c| {
+            c.image_path(db, card_lang, ImageOptions::proxy_print())
+                .is_some()
+        })
         .flat_map(|c| std::iter::repeat_n(c.clone(), c.amount as usize))
         .collect();
 
     let pages_count = (cards.len() as f32 / layout.cards_per_page as f32).ceil() as usize;
 
-    // ==== Create PDF document ====
+    // Create PDF document
     let title = format!("Proxy sheets for {}", deck.required_deck_name(db));
     let mut doc = PdfDocument::new(&title);
     doc.metadata.info.producer = "hololive OCG Deck Converter".to_string();
+    // no metadata date for wasm, printpdf can't do it
 
-    // ==== Download and cache images once per unique card (deck.all_cards()) ====
-    // Keyed by (card_number, illustration_idx). illustration_idx is Option<usize> in your model.
-    type CacheKey<'a> = Option<(&'a String, Option<usize>)>;
-
-    let img_cache: Arc<Mutex<HashMap<CacheKey<'_>, RawImage>>> =
-        Arc::new(Mutex::new(HashMap::with_capacity(cards.len())));
+    // Download and cache images once per unique card
+    let img_cache = Arc::new(Mutex::new(HashMap::with_capacity(cards.len())));
 
     let download_tasks = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
             let Some(img_path) = card.image_path(db, card_lang, ImageOptions::proxy_print()) else {
+                // Skip missing card
                 return Ok::<(), Box<dyn Error>>(());
             };
 
@@ -180,10 +295,9 @@ async fn generate_pdf(
                 image.color(),
                 ImageFormat::Png,
             )?;
-
             let raw = RawImage::decode_from_bytes_async(&bytes.into_inner(), &mut vec![]).await?;
 
-            let key: CacheKey<'_> = Some((&card.card_number, card.illustration_idx));
+            let key = Some((&card.card_number, card.illustration_idx));
             img_cache.lock().await.insert(key, raw);
 
             Ok(())
@@ -193,103 +307,19 @@ async fn generate_pdf(
 
     let img_cache = Arc::try_unwrap(img_cache).unwrap().into_inner();
 
-    // printpdf `add_image` returns an `XObjectId` which is what `Op::UseXobject` expects.
-    let image_ids: HashMap<CacheKey<'_>, XObjectId> = img_cache
+    // Add the images to the document resources and get their IDs
+    let image_ids: HashMap<_, _> = img_cache
         .into_iter()
         .map(|(key, image)| (key, doc.add_image(&image)))
         .collect();
 
-    // ==== Optional cropmarks overlay (raster PNG) ====
-    //
-    // Key point: we compute cropmarks from the SAME snapped card positions used to place the cards.
-    // We work in PDF mm-coordinates, then convert to raster pixels with a Y-axis flip.
-    let overlay_id: Option<XObjectId> = if include_cropmarks {
-        fn draw_line_thick(
-            img: &mut ::image::RgbaImage,
-            x1: i32,
-            y1: i32,
-            x2: i32,
-            y2: i32,
-            thickness: i32,
-            color: ::image::Rgba<u8>,
-        ) {
-            // Bresenham with a square brush for thickness.
-            let w = img.width() as i32;
-            let h = img.height() as i32;
-
-            let mut x = x1;
-            let mut y = y1;
-            let dx = (x2 - x1).abs();
-            let dy = -(y2 - y1).abs();
-            let sx = if x1 < x2 { 1 } else { -1 };
-            let sy = if y1 < y2 { 1 } else { -1 };
-            let mut err = dx + dy;
-
-            let r = (thickness / 2).max(0);
-
-            loop {
-                for oy in -r..=r {
-                    for ox in -r..=r {
-                        let px = x + ox;
-                        let py = y + oy;
-                        if px >= 0 && px < w && py >= 0 && py < h {
-                            img.put_pixel(px as u32, py as u32, color);
-                        }
-                    }
-                }
-
-                if x == x2 && y == y2 {
-                    break;
-                }
-                let e2 = 2 * err;
-                if e2 >= dy {
-                    err += dy;
-                    x += sx;
-                }
-                if e2 <= dx {
-                    err += dx;
-                    y += sy;
-                }
-            }
-        }
-
-        fn corner_l_px(
-            img: &mut ::image::RgbaImage,
-            x: i32,
-            y: i32,
-            dir_x: i32,
-            dir_y: i32,
-            l: i32,
-            gap: i32,
-            stroke: i32,
-            color: ::image::Rgba<u8>,
-        ) {
-            let hx1 = if dir_x < 0 { x - gap - l } else { x + gap };
-            let hx2 = if dir_x < 0 { x - gap } else { x + gap + l };
-            draw_line_thick(img, hx1, y, hx2, y, stroke, color);
-
-            let vy1 = if dir_y < 0 { y - gap - l } else { y + gap };
-            let vy2 = if dir_y < 0 { y - gap } else { y + gap + l };
-            draw_line_thick(img, x, vy1, x, vy2, stroke, color);
-        }
-
-        fn corner_cross_px(
-            img: &mut ::image::RgbaImage,
-            x: i32,
-            y: i32,
-            dir_x: i32,
-            dir_y: i32,
-            len: i32,
-            gap: i32,
-            stroke: i32,
-            color: ::image::Rgba<u8>,
-        ) {
-            corner_l_px(img, x, y, dir_x, dir_y, len, gap, stroke, color);
-            corner_l_px(img, x, y, -dir_x, -dir_y, len, gap, stroke, color);
-        }
-
-        let page_w_px = mm_to_px(DPI, page_width.0).max(1);
-        let page_h_px = mm_to_px(DPI, page_height.0).max(1);
+    // Optional crop marks overlay
+    let overlay_id: Option<XObjectId> = if include_crop_marks {
+        let page_w_px = layout.page_width.into_pt().into_px(layout.dpi).0;
+        let page_h_px = layout.page_height.into_pt().into_px(layout.dpi).0;
+        let crop_mark_len = Mm(3.0).into_pt().into_px(layout.dpi).0 as u32;
+        let crop_mark_thickness = Mm(0.25).into_pt().into_px(layout.dpi).0.max(1) as u32;
+        let crop_mark_color = ::image::Rgba([0x68, 0x68, 0x68, 0xFF]);
 
         let mut overlay = ::image::RgbaImage::from_pixel(
             page_w_px as u32,
@@ -297,286 +327,47 @@ async fn generate_pdf(
             ::image::Rgba([0, 0, 0, 0]),
         );
 
-        // Cropmark parameters (in mm)
-        let l_mm = 3.0_f32;
-        let stroke_mm = 0.25_f32;
-        let inner_l_mm = 1.5_f32;
-        let gap_mm = 0.0_f32;
-        let bleed_mm = 0.0_f32;
-        let color = ::image::Rgba([0x68, 0x68, 0x68, 0xFF]);
+        // Draw crop marks for each card slot
+        for (tx, ty, flags) in layout.crop_marks_positions() {
+            let x_px = tx.into_pt().into_px(layout.dpi).0;
+            let y_px = ty.into_pt().into_px(layout.dpi).0;
 
-        let l_px = mm_to_px(DPI, l_mm);
-        let inner_l_px = mm_to_px(DPI, inner_l_mm);
-        let gap_px = mm_to_px(DPI, gap_mm);
-        let bleed_px = mm_to_px(DPI, bleed_mm);
-        let stroke_px = mm_to_px(DPI, stroke_mm).max(1);
-
-// NOTE: this overlay currently draws cropmarks only for the top-left 3x3 area.
-if layout.fit_w >= 3 && layout.fit_h >= 3 {
-    for row in 0..3usize {
-        for col in 0..3usize {
-            let idx_in_page = row * layout.fit_w + col;
-
-            // Use the SAME snapped card position used for PDF placement.
-            let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT, DPI);
-
-            // Card cut box in PDF mm coordinates
-            let x_left_mm = tx.0 + bleed_mm;
-            let x_right_mm = x_left_mm + CARD_WIDTH.0;
-            let y_bottom_mm = ty.0 + bleed_mm;
-            let y_top_mm = y_bottom_mm + CARD_HEIGHT.0;
-
-            // Convert to raster px (origin top-left)
-            let x_left_px = mm_to_px(DPI, x_left_mm) + bleed_px;
-            let x_right_px = mm_to_px(DPI, x_right_mm) - bleed_px;
-
-            let y_bottom_px =
-                pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_bottom_mm) - bleed_px;
-            let y_top_px =
-                pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_top_mm) + bleed_px;
-
-            // === NEW: centers of the gaps (exact middle between cards) ===
-            let gap_half_mm = layout.gap.0 / 2.0;
-
-            // Vertical gap centers (between columns)
-            // For col=1, left gap center is at x_left - gap/2 (gap between col0 and col1)
-            // For col=1, right gap center is at x_right + gap/2 (gap between col1 and col2)
-            let x_gap_left_px = mm_to_px(DPI, x_left_mm - gap_half_mm);
-            let x_gap_right_px = mm_to_px(DPI, x_right_mm + gap_half_mm);
-
-            // Horizontal gap centers (between rows)
-            // For row=1, top gap center is at y_top + gap/2 (gap between row0 and row1)
-            // For row=1, bottom gap center is at y_bottom - gap/2 (gap between row1 and row2)
-            let y_gap_top_px = pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_top_mm + gap_half_mm);
-            let y_gap_bottom_px =
-                pdf_y_mm_to_raster_y_px(DPI, page_h_px, y_bottom_mm - gap_half_mm);
-
-            // Outer corners
-            if row == 0 && col == 0 {
-                corner_l_px(
-                    &mut overlay,
-                    x_left_px,
-                    y_top_px,
-                    -1,
-                    -1,
-                    l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-            if row == 0 && col == 2 {
-                corner_l_px(
-                    &mut overlay,
-                    x_right_px,
-                    y_top_px,
-                    1,
-                    -1,
-                    l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-            if row == 2 && col == 0 {
-                corner_l_px(
-                    &mut overlay,
-                    x_left_px,
-                    y_bottom_px,
-                    -1,
-                    1,
-                    l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-            if row == 2 && col == 2 {
-                corner_l_px(
-                    &mut overlay,
-                    x_right_px,
-                    y_bottom_px,
-                    1,
-                    1,
-                    l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-
-            // Top edge (center column): vertical ticks DOWN from above
-            // BEFORE: used x_left_px / x_right_px (card edges)
-            // NOW: use centers of the vertical gaps
-            if row == 0 && col == 1 {
-                draw_line_thick(
-                    &mut overlay,
-                    x_gap_left_px,
-                    y_top_px - l_px,
-                    x_gap_left_px,
-                    y_top_px,
-                    stroke_px,
-                    color,
-                );
-                draw_line_thick(
-                    &mut overlay,
-                    x_gap_right_px,
-                    y_top_px - l_px,
-                    x_gap_right_px,
-                    y_top_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-
-            // Bottom edge (center column): vertical ticks UP
-            if row == 2 && col == 1 {
-                draw_line_thick(
-                    &mut overlay,
-                    x_gap_left_px,
-                    y_bottom_px,
-                    x_gap_left_px,
-                    y_bottom_px + l_px,
-                    stroke_px,
-                    color,
-                );
-                draw_line_thick(
-                    &mut overlay,
-                    x_gap_right_px,
-                    y_bottom_px,
-                    x_gap_right_px,
-                    y_bottom_px + l_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-
-            // Left edge (center row): horizontal ticks
-            // BEFORE: used y_top_px / y_bottom_px (card edges)
-            // NOW: use centers of the horizontal gaps
-            if row == 1 && col == 0 {
-                draw_line_thick(
-                    &mut overlay,
-                    x_left_px - l_px,
-                    y_gap_top_px,
-                    x_left_px,
-                    y_gap_top_px,
-                    stroke_px,
-                    color,
-                );
-                draw_line_thick(
-                    &mut overlay,
-                    x_left_px - l_px,
-                    y_gap_bottom_px,
-                    x_left_px,
-                    y_gap_bottom_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-
-            // Right edge (center row): horizontal ticks
-            if row == 1 && col == 2 {
-                draw_line_thick(
-                    &mut overlay,
-                    x_right_px,
-                    y_gap_top_px,
-                    x_right_px + l_px,
-                    y_gap_top_px,
-                    stroke_px,
-                    color,
-                );
-                draw_line_thick(
-                    &mut overlay,
-                    x_right_px,
-                    y_gap_bottom_px,
-                    x_right_px + l_px,
-                    y_gap_bottom_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
-
-            // Inner crosses (center slot) -> put them at the intersections of the gap centers
-            if row == 1 && col == 1 {
-                corner_cross_px(
-                    &mut overlay,
-                    x_gap_right_px,
-                    y_gap_top_px,
-                    1,
-                    -1,
-                    inner_l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                corner_cross_px(
-                    &mut overlay,
-                    x_gap_right_px,
-                    y_gap_bottom_px,
-                    1,
-                    1,
-                    inner_l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                corner_cross_px(
-                    &mut overlay,
-                    x_gap_left_px,
-                    y_gap_bottom_px,
-                    -1,
-                    1,
-                    inner_l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                corner_cross_px(
-                    &mut overlay,
-                    x_gap_left_px,
-                    y_gap_top_px,
-                    -1,
-                    -1,
-                    inner_l_px,
-                    gap_px,
-                    stroke_px,
-                    color,
-                );
-                continue;
-            }
+            flags.draw_crop_mark(
+                &mut overlay,
+                x_px as u32,
+                y_px as u32,
+                crop_mark_len,
+                crop_mark_thickness,
+                crop_mark_color,
+            );
         }
-    }
-}
 
         let mut overlay_bytes = Cursor::new(vec![]);
-        ::image::DynamicImage::ImageRgba8(overlay).write_to(&mut overlay_bytes, ImageFormat::Png)?;
-        let overlay_raw = RawImage::decode_from_bytes_async(&overlay_bytes.into_inner(), &mut vec![]).await?;
+        ::image::DynamicImage::ImageRgba8(overlay)
+            .write_to(&mut overlay_bytes, ImageFormat::Png)?;
+        let overlay_raw =
+            RawImage::decode_from_bytes_async(&overlay_bytes.into_inner(), &mut vec![]).await?;
         Some(doc.add_image(&overlay_raw))
     } else {
         None
     };
 
-    // ==== Build pages ====
+    // Build pages
     let pages = (0..pages_count)
         .map(|page_idx| {
+            // Create operations for our page
             let mut ops = Vec::new();
 
             for idx_in_page in 0..layout.cards_per_page {
                 let global_idx = page_idx * layout.cards_per_page + idx_in_page;
-                let Some(card) = cards.get(global_idx) else { break };
+                let Some(card) = cards.get(global_idx) else {
+                    break;
+                };
 
-                let key: CacheKey<'_> = Some((&card.card_number, card.illustration_idx));
+                // Place the image on the page
+                let key = Some((&card.card_number, card.illustration_idx));
                 if let Some(image_id) = image_ids.get(&key) {
-                    let (tx, ty) = layout.card_translate(idx_in_page, CARD_WIDTH, CARD_HEIGHT, DPI);
+                    let (tx, ty) = layout.card_translate(idx_in_page);
                     ops.push(Op::UseXobject {
                         id: image_id.clone(),
                         transform: XObjectTransform {
@@ -589,7 +380,7 @@ if layout.fit_w >= 3 && layout.fit_h >= 3 {
                 }
             }
 
-            // Overlay cropmarks above everything (optional)
+            // Overlay crop marks above everything (optional)
             if let Some(oid) = overlay_id.clone() {
                 ops.push(Op::UseXobject {
                     id: oid,
@@ -602,6 +393,7 @@ if layout.fit_w >= 3 && layout.fit_h >= 3 {
                 });
             }
 
+            // Create a page with our operations
             PdfPage::new(page_width, page_height, ops)
         })
         .collect::<Vec<_>>();
@@ -609,6 +401,7 @@ if layout.fit_w >= 3 && layout.fit_h >= 3 {
     Ok(doc.with_pages(pages).save(
         &PdfSaveOptions {
             image_optimization: Some(ImageOptimizationOptions {
+                // Don't resize, will lose image quality
                 max_image_size: None,
                 ..Default::default()
             }),
@@ -627,7 +420,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
         missing_proxies: bool,
         paper_size: PaperSize,
         include_cheers: bool,
-        include_cropmarks: bool,
+        include_crop_marks: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
@@ -636,7 +429,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
     let card_lang = PREVIEW_CARD_LANG.signal();
     let mut paper_size = use_signal(|| PaperSize::A4);
     let mut include_cheers = use_signal(|| false);
-    let mut include_cropmarks = use_signal(|| true);
+    let mut include_crop_marks = use_signal(|| true);
     let mut loading = use_signal(|| false);
 
     let print_deck = move |_| async move {
@@ -653,10 +446,9 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             PaperSize::A4 => "a4",
             PaperSize::Letter => "letter",
         };
-        let cm = if *include_cropmarks.read() { "cm" } else { "nocm" };
 
         let file_name = common_deck.file_name(&db.read());
-        let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.{cm}.pdf");
+        let file_name = format!("{file_name}.proxy_sheets.{lang}_{ps}.pdf");
 
         let missing_proxies = has_missing_proxies(&common_deck, &db.read(), *card_lang.read());
 
@@ -666,7 +458,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             *card_lang.read(),
             *paper_size.read(),
             *include_cheers.read(),
-            *include_cropmarks.read(),
+            *include_crop_marks.read(),
         )
         .await
         {
@@ -680,7 +472,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                         missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
-                        include_cropmarks: *include_cropmarks.read(),
+                        include_crop_marks: *include_crop_marks.read(),
                         error: None,
                     },
                 );
@@ -695,7 +487,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                         missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
-                        include_cropmarks: *include_cropmarks.read(),
+                        include_crop_marks: *include_crop_marks.read(),
                         error: Some(e.to_string()),
                     },
                 );
@@ -728,8 +520,16 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "en", "English" }
-                        option { value: "jp", "Japanese" }
+                        option {
+                            selected: *PREVIEW_CARD_LANG.read() == CardLanguage::English,
+                            value: "en",
+                            "English"
+                        }
+                        option {
+                            selected: *PREVIEW_CARD_LANG.read() == CardLanguage::Japanese,
+                            value: "jp",
+                            "Japanese"
+                        }
                     }
                 }
             }
@@ -748,8 +548,16 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "a4", "A4 (21.0x29.7 cm)" }
-                        option { value: "letter", "Letter (8.5x11.0 in)" }
+                        option {
+                            selected: *paper_size.read() == PaperSize::A4,
+                            value: "a4",
+                            "A4 (21.0x29.7 cm)"
+                        }
+                        option {
+                            selected: *paper_size.read() == PaperSize::Letter,
+                            value: "letter",
+                            "Letter (8.5x11.0 in)"
+                        }
                     }
                 }
             }
@@ -768,28 +576,36 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "no", "No" }
-                        option { value: "yes", "Yes" }
+                        option { selected: !*include_cheers.read(), value: "no", "No" }
+                        option { selected: *include_cheers.read(), value: "yes", "Yes" }
                     }
                 }
             }
         }
 
         div { class: "field",
-            label { "for": "include_cropmarks", class: "label", "Cropmarks" }
+            label { "for": "include_crop_marks", class: "label", "Crop marks" }
             div { class: "control",
                 div { class: "select",
                     select {
-                        id: "include_cropmarks",
+                        id: "include_crop_marks",
                         oninput: move |ev| {
-                            *include_cropmarks.write() = match ev.value().as_str() {
+                            *include_crop_marks.write() = match ev.value().as_str() {
                                 "no" => false,
                                 "yes" => true,
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "yes", "Yes" }
-                        option { value: "no", "No" }
+                        option {
+                            selected: !*include_crop_marks.read(),
+                            value: "no",
+                            "No"
+                        }
+                        option {
+                            selected: *include_crop_marks.read(),
+                            value: "yes",
+                            "Yes"
+                        }
                     }
                 }
             }
