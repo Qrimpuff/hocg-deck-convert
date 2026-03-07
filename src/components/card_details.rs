@@ -871,21 +871,23 @@ pub fn CardDetailsContent(
 
 #[component]
 pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element {
-    let oshi_skill_class = if skill.special {
-        "oshi-skill-special-keyword"
-    } else {
-        "oshi-skill-keyword"
+    let oshi_skill_class = match skill.kind {
+        hocg::OshiSkillKind::Normal => "oshi-skill-keyword",
+        hocg::OshiSkillKind::Special => "oshi-skill-special-keyword",
+        hocg::OshiSkillKind::Stage => "oshi-stage-skill-keyword",
     };
     let oshi_skill = if *lang.read() == CardLanguage::Japanese {
-        if skill.special {
-            "SP推しスキル"
-        } else {
-            "推しスキル"
+        match skill.kind {
+            hocg::OshiSkillKind::Normal => "推しスキル",
+            hocg::OshiSkillKind::Special => "SP推しスキル",
+            hocg::OshiSkillKind::Stage => "推しステージスキル",
         }
-    } else if skill.special {
-        "SP Oshi Skill"
     } else {
-        "Oshi Skill"
+        match skill.kind {
+            hocg::OshiSkillKind::Normal => "Oshi Skill",
+            hocg::OshiSkillKind::Special => "SP Oshi Skill",
+            hocg::OshiSkillKind::Stage => "Oshi Stage Skill",
+        }
     };
 
     let holo_power_text = if *lang.read() == CardLanguage::Japanese {
@@ -893,7 +895,13 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
     } else {
         "holo Power: "
     };
-    let holo_power = format!("-{}", String::from(skill.holo_power).to_uppercase());
+    let holo_power = format!(
+        "-{}",
+        skill
+            .holo_power
+            .map(|hp| String::from(hp).to_uppercase())
+            .unwrap_or_default()
+    );
 
     let name = if *lang.read() == CardLanguage::Japanese {
         skill
@@ -929,10 +937,12 @@ pub fn OshiSkillDisplay(skill: OshiSkill, lang: Signal<CardLanguage>) -> Element
                 span { class: "title is-6 pr-1 {oshi_skill_class}", "{oshi_skill}" }
                 span { class: "title is-5 ml-1", " {name}" }
             }
-            div { class: "subtitle is-6 mb-1",
-                "[{holo_power_text}"
-                b { "{holo_power}" }
-                "]"
+            if skill.holo_power.is_some() {
+                div { class: "subtitle is-6 mb-1",
+                    "[{holo_power_text}"
+                    b { "{holo_power}" }
+                    "]"
+                }
             }
             div { style: "white-space: pre-line;",
                 AugmentedText { text: "{text}", lang }
