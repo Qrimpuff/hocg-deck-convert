@@ -297,14 +297,30 @@ pub fn prepare_text_cache(card: &hocg::Card) -> (String, String) {
     text_cache.push('\n');
     // Oshi skills
     for skill in &card.oshi_skills {
-        text_cache.push_str(&format!(
-            "[ホロパワー：-{}]\n",
-            String::from(skill.holo_power).to_uppercase()
-        ));
-        text_cache.push_str(&format!(
-            "[holo Power: -{}]\n",
-            String::from(skill.holo_power).to_uppercase()
-        ));
+        match skill.kind {
+            hocg::OshiSkillKind::Normal => {
+                text_cache.push_str("Oshi Skill\n");
+                text_cache.push_str("推しスキル\n");
+            }
+            hocg::OshiSkillKind::Special => {
+                text_cache.push_str("SP Oshi Skill\n");
+                text_cache.push_str("SP推しスキル\n");
+            }
+            hocg::OshiSkillKind::Stage => {
+                text_cache.push_str("Oshi Stage Skill\n");
+                text_cache.push_str("推しステージスキル\n");
+            }
+        }
+        if let Some(holo_power) = skill.holo_power {
+            text_cache.push_str(&format!(
+                "[ホロパワー：-{}]\n",
+                String::from(holo_power).to_uppercase()
+            ));
+            text_cache.push_str(&format!(
+                "[holo Power: -{}]\n",
+                String::from(holo_power).to_uppercase()
+            ));
+        }
         text_cache.push_str(skill.name.japanese.as_deref().unwrap_or_default());
         text_cache.push('\n');
         text_cache.push_str(skill.name.english.as_deref().unwrap_or_default());

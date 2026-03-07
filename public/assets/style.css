@@ -93,6 +93,13 @@
     background-clip: text !important;
 }
 
+.oshi-stage-skill-keyword {
+    font-style: italic !important;
+    background-image: linear-gradient(90deg, rgb(0, 164, 178), rgb(165, 211, 93) 50%, rgb(78, 203, 12));
+    color: transparent !important;
+    background-clip: text !important;
+}
+
 .collab-keyword {
     font-style: italic !important;
     color: #CA101B !important;
