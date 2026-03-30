@@ -98,15 +98,8 @@ where
                 .map(|mq| mq.matches())
                 .unwrap_or(false);
 
-            let android_app_referrer = document().referrer().starts_with("android-app://");
-            let is_standalone = standalone_display_mode || android_app_referrer;
-
+            let is_standalone = standalone_display_mode;
             properties.insert("is_standalone".into(), is_standalone.into());
-            properties.insert(
-                "standalone_display_mode".into(),
-                standalone_display_mode.into(),
-            );
-            properties.insert("android_app_referrer".into(), android_app_referrer.into());
         }
 
         // insert version into properties

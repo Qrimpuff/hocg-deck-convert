@@ -36,8 +36,7 @@ if ('serviceWorker' in navigator) {
 
             // Only prefetch in installed/standalone mode.
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-                || window.navigator.standalone
-                || document.referrer.includes('android-app://');
+                || window.navigator.standalone;
 
             if (isStandalone) {
                 console.log('PWA is installed/standalone. Initiating card prefetch...');
