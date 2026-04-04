@@ -1317,6 +1317,9 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
                     // could contain "cheer" or "エール"
                     segments.push(TextSegment::Text(p2.as_str().to_string()));
                 }
+            } else {
+                // if it's not a valid cheer, just treat it as normal text
+                segments.push(TextSegment::Text(color_str.as_str().to_string()));
             }
         }
 
