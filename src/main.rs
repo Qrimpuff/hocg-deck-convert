@@ -45,6 +45,7 @@ static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
 static ALL_CARDS_SORTED: GlobalSignal<Vec<(hocg::Card, (String, String))>> =
     Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
+static CURRENT_PAGE: GlobalSignal<Page> = Signal::global(|| Page::Import);
 static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 
@@ -60,7 +61,14 @@ static PRICE_SERVICE: GlobalSignal<PriceCheckService> =
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 static FREE_BASIC_CHEERS: GlobalSignal<bool> = Signal::global(|| false);
 
-const PAGE_LABELS_MIN_WIDTH: i32 = 260;
+const PAGE_LABELS_MIN_WIDTH: i32 = 320;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Page {
+    Import,
+    Edit,
+    Export,
+}
 
 fn main() {
     launch(App);
@@ -149,7 +157,7 @@ fn App() -> Element {
                             role: "button",
                             onclick: move |evt| {
                                 evt.prevent_default();
-                                *EDIT_DECK.write() = true;
+                                *CURRENT_PAGE.write() = Page::Edit;
                                 track_url("Edit deck");
                             },
                             "Edit deck"
@@ -161,7 +169,7 @@ fn App() -> Element {
                             role: "button",
                             onclick: move |evt| {
                                 evt.prevent_default();
-                                *EDIT_DECK.write() = false;
+                                *CURRENT_PAGE.write() = Page::Import;
                                 *COMMON_DECK.write() = Default::default();
                                 *SHOW_PRICE.write() = false;
                                 *IMPORT_FORMAT.write() = Some(DeckType::StarterDecks);
@@ -337,251 +345,284 @@ fn Form() -> Element {
                 div { class: "buttons has-addons",
                     button {
                         class: "button",
-                        class: if !*EDIT_DECK.read() { "is-link is-selected" },
+                        class: if *CURRENT_PAGE.read() == Page::Import { "is-link is-selected" },
                         r#type: "button",
                         title: "Import deck",
                         "aria-label": "Import deck",
-                        onclick: |_| { *EDIT_DECK.write() = false },
+                        onclick: |_| {
+                            *CURRENT_PAGE.write() = Page::Import;
+                            *EDIT_DECK.write() = false;
+                        },
                         span { class: "icon is-small",
-                            i { class: "fa-solid fa-file-arrow-down" }
+                            i { class: "fa-solid fa-cloud-arrow-down" }
                         }
-                        if show_page_labels || !*EDIT_DECK.read() {
-                            span { "Import deck" }
+                        if show_page_labels || *CURRENT_PAGE.read() == Page::Import {
+                            span { "Import" }
                         }
                     }
                     button {
                         class: "button",
-                        class: if *EDIT_DECK.read() { "is-link is-selected" },
+                        class: if *CURRENT_PAGE.read() == Page::Edit { "is-link is-selected" },
                         r#type: "button",
                         title: "Edit deck",
                         "aria-label": "Edit deck",
-                        onclick: |_| { *EDIT_DECK.write() = true },
+                        onclick: |_| {
+                            *CURRENT_PAGE.write() = Page::Edit;
+                            *EDIT_DECK.write() = true;
+                        },
                         span { class: "icon is-small",
                             i { class: "fa-solid fa-pen-to-square" }
                         }
-                        if show_page_labels || *EDIT_DECK.read() {
+                        if show_page_labels || *CURRENT_PAGE.read() == Page::Edit {
                             span { "Edit deck" }
                         }
                     }
+                    button {
+                        class: "button",
+                        class: if *CURRENT_PAGE.read() == Page::Export { "is-link is-selected" },
+                        r#type: "button",
+                        title: "Export deck",
+                        "aria-label": "Export deck",
+                        onclick: |_| {
+                            *CURRENT_PAGE.write() = Page::Export;
+                            *EDIT_DECK.write() = false;
+                        },
+                        span { class: "icon is-small",
+                            i { class: "fa-solid fa-share" }
+                        }
+                        if show_page_labels || *CURRENT_PAGE.read() == Page::Export {
+                            span { "Export" }
+                        }
+                    }
                 }
             }
 
-            if *EDIT_DECK.read() {
-                edit_deck::Import {
+            match *CURRENT_PAGE.read() {
+                Page::Import => rsx! {
+                    ImportPage {}
+                },
+                Page::Edit => rsx! {
+                    EditPage {}
+                },
+                Page::Export => rsx! {
+                    ExportPage {}
+                },
+            }
+        }
+    }
+}
+
+#[component]
+pub fn ImportPage() -> Element {
+    let mut import_format: Signal<Option<DeckType>> = IMPORT_FORMAT.signal();
+    rsx! {
+        div { class: "field",
+            label { "for": "import_format", class: "label", "Import format" }
+            div { class: "control",
+                div { class: "select",
+                    select {
+                        id: "import_format",
+                        oninput: move |ev| {
+                            *COMMON_DECK.write() = Default::default();
+                            *SHOW_PRICE.write() = false;
+                            *import_format.write() = match ev.value().as_str() {
+                                "starter_decks" => Some(DeckType::StarterDecks),
+                                "deck_log" => Some(DeckType::DeckLog),
+                                "holo_delta" => Some(DeckType::HoloDelta),
+                                "holo_duel" => Some(DeckType::HoloDuel),
+                                "hocg_tts" => Some(DeckType::TabletopSim),
+                                "unknown" => Some(DeckType::Unknown),
+                                _ => None,
+                            };
+                        },
+                        option {
+                            value: "starter_decks",
+                            selected: *import_format.read() == Some(DeckType::DeckLog),
+                            "Starter decks"
+                        }
+                        option {
+                            value: "deck_log",
+                            selected: *import_format.read() == Some(DeckType::DeckLog),
+                            "Deck Log (Bushiroad)"
+                        }
+                        option {
+                            value: "holo_delta",
+                            selected: *import_format.read() == Some(DeckType::HoloDelta),
+                            "holoDelta"
+                        }
+                        option {
+                            value: "hocg_tts",
+                            selected: *import_format.read() == Some(DeckType::TabletopSim),
+                            "Tabletop Simulator (by Noodlebrain)"
+                        }
+                        option {
+                            value: "holo_duel",
+                            selected: *import_format.read() == Some(DeckType::HoloDuel),
+                            "HoloDuel (unmaintained)"
+                        }
+                        option {
+                            value: "unknown",
+                            selected: *import_format.read() == Some(DeckType::Unknown),
+                            "I don't know..."
+                        }
+                    }
+                }
+            }
+        }
+
+        div {
+            if *import_format.read() == Some(DeckType::StarterDecks) {
+                starter_decks::Import {
                     common_deck: COMMON_DECK.signal(),
                     db: CARDS_DB.signal(),
-                    is_edit: EDIT_DECK.signal(),
                     show_price: SHOW_PRICE.signal(),
                 }
-            } else {
-                div { class: "field",
-                    label { "for": "import_format", class: "label", "Import format" }
-                    div { class: "control",
-                        div { class: "select",
-                            select {
-                                id: "import_format",
-                                oninput: move |ev| {
-                                    *COMMON_DECK.write() = Default::default();
-                                    *SHOW_PRICE.write() = false;
-                                    *import_format.write() = match ev.value().as_str() {
-                                        "starter_decks" => Some(DeckType::StarterDecks),
-                                        "deck_log" => Some(DeckType::DeckLog),
-                                        "holo_delta" => Some(DeckType::HoloDelta),
-                                        "holo_duel" => Some(DeckType::HoloDuel),
-                                        "hocg_tts" => Some(DeckType::TabletopSim),
-                                        "unknown" => Some(DeckType::Unknown),
-                                        _ => None,
-                                    };
-                                },
-                                option {
-                                    value: "starter_decks",
-                                    selected: *import_format.read() == Some(DeckType::DeckLog),
-                                    "Starter decks"
-                                }
-                                option {
-                                    value: "deck_log",
-                                    selected: *import_format.read() == Some(DeckType::DeckLog),
-                                    "Deck Log (Bushiroad)"
-                                }
-                                option {
-                                    value: "holo_delta",
-                                    selected: *import_format.read() == Some(DeckType::HoloDelta),
-                                    "holoDelta"
-                                }
-                                option {
-                                    value: "hocg_tts",
-                                    selected: *import_format.read() == Some(DeckType::TabletopSim),
-                                    "Tabletop Simulator (by Noodlebrain)"
-                                }
-                                option {
-                                    value: "holo_duel",
-                                    selected: *import_format.read() == Some(DeckType::HoloDuel),
-                                    "HoloDuel (unmaintained)"
-                                }
-                                option {
-                                    value: "unknown",
-                                    selected: *import_format.read() == Some(DeckType::Unknown),
-                                    "I don't know..."
-                                }
-                            }
-                        }
-                    }
+            }
+            if *import_format.read() == Some(DeckType::DeckLog) {
+                deck_log::Import {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    show_price: SHOW_PRICE.signal(),
                 }
+            }
+            if *import_format.read() == Some(DeckType::HoloDelta) {
+                holodelta::Import {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    show_price: SHOW_PRICE.signal(),
+                }
+            }
+            if *import_format.read() == Some(DeckType::HoloDuel) {
+                holoduel::Import {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    show_price: SHOW_PRICE.signal(),
+                }
+            }
+            if *import_format.read() == Some(DeckType::TabletopSim) {
+                tabletop_sim::Import {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    show_price: SHOW_PRICE.signal(),
+                }
+            }
+            if *import_format.read() == Some(DeckType::Unknown) {
+                UnknownImport {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    show_price: SHOW_PRICE.signal(),
+                }
+            }
+        }
+    }
+}
 
-                div {
-                    if *import_format.read() == Some(DeckType::StarterDecks) {
-                        starter_decks::Import {
-                            common_deck: COMMON_DECK.signal(),
-                            db: CARDS_DB.signal(),
-                            show_price: SHOW_PRICE.signal(),
+#[component]
+pub fn EditPage() -> Element {
+    rsx! {
+        edit_deck::Import {
+            common_deck: COMMON_DECK.signal(),
+            db: CARDS_DB.signal(),
+            is_edit: EDIT_DECK.signal(),
+            show_price: SHOW_PRICE.signal(),
+        }
+    }
+}
+
+#[component]
+pub fn ExportPage() -> Element {
+    let mut export_format = EXPORT_FORMAT.signal();
+    rsx! {
+        div { class: "field",
+            label { "for": "export_format", class: "label", "Export format" }
+            div { class: "control",
+                div { class: "select",
+                    select {
+                        id: "export_format",
+                        oninput: move |ev| {
+                            *SHOW_PRICE.write() = false;
+                            *PRICE_SERVICE.write() = PriceCheckService::Yuyutei;
+                            *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
+                                "proxy_sheets" => CardLanguage::English,
+                                _ => CardLanguage::Japanese,
+                            };
+                            *PREVIEW_IMAGE_OPTIONS.write() = match ev.value().as_str() {
+                                "deck_log" => ImageOptions::deck_log(),
+                                "holo_delta" => ImageOptions::holodelta(),
+                                "holo_duel" => ImageOptions::holodelta(),
+                                "hocg_tts" => ImageOptions::deck_log(),
+                                "proxy_sheets" => ImageOptions::proxy_print(),
+                                "price_check" => ImageOptions::price_check(),
+                                _ => ImageOptions::holodelta(),
+                            };
+                            *export_format.write() = match ev.value().as_str() {
+                                "deck_log" => Some(DeckType::DeckLog),
+                                "holo_delta" => Some(DeckType::HoloDelta),
+                                "holo_duel" => Some(DeckType::HoloDuel),
+                                "hocg_tts" => Some(DeckType::TabletopSim),
+                                "proxy_sheets" => Some(DeckType::ProxySheets),
+                                "price_check" => Some(DeckType::PriceCheck),
+                                _ => None,
+                            };
+                        },
+                        option {
+                            value: "deck_log",
+                            selected: *export_format.read() == Some(DeckType::DeckLog),
+                            "Deck Log (Bushiroad)"
                         }
-                    }
-                    if *import_format.read() == Some(DeckType::DeckLog) {
-                        deck_log::Import {
-                            common_deck: COMMON_DECK.signal(),
-                            db: CARDS_DB.signal(),
-                            show_price: SHOW_PRICE.signal(),
+                        option {
+                            value: "holo_delta",
+                            selected: *export_format.read() == Some(DeckType::HoloDelta),
+                            "holoDelta"
                         }
-                    }
-                    if *import_format.read() == Some(DeckType::HoloDelta) {
-                        holodelta::Import {
-                            common_deck: COMMON_DECK.signal(),
-                            db: CARDS_DB.signal(),
-                            show_price: SHOW_PRICE.signal(),
+                        option {
+                            value: "hocg_tts",
+                            selected: *export_format.read() == Some(DeckType::TabletopSim),
+                            "Tabletop Simulator (by Noodlebrain)"
                         }
-                    }
-                    if *import_format.read() == Some(DeckType::HoloDuel) {
-                        holoduel::Import {
-                            common_deck: COMMON_DECK.signal(),
-                            db: CARDS_DB.signal(),
-                            show_price: SHOW_PRICE.signal(),
+                        option {
+                            value: "holo_duel",
+                            selected: *export_format.read() == Some(DeckType::HoloDuel),
+                            "HoloDuel (unmaintained)"
                         }
-                    }
-                    if *import_format.read() == Some(DeckType::TabletopSim) {
-                        tabletop_sim::Import {
-                            common_deck: COMMON_DECK.signal(),
-                            db: CARDS_DB.signal(),
-                            show_price: SHOW_PRICE.signal(),
+                        option {
+                            value: "proxy_sheets",
+                            selected: *export_format.read() == Some(DeckType::ProxySheets),
+                            "Proxy sheets (PDF)"
                         }
-                    }
-                    if *import_format.read() == Some(DeckType::Unknown) {
-                        UnknownImport {
-                            common_deck: COMMON_DECK.signal(),
-                            db: CARDS_DB.signal(),
-                            show_price: SHOW_PRICE.signal(),
+                        option {
+                            value: "price_check",
+                            selected: *export_format.read() == Some(DeckType::PriceCheck),
+                            "Price check"
                         }
                     }
                 }
             }
+        }
 
-            hr {}
-
-            div { class: "field",
-                label { "for": "export_format", class: "label", "Export format" }
-                div { class: "control",
-                    div { class: "select",
-                        select {
-                            id: "export_format",
-                            oninput: move |ev| {
-                                *SHOW_PRICE.write() = false;
-                                *PRICE_SERVICE.write() = PriceCheckService::Yuyutei;
-                                *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
-                                    "proxy_sheets" => CardLanguage::English,
-                                    _ => CardLanguage::Japanese,
-                                };
-                                *PREVIEW_IMAGE_OPTIONS.write() = match ev.value().as_str() {
-                                    "deck_log" => ImageOptions::deck_log(),
-                                    "holo_delta" => ImageOptions::holodelta(),
-                                    "holo_duel" => ImageOptions::holodelta(),
-                                    "hocg_tts" => ImageOptions::deck_log(),
-                                    "proxy_sheets" => ImageOptions::proxy_print(),
-                                    "price_check" => ImageOptions::price_check(),
-                                    _ => ImageOptions::holodelta(),
-                                };
-                                *export_format.write() = match ev.value().as_str() {
-                                    "deck_log" => Some(DeckType::DeckLog),
-                                    "holo_delta" => Some(DeckType::HoloDelta),
-                                    "holo_duel" => Some(DeckType::HoloDuel),
-                                    "hocg_tts" => Some(DeckType::TabletopSim),
-                                    "proxy_sheets" => Some(DeckType::ProxySheets),
-                                    "price_check" => Some(DeckType::PriceCheck),
-                                    _ => None,
-                                };
-                            },
-                            option {
-                                value: "deck_log",
-                                selected: *export_format.read() == Some(DeckType::DeckLog),
-                                "Deck Log (Bushiroad)"
-                            }
-                            option {
-                                value: "holo_delta",
-                                selected: *export_format.read() == Some(DeckType::HoloDelta),
-                                "holoDelta"
-                            }
-                            option {
-                                value: "hocg_tts",
-                                selected: *export_format.read() == Some(DeckType::TabletopSim),
-                                "Tabletop Simulator (by Noodlebrain)"
-                            }
-                            option {
-                                value: "holo_duel",
-                                selected: *export_format.read() == Some(DeckType::HoloDuel),
-                                "HoloDuel (unmaintained)"
-                            }
-                            option {
-                                value: "proxy_sheets",
-                                selected: *export_format.read() == Some(DeckType::ProxySheets),
-                                "Proxy sheets (PDF)"
-                            }
-                            option {
-                                value: "price_check",
-                                selected: *export_format.read() == Some(DeckType::PriceCheck),
-                                "Price check"
-                            }
-                        }
-                    }
-                }
+        div {
+            if *export_format.read() == Some(DeckType::DeckLog) {
+                deck_log::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
-
-            div {
-                if *export_format.read() == Some(DeckType::DeckLog) {
-                    deck_log::Export {
-                        common_deck: COMMON_DECK.signal(),
-                        db: CARDS_DB.signal(),
-                    }
-                }
-                if *export_format.read() == Some(DeckType::HoloDelta) {
-                    holodelta::Export {
-                        common_deck: COMMON_DECK.signal(),
-                        db: CARDS_DB.signal(),
-                    }
-                }
-                if *export_format.read() == Some(DeckType::HoloDuel) {
-                    holoduel::Export {
-                        common_deck: COMMON_DECK.signal(),
-                        db: CARDS_DB.signal(),
-                    }
-                }
-                if *export_format.read() == Some(DeckType::TabletopSim) {
-                    tabletop_sim::Export {
-                        common_deck: COMMON_DECK.signal(),
-                        db: CARDS_DB.signal(),
-                    }
-                }
-                if *export_format.read() == Some(DeckType::ProxySheets) {
-                    proxy_sheets::Export {
-                        common_deck: COMMON_DECK.signal(),
-                        db: CARDS_DB.signal(),
-                    }
-                }
-                if *export_format.read() == Some(DeckType::PriceCheck) {
-                    price_check::Export {
-                        common_deck: COMMON_DECK.signal(),
-                        db: CARDS_DB.signal(),
-                        prices: CARDS_PRICES.signal(),
-                        price_service: PRICE_SERVICE.signal(),
-                        show_price: SHOW_PRICE.signal(),
-                    }
+            if *export_format.read() == Some(DeckType::HoloDelta) {
+                holodelta::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *export_format.read() == Some(DeckType::HoloDuel) {
+                holoduel::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *export_format.read() == Some(DeckType::TabletopSim) {
+                tabletop_sim::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *export_format.read() == Some(DeckType::ProxySheets) {
+                proxy_sheets::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *export_format.read() == Some(DeckType::PriceCheck) {
+                price_check::Export {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    prices: CARDS_PRICES.signal(),
+                    price_service: PRICE_SERVICE.signal(),
+                    show_price: SHOW_PRICE.signal(),
                 }
             }
         }
