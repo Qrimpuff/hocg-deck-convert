@@ -22,6 +22,13 @@ enum PaperSize {
     Letter,
 }
 
+#[derive(Clone, Copy, Serialize, PartialEq, Eq)]
+enum IncludeCropMarks {
+    No,
+    Yes,
+    FullLength,
+}
+
 #[derive(Clone, Copy)]
 struct Layout {
     page_width: Mm,
@@ -161,6 +168,8 @@ impl Layout {
             }
         }
 
+        // from top-left top to bottom-right
+        positions.sort_by_key(|(tx, ty, _)| (*ty, *tx));
         positions
     }
 }
@@ -228,7 +237,7 @@ async fn generate_pdf(
     card_lang: CardLanguage,
     paper_size: PaperSize,
     include_cheers: bool,
-    include_crop_marks: bool,
+    include_crop_marks: IncludeCropMarks,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
     const DPI: f32 = 300.0;
     const INCH_PER_MM: f32 = 0.0393701;
@@ -314,7 +323,7 @@ async fn generate_pdf(
         .collect();
 
     // Optional crop marks overlay
-    let overlay_id: Option<XObjectId> = if include_crop_marks {
+    let overlay_id: Option<XObjectId> = if include_crop_marks != IncludeCropMarks::No {
         let page_w_px = layout.page_width.into_pt().into_px(layout.dpi).0;
         let page_h_px = layout.page_height.into_pt().into_px(layout.dpi).0;
         let crop_mark_len = Mm(3.0).into_pt().into_px(layout.dpi).0 as u32;
@@ -327,8 +336,9 @@ async fn generate_pdf(
             ::image::Rgba([0, 0, 0, 0]),
         );
 
-        // Draw crop marks for each card slot
-        for (tx, ty, flags) in layout.crop_marks_positions() {
+        // Draw crop marks for each card slots
+        let marks_positions = layout.crop_marks_positions();
+        for (tx, ty, flags) in &marks_positions {
             let x_px = tx.into_pt().into_px(layout.dpi).0;
             let y_px = ty.into_pt().into_px(layout.dpi).0;
 
@@ -340,6 +350,49 @@ async fn generate_pdf(
                 crop_mark_thickness,
                 crop_mark_color,
             );
+        }
+
+        // Draw lines between crop marks for easier cutting with scissors
+        if include_crop_marks == IncludeCropMarks::FullLength {
+            // Vertical lines
+            for col in 0..=layout.fit_w {
+                let start = marks_positions[col];
+                let end = marks_positions[marks_positions.len() - 1 - layout.fit_w + col];
+
+                let x1_px = start.0.into_pt().into_px(layout.dpi).0;
+                let y1_px = start.1.into_pt().into_px(layout.dpi).0;
+
+                let x2_px = end.0.into_pt().into_px(layout.dpi).0;
+                let y2_px = end.1.into_pt().into_px(layout.dpi).0;
+
+                draw_line_thick_mut(
+                    &mut overlay,
+                    (x1_px as u32, y1_px as u32),
+                    (x2_px as u32, y2_px as u32),
+                    crop_mark_thickness,
+                    crop_mark_color,
+                );
+            }
+
+            // Horizontal lines
+            for row in 0..=layout.fit_h {
+                let start = marks_positions[row * (layout.fit_w + 1)];
+                let end = marks_positions[row * (layout.fit_w + 1) + layout.fit_w];
+
+                let x1_px = start.0.into_pt().into_px(layout.dpi).0;
+                let y1_px = start.1.into_pt().into_px(layout.dpi).0;
+
+                let x2_px = end.0.into_pt().into_px(layout.dpi).0;
+                let y2_px = end.1.into_pt().into_px(layout.dpi).0;
+
+                draw_line_thick_mut(
+                    &mut overlay,
+                    (x1_px as u32, y1_px as u32),
+                    (x2_px as u32, y2_px as u32),
+                    crop_mark_thickness,
+                    crop_mark_color,
+                );
+            }
         }
 
         let mut overlay_bytes = Cursor::new(vec![]);
@@ -420,7 +473,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
         missing_proxies: bool,
         paper_size: PaperSize,
         include_cheers: bool,
-        include_crop_marks: bool,
+        include_crop_marks: IncludeCropMarks,
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
@@ -429,7 +482,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
     let card_lang = PREVIEW_CARD_LANG.signal();
     let mut paper_size = use_signal(|| PaperSize::A4);
     let mut include_cheers = use_signal(|| false);
-    let mut include_crop_marks = use_signal(|| true);
+    let mut include_crop_marks = use_signal(|| IncludeCropMarks::Yes);
     let mut loading = use_signal(|| false);
 
     let print_deck = move |_| async move {
@@ -591,20 +644,26 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
                         id: "include_crop_marks",
                         oninput: move |ev| {
                             *include_crop_marks.write() = match ev.value().as_str() {
-                                "no" => false,
-                                "yes" => true,
+                                "no" => IncludeCropMarks::No,
+                                "yes" => IncludeCropMarks::Yes,
+                                "full" => IncludeCropMarks::FullLength,
                                 _ => unreachable!(),
                             };
                         },
                         option {
-                            selected: !*include_crop_marks.read(),
+                            selected: *include_crop_marks.read() == IncludeCropMarks::No,
                             value: "no",
                             "No"
                         }
                         option {
-                            selected: *include_crop_marks.read(),
+                            selected: *include_crop_marks.read() == IncludeCropMarks::Yes,
                             value: "yes",
                             "Yes"
+                        }
+                        option {
+                            selected: *include_crop_marks.read() == IncludeCropMarks::FullLength,
+                            value: "full",
+                            "Full length"
                         }
                     }
                 }
