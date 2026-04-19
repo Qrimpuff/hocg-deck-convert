@@ -12,8 +12,9 @@ use dioxus::{
     prelude::*,
 };
 use gloo::{
+    events::EventListener,
     file::{Blob, BlobContents},
-    utils::document,
+    utils::{document, window},
 };
 use hocg_fan_sim_assets_model::{self as hocg, CardOrderingOptions};
 use hocg_fan_sim_assets_model::{CardsDatabase, Language};
@@ -58,6 +59,8 @@ static PRICE_SERVICE: GlobalSignal<PriceCheckService> =
     Signal::global(|| PriceCheckService::Yuyutei);
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 static FREE_BASIC_CHEERS: GlobalSignal<bool> = Signal::global(|| false);
+
+const PAGE_LABELS_MIN_WIDTH: i32 = 260;
 
 fn main() {
     launch(App);
@@ -299,38 +302,66 @@ fn GlobalErrors(class: String) -> Element {
     }
 }
 
+fn should_show_page_labels() -> bool {
+    document()
+        .get_element_by_id("page-buttons-row")
+        .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        .map(|element| element.client_width() >= PAGE_LABELS_MIN_WIDTH)
+        .unwrap_or(true)
+}
+
 #[component]
 fn Form() -> Element {
     let mut import_format: Signal<Option<DeckType>> = IMPORT_FORMAT.signal();
     let mut export_format = EXPORT_FORMAT.signal();
+    let mut show_page_labels = use_signal(|| true);
     use_effect(move || {
         import_format.set(Some(DeckType::DeckLog));
         export_format.set(Some(DeckType::HoloDelta));
+        show_page_labels.set(should_show_page_labels());
     });
+
+    let _resize_listener = use_signal(move || {
+        EventListener::new(&window(), "resize", move |_| {
+            show_page_labels.set(should_show_page_labels());
+        })
+    });
+
+    let show_page_labels = *show_page_labels.read();
 
     rsx! {
         div { class: "box",
-            div { class: "mb-4 is-flex is-justify-content-center",
+            div {
+                class: "mb-4 is-flex is-justify-content-center",
+                id: "page-buttons-row",
                 div { class: "buttons has-addons",
                     button {
                         class: "button",
                         class: if !*EDIT_DECK.read() { "is-link is-selected" },
                         r#type: "button",
+                        title: "Import deck",
+                        "aria-label": "Import deck",
                         onclick: |_| { *EDIT_DECK.write() = false },
                         span { class: "icon is-small",
                             i { class: "fa-solid fa-file-arrow-down" }
                         }
-                        span { "Import deck " }
+                        if show_page_labels || !*EDIT_DECK.read() {
+                            span { "Import deck" }
+                        }
                     }
                     button {
                         class: "button",
                         class: if *EDIT_DECK.read() { "is-link is-selected" },
                         r#type: "button",
+                        title: "Edit deck",
+                        "aria-label": "Edit deck",
                         onclick: |_| { *EDIT_DECK.write() = true },
                         span { class: "icon is-small",
                             i { class: "fa-solid fa-pen-to-square" }
                         }
-                        span { "Edit deck" }
+                        if show_page_labels || *EDIT_DECK.read() {
+                            span { "Edit deck" }
+                        }
                     }
                 }
             }
