@@ -524,7 +524,6 @@ pub fn EditPage() -> Element {
             common_deck: COMMON_DECK.signal(),
             db: CARDS_DB.signal(),
             is_edit: EDIT_DECK.signal(),
-            show_price: SHOW_PRICE.signal(),
         }
     }
 }

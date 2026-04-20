@@ -81,6 +81,49 @@
     opacity: 0.6 !important;
 }
 
+
+.deck-name-inline-input {
+    font: inherit;
+    padding: 0 0.2rem;
+    width: 80%;
+    margin-left: 0.35rem;
+    background-color: hsl(var(--bulma-input-h), var(--bulma-input-s), calc(var(--bulma-input-background-l) + var(--bulma-input-background-l-delta)));
+    border-color: hsl(var(--bulma-input-h), var(--bulma-input-s), calc(var(--bulma-input-border-l) + var(--bulma-input-border-l-delta)));
+    border-radius: var(--bulma-input-radius);
+    border-style: solid;
+    border-width: var(--bulma-control-border-width);
+    box-shadow: none;
+    color: hsl(var(--bulma-input-h), var(--bulma-input-s), var(--bulma-input-color-l));
+    transition-duration: var(--bulma-duration);
+    transition-property: background-color, border-color, box-shadow, color;
+}
+
+.deck-name-inline-input::placeholder {
+    color: var(--bulma-input-placeholder-color);
+}
+
+.deck-name-inline-input:active,
+.deck-name-inline-input:focus,
+.deck-name-inline-input:focus-visible,
+.deck-name-inline-input:focus-within {
+    outline: none
+}
+
+.deck-name-inline-input:hover {
+    --bulma-input-border-l-delta: var(--bulma-input-hover-border-l-delta)
+}
+
+.deck-name-inline-input:active {
+    --bulma-input-border-l-delta: var(--bulma-input-active-border-l-delta)
+}
+
+.deck-name-inline-input:focus,
+.deck-name-inline-input:focus-within {
+    border-color: hsl(var(--bulma-input-focus-h), var(--bulma-input-focus-s), var(--bulma-input-focus-l));
+    box-shadow: var(--bulma-input-focus-shadow-size) hsla(var(--bulma-input-focus-h), var(--bulma-input-focus-s), var(--bulma-input-focus-l), var(--bulma-input-focus-shadow-alpha))
+}
+
+
 .oshi-skill-keyword {
     font-style: italic !important;
     color: #ED798D !important;
