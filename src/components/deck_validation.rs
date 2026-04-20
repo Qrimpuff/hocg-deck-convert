@@ -3,10 +3,10 @@ use hocg_fan_sim_assets_model::CardsDatabase;
 
 use crate::{
     CardLanguage, CardType,
-    sources::{CommonDeck, ImageOptions},
+    sources::{DeckLike, DeckOrPile, ImageOptions},
 };
 
-pub fn has_missing_proxies(deck: &CommonDeck, db: &CardsDatabase, card_lang: CardLanguage) -> bool {
+pub fn has_missing_proxies(deck: &DeckOrPile, db: &CardsDatabase, card_lang: CardLanguage) -> bool {
     deck.all_cards()
         .filter(|card| card.card_type(db) != Some(CardType::Cheer))
         .any(|card| {
@@ -20,9 +20,10 @@ pub fn DeckValidation(
     deck_check: bool,
     proxy_check: bool,
     allow_unreleased: bool,
+    allow_pile: bool,
     card_lang: Signal<CardLanguage>,
     db: Signal<CardsDatabase>,
-    common_deck: Signal<CommonDeck>,
+    common_deck: Signal<DeckOrPile>,
 ) -> Element {
     let deck = common_deck.read();
 
@@ -34,7 +35,7 @@ pub fn DeckValidation(
     let db = db.read();
     let mut warnings = vec![];
 
-    if deck_check {
+    if deck_check && (!allow_pile || matches!(*deck, DeckOrPile::Deck(_))) {
         warnings.extend(deck.validate(&db, allow_unreleased, *card_lang.read()));
     }
 

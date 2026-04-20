@@ -9,9 +9,10 @@ use jiff::{SignedDuration, Timestamp};
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use super::{CardsDatabase, CommonDeck};
+use super::CardsDatabase;
 use crate::{
     CardLanguage, EventType, FREE_BASIC_CHEERS, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG,
+    sources::{DeckLike, DeckOrPile},
     track_event,
 };
 
@@ -62,7 +63,7 @@ fn http_client() -> &'static Client {
 }
 
 async fn price_check(
-    deck: &CommonDeck,
+    deck: &DeckOrPile,
     db: &CardsDatabase,
     prices: &PriceCache,
     service: PriceCheckService,
@@ -192,7 +193,7 @@ async fn price_check(
 
 #[component]
 pub fn Export(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     prices: Signal<PriceCache>,
     mut price_service: Signal<PriceCheckService>,

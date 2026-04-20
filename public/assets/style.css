@@ -187,3 +187,51 @@
 .yellow-advantage {
     color: #bd880d !important;
 }
+
+
+.custom-tooltip {
+    border-bottom: 1px dashed currentColor;
+    cursor: help;
+    display: inline-flex;
+    position: relative;
+}
+
+.custom-tooltip-content {
+    background: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 18%);
+    border-radius: 0.5rem;
+    bottom: calc(100% + 0.45rem);
+    box-shadow: 0 0.5rem 1rem rgba(10, 10, 10, 0.2);
+    color: var(--bulma-white);
+    font-size: 0.75rem;
+    left: 50%;
+    line-height: 1.35;
+    max-width: min(22rem, calc(100vw - 2rem));
+    opacity: 0;
+    padding: 0.45rem 0.6rem;
+    pointer-events: none;
+    position: absolute;
+    transform: translateX(-50%);
+    transition: opacity var(--bulma-duration) ease;
+    visibility: hidden;
+    white-space: normal;
+    width: max-content;
+    z-index: 30;
+}
+
+.custom-tooltip-content::after {
+    border-color: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 18%) transparent transparent transparent;
+    border-style: solid;
+    border-width: 0.35rem 0.35rem 0 0.35rem;
+    content: "";
+    left: var(--tooltip-arrow-left, 50%);
+    position: absolute;
+    top: 100%;
+    transform: translateX(-50%);
+}
+
+.custom-tooltip:hover .custom-tooltip-content,
+.custom-tooltip:focus-visible .custom-tooltip-content,
+.custom-tooltip:focus-within .custom-tooltip-content {
+    opacity: 1;
+    visibility: visible;
+}

@@ -15,7 +15,7 @@ use crate::{
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
         modal_popup::{ModelPopup, Popup, show_popup},
     },
-    sources::{CommonCard, CommonDeck, ImageOptions},
+    sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, track_event, track_url},
 };
 
@@ -173,7 +173,7 @@ pub fn CardDetailsContent(
     card: Signal<CommonCard>,
     card_type: CardType,
     db: Signal<CardsDatabase>,
-    common_deck: Option<Signal<CommonDeck>>,
+    common_deck: Option<Signal<DeckOrPile>>,
     is_edit: Signal<bool>,
 ) -> Element {
     let error_img_path: &str = match card_type {

@@ -9,7 +9,10 @@ use gloo::utils::window;
 use serde::Serialize;
 
 use crate::{
-    CardLanguage, EventType, components::deck_validation::DeckValidation, download_file,
+    CardLanguage, EventType,
+    components::deck_validation::DeckValidation,
+    download_file,
+    sources::{DeckLike, DeckOrPile},
     track_event,
 };
 
@@ -82,7 +85,7 @@ pub fn JsonImport(
     deck_type: DeckType,
     fallback_deck_type: DeckType,
     import_name: String,
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -102,7 +105,6 @@ pub fn JsonImport(
 
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
-        *common_deck.write() = Default::default();
         *show_price.write() = false;
         *deck_error.write() = "".into();
         *file_name.write() = "".into();
@@ -120,7 +122,7 @@ pub fn JsonImport(
         debug!("{:?}", deck);
         match deck {
             Ok(deck) => {
-                *common_deck.write() = Deck::to_common_deck(deck, &db.read());
+                *common_deck.write() = DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
                 *show_price.write() = false;
                 track_event(
                     EventType::Import(import_name.read().clone()),
@@ -144,7 +146,6 @@ pub fn JsonImport(
     };
 
     let from_file = move |event: Event<FormData>| async move {
-        *common_deck.write() = Default::default();
         *show_price.write() = false;
         *deck_error.write() = "".into();
         *json.write() = "".into();
@@ -165,7 +166,8 @@ pub fn JsonImport(
                 debug!("{:?}", deck);
                 match deck {
                     Ok(deck) => {
-                        *common_deck.write() = Deck::to_common_deck(deck, &db.read());
+                        *common_deck.write() =
+                            DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
                         *show_price.write() = false;
                         match String::from_utf8(contents) {
                             Ok(contents) => {
@@ -256,7 +258,7 @@ pub fn JsonExport(
     export_name: String,
     export_id: String,
     allow_unreleased: bool,
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     base64_direct_import_url: Option<String>,
 ) -> Element {
@@ -281,8 +283,11 @@ pub fn JsonExport(
     let base64_direct_import_url = use_signal(|| base64_direct_import_url);
     let mut deck_error = use_signal(String::new);
 
-    let deck: Option<Deck> =
-        Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read());
+    let deck: Option<Deck> = Deck::from_common_deck(
+        deck_type,
+        common_deck.read().clone().into_deck(&db.read()),
+        &db.read(),
+    );
     debug!("{:?}", deck);
     let text = match deck {
         Some(deck) => match deck.to_text() {
@@ -296,9 +301,12 @@ pub fn JsonExport(
     };
 
     let download_file = move |_| {
-        let deck: Option<_> =
-            Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read())
-                .map(|d| (common_deck.read().file_name(&db.read()), d));
+        let deck: Option<_> = Deck::from_common_deck(
+            deck_type,
+            common_deck.read().clone().into_deck(&db.read()),
+            &db.read(),
+        )
+        .map(|d| (common_deck.read().file_name(&db.read()), d));
         if let Some((file_name, deck)) = deck {
             let file_name = format!("{file_name}.{export_id}.json");
             match deck.to_file() {
@@ -330,8 +338,11 @@ pub fn JsonExport(
 
     let direct_import = move |_| {
         if let Some(base64_direct_import_url) = base64_direct_import_url.read().as_ref() {
-            let deck: Option<_> =
-                Deck::from_common_deck(deck_type, common_deck.read().clone(), &db.read());
+            let deck: Option<_> = Deck::from_common_deck(
+                deck_type,
+                common_deck.read().clone().into_deck(&db.read()),
+                &db.read(),
+            );
             if let Some(deck) = deck {
                 match deck.to_file() {
                     Ok(file) => {
@@ -370,6 +381,7 @@ pub fn JsonExport(
             deck_check: true,
             proxy_check: false,
             allow_unreleased,
+            allow_pile: false,
             card_lang,
             db,
             common_deck,

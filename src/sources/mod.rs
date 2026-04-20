@@ -578,37 +578,28 @@ impl MergeCommonCards for Vec<CommonCard> {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
-/// Is a partial representation of a deck, used for editing and importing/exporting
-pub struct CommonDeck {
-    pub name: Option<String>,
-    pub oshi: Option<CommonCard>,
-    pub main_deck: Vec<CommonCard>,
-    pub cheer_deck: Vec<CommonCard>,
-}
+pub trait DeckLike: Clone + Hash {
+    fn name(&self) -> &Option<String>;
 
-impl CommonDeck {
-    pub fn all_cards(&self) -> impl Iterator<Item = &CommonCard> {
-        self.oshi
-            .iter()
-            .chain(self.main_deck.iter())
-            .chain(self.cheer_deck.iter())
-    }
+    fn name_mut(&mut self) -> &mut Option<String>;
 
-    pub fn all_cards_mut(&mut self) -> impl Iterator<Item = &mut CommonCard> {
-        self.oshi
-            .iter_mut()
-            .chain(self.main_deck.iter_mut())
-            .chain(self.cheer_deck.iter_mut())
-    }
+    fn oshi(&self) -> &Option<CommonCard>;
 
-    pub fn required_deck_name(&self, db: &CardsDatabase) -> String {
+    fn into_deck(self, db: &CardsDatabase) -> CommonDeck;
+
+    fn into_pile(self) -> PileOfCards;
+
+    fn all_cards(&self) -> Box<dyn Iterator<Item = &CommonCard> + '_>;
+
+    fn all_cards_mut(&mut self) -> Box<dyn Iterator<Item = &mut CommonCard> + '_>;
+
+    fn required_deck_name(&self, db: &CardsDatabase) -> String {
         self.required_deck_name_max_length(usize::MAX, db)
     }
 
-    pub fn required_deck_name_max_length(&self, max_length: usize, db: &CardsDatabase) -> String {
+    fn required_deck_name_max_length(&self, max_length: usize, db: &CardsDatabase) -> String {
         if let Some(name) = self
-            .name
+            .name()
             .as_ref()
             .map(|n| n.trim())
             .filter(|n| !n.is_empty())
@@ -620,7 +611,7 @@ impl CommonDeck {
     }
 
     fn default_deck_name(&self, max_length: usize, db: &CardsDatabase) -> String {
-        if let Some(oshi) = &self.oshi {
+        if let Some(oshi) = &self.oshi() {
             if let Some(oshi) = oshi.card_info(db) {
                 let name = oshi
                     .name
@@ -644,7 +635,7 @@ impl CommonDeck {
         "Custom deck".into()
     }
 
-    pub fn file_name(&self, db: &CardsDatabase) -> String {
+    fn file_name(&self, db: &CardsDatabase) -> String {
         let mut name = self.required_deck_name(db);
         if !name.is_ascii() {
             name = "Custom deck".into();
@@ -665,22 +656,13 @@ impl CommonDeck {
             })
     }
 
-    pub fn merge(&mut self) {
-        // remove oshi card if amount is 0
-        if let Some(oshi) = &self.oshi
-            && oshi.amount == 0
-        {
-            self.oshi = None;
-        }
-        self.main_deck = std::mem::take(&mut self.main_deck).merge();
-        self.cheer_deck = std::mem::take(&mut self.cheer_deck).merge();
+    fn merge(&mut self);
+
+    fn is_empty(&self) -> bool {
+        self.all_cards().next().is_none()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.oshi.is_none() && self.main_deck.is_empty() && self.cheer_deck.is_empty()
-    }
-
-    pub fn validate(
+    fn validate(
         &self,
         db: &CardsDatabase,
         allow_unreleased: bool,
@@ -689,32 +671,30 @@ impl CommonDeck {
         let mut errors = vec![];
 
         // check for unreleased or invalid cards
-        if self.oshi.iter().any(|c| c.is_unknown(db))
-            || self.main_deck.iter().any(|c| c.is_unknown(db))
-            || self.cheer_deck.iter().any(|c| c.is_unknown(db))
-        {
+        if self.all_cards().any(|c| c.is_unknown(db)) {
             errors.push("Contains unknown cards.".into());
         }
-        if !allow_unreleased
-            && (self.oshi.iter().any(|c| c.is_unreleased(language, db))
-                || self.main_deck.iter().any(|c| c.is_unreleased(language, db))
-                || self
-                    .cheer_deck
-                    .iter()
-                    .any(|c| c.is_unreleased(language, db)))
-        {
+        if !allow_unreleased && self.all_cards().any(|c| c.is_unreleased(language, db)) {
             errors.push("Contains unreleased cards.".into());
         }
 
         // check for card amount
-        let oshi_amount = self.oshi.iter().map(|c| c.amount).sum::<u32>();
+        let oshi_amount = self
+            .all_cards()
+            .filter(|c| c.card_type(db) == Some(CardType::Oshi))
+            .map(|c| c.amount)
+            .sum::<u32>();
         if oshi_amount > 1 {
             errors.push("Too many Oshi cards.".to_string());
         }
         if oshi_amount < 1 {
             errors.push("Missing an Oshi card.".into());
         }
-        let main_deck_amount = self.main_deck.iter().map(|c| c.amount).sum::<u32>();
+        let main_deck_amount = self
+            .all_cards()
+            .filter(|c| c.card_type(db) == Some(CardType::Main))
+            .map(|c| c.amount)
+            .sum::<u32>();
         if main_deck_amount > 50 {
             errors.push(format!(
                 "Too many cards in main deck. ({main_deck_amount} cards)"
@@ -725,7 +705,11 @@ impl CommonDeck {
                 "Not enough cards in main deck. ({main_deck_amount} cards)"
             ));
         }
-        let cheer_deck_amount = self.cheer_deck.iter().map(|c| c.amount).sum::<u32>();
+        let cheer_deck_amount = self
+            .all_cards()
+            .filter(|c| c.card_type(db) == Some(CardType::Cheer))
+            .map(|c| c.amount)
+            .sum::<u32>();
         if cheer_deck_amount > 20 {
             errors.push(format!(
                 "Too many cards in cheer deck. ({cheer_deck_amount} cards)"
@@ -739,10 +723,13 @@ impl CommonDeck {
 
         // check for unlimited cards
         // group cards by card number, to avoid miscalculation with different images
-        let main_deck = self.main_deck.iter().fold(HashMap::new(), |mut acc, c| {
-            *acc.entry(&c.card_number).or_default() += c.amount;
-            acc
-        });
+        let main_deck = self
+            .all_cards()
+            .filter(|c| c.card_type(db) == Some(CardType::Main))
+            .fold(HashMap::new(), |mut acc, c| {
+                *acc.entry(&c.card_number).or_default() += c.amount;
+                acc
+            });
         for card in main_deck
             .into_iter()
             .map(|(k, v)| CommonCard::from_card_number(k.clone(), v, db))
@@ -764,25 +751,145 @@ impl CommonDeck {
         errors
     }
 
-    pub fn calculate_hash(&self) -> u64 {
+    fn calculate_hash(&self) -> u64 {
         let mut s = DefaultHasher::new();
         self.hash(&mut s);
         s.finish()
     }
 
-    pub fn card_amount(&self, card_number: &str, illustration_idx: Option<usize>) -> u32 {
+    fn card_amount(&self, card_number: &str, illustration_idx: Option<usize>) -> u32 {
         self.all_cards()
             .find(|c| c.card_number == card_number && c.illustration_idx == illustration_idx)
             .map_or(0, |c| c.amount)
     }
 
-    pub fn add_card(
-        &mut self,
-        card: CommonCard,
-        card_type: CardType,
+    fn add_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase, sort: bool);
+
+    fn sort(&mut self, db: &CardsDatabase);
+
+    fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase);
+
+    fn price(
+        &self,
         db: &CardsDatabase,
-        sort: bool,
-    ) {
+        prices: &PriceCache,
+        service: PriceCheckService,
+        free_basic_cheers: bool,
+    ) -> f64 {
+        self.all_cards()
+            .filter_map(|c| {
+                c.price(db, prices, service, free_basic_cheers)
+                    .map(|p| (c, p))
+            })
+            .map(|(c, p)| p * c.amount as f64)
+            .sum()
+    }
+    fn is_price_approximate(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+        free_basic_cheers: bool,
+    ) -> bool {
+        self.all_cards()
+            .any(|c| c.price(db, prices, service, free_basic_cheers).is_none())
+    }
+    fn price_display(
+        &self,
+        db: &CardsDatabase,
+        prices: &PriceCache,
+        service: PriceCheckService,
+        free_basic_cheers: bool,
+    ) -> String {
+        let approx_price = if self.is_price_approximate(db, prices, service, free_basic_cheers) {
+            ">"
+        } else {
+            ""
+        };
+        let price = self.price(db, prices, service, free_basic_cheers);
+        let price = match service {
+            PriceCheckService::Yuyutei => {
+                let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
+                    .expect("locale should be present");
+                let p = Decimal::from_str(format!("{price}").as_str()).unwrap();
+                let p = f.format(&p);
+                format!("¥{p}")
+            }
+            PriceCheckService::TcgPlayer => {
+                let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
+                    .expect("locale should be present");
+                let p = Decimal::from_str(format!("{price:.2}").as_str()).unwrap();
+                let p = f.format(&p);
+                format!("${p} USD")
+            }
+        };
+        format!("{approx_price}{price}")
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+/// Is a partial representation of a deck, used for editing and importing/exporting
+pub struct CommonDeck {
+    pub name: Option<String>,
+    pub oshi: Option<CommonCard>,
+    pub main_deck: Vec<CommonCard>,
+    pub cheer_deck: Vec<CommonCard>,
+}
+
+impl DeckLike for CommonDeck {
+    fn name(&self) -> &Option<String> {
+        &self.name
+    }
+
+    fn name_mut(&mut self) -> &mut Option<String> {
+        &mut self.name
+    }
+
+    fn oshi(&self) -> &Option<CommonCard> {
+        &self.oshi
+    }
+
+    fn into_deck(self, _db: &CardsDatabase) -> CommonDeck {
+        self
+    }
+
+    fn into_pile(self) -> PileOfCards {
+        PileOfCards {
+            cards: self.all_cards().cloned().collect(),
+            name: self.name,
+        }
+    }
+
+    fn all_cards(&self) -> Box<dyn Iterator<Item = &CommonCard> + '_> {
+        Box::new(
+            self.oshi
+                .iter()
+                .chain(self.main_deck.iter())
+                .chain(self.cheer_deck.iter()),
+        )
+    }
+
+    fn all_cards_mut(&mut self) -> Box<dyn Iterator<Item = &mut CommonCard> + '_> {
+        Box::new(
+            self.oshi
+                .iter_mut()
+                .chain(self.main_deck.iter_mut())
+                .chain(self.cheer_deck.iter_mut()),
+        )
+    }
+
+    fn merge(&mut self) {
+        // remove oshi card if amount is 0
+        if let Some(oshi) = &self.oshi
+            && oshi.amount == 0
+        {
+            self.oshi = None;
+        }
+        self.main_deck = std::mem::take(&mut self.main_deck).merge();
+        self.cheer_deck = std::mem::take(&mut self.cheer_deck).merge();
+    }
+
+    fn add_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase, sort: bool) {
         match card.card_type(db).unwrap_or(card_type) {
             CardType::Oshi => self.oshi = Some(card.clone()),
             CardType::Main => self.main_deck.push(card),
@@ -796,7 +903,7 @@ impl CommonDeck {
         }
     }
 
-    pub fn sort(&mut self, db: &CardsDatabase) {
+    fn sort(&mut self, db: &CardsDatabase) {
         // cheers bias
         let cheers_colors = self
             .cheer_deck
@@ -838,7 +945,7 @@ impl CommonDeck {
         });
     }
 
-    pub fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {
+    fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {
         match card.card_type(db).unwrap_or(card_type) {
             CardType::Oshi => self.oshi.iter_mut().for_each(|c| {
                 if c.illustration_idx == card.illustration_idx && c.card_number == card.card_number
@@ -861,61 +968,182 @@ impl CommonDeck {
         }
         self.merge();
     }
+}
 
-    pub fn price(
-        &self,
-        db: &CardsDatabase,
-        prices: &PriceCache,
-        service: PriceCheckService,
-        free_basic_cheers: bool,
-    ) -> f64 {
-        self.all_cards()
-            .filter_map(|c| {
-                c.price(db, prices, service, free_basic_cheers)
-                    .map(|p| (c, p))
-            })
-            .map(|(c, p)| p * c.amount as f64)
-            .sum()
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+/// Is a list of cards, useful for features that don't require a valid deck representation
+pub struct PileOfCards {
+    pub name: Option<String>,
+    pub cards: Vec<CommonCard>,
+}
+
+impl DeckLike for PileOfCards {
+    fn name(&self) -> &Option<String> {
+        &self.name
     }
-    pub fn is_price_approximate(
-        &self,
-        db: &CardsDatabase,
-        prices: &PriceCache,
-        service: PriceCheckService,
-        free_basic_cheers: bool,
-    ) -> bool {
-        self.all_cards()
-            .any(|c| c.price(db, prices, service, free_basic_cheers).is_none())
+
+    fn name_mut(&mut self) -> &mut Option<String> {
+        &mut self.name
     }
-    pub fn price_display(
-        &self,
-        db: &CardsDatabase,
-        prices: &PriceCache,
-        service: PriceCheckService,
-        free_basic_cheers: bool,
-    ) -> String {
-        let approx_price = if self.is_price_approximate(db, prices, service, free_basic_cheers) {
-            ">"
-        } else {
-            ""
+
+    fn oshi(&self) -> &Option<CommonCard> {
+        &None
+    }
+
+    fn into_deck(self, db: &CardsDatabase) -> CommonDeck {
+        let mut deck = CommonDeck {
+            name: self.name,
+            ..Default::default()
         };
-        let price = self.price(db, prices, service, free_basic_cheers);
-        let price = match service {
-            PriceCheckService::Yuyutei => {
-                let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
-                    .expect("locale should be present");
-                let p = Decimal::from_str(format!("{price}").as_str()).unwrap();
-                let p = f.format(&p);
-                format!("¥{p}")
+        for mut card in self.cards {
+            match card.card_type(db) {
+                Some(CardType::Oshi) => {
+                    if deck.oshi.is_none() {
+                        card.amount = 1;
+                        deck.oshi = Some(card);
+                    }
+                }
+                Some(CardType::Main) => deck.main_deck.push(card),
+                Some(CardType::Cheer) => deck.cheer_deck.push(card),
+                None => {}
             }
-            PriceCheckService::TcgPlayer => {
-                let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
-                    .expect("locale should be present");
-                let p = Decimal::from_str(format!("{price:.2}").as_str()).unwrap();
-                let p = f.format(&p);
-                format!("${p} USD")
+        }
+        deck
+    }
+
+    fn into_pile(self) -> PileOfCards {
+        self
+    }
+
+    fn all_cards(&self) -> Box<dyn Iterator<Item = &CommonCard> + '_> {
+        Box::new(self.cards.iter())
+    }
+
+    fn all_cards_mut(&mut self) -> Box<dyn Iterator<Item = &mut CommonCard> + '_> {
+        Box::new(self.cards.iter_mut())
+    }
+
+    fn merge(&mut self) {
+        self.cards = std::mem::take(&mut self.cards).merge();
+    }
+
+    fn add_card(&mut self, card: CommonCard, _card_type: CardType, db: &CardsDatabase, sort: bool) {
+        self.cards.push(card);
+        self.merge();
+
+        // sort the decks
+        if sort {
+            self.sort(db);
+        }
+    }
+
+    fn sort(&mut self, db: &CardsDatabase) {
+        let sort_opt = CardOrderingOptions::member_first();
+        self.cards.sort_by_cached_key(|c| {
+            (
+                c.card_info(db).map(|c| sort_opt.for_card(c)),
+                c.illustration_idx,
+            )
+        });
+    }
+
+    fn remove_card(&mut self, card: CommonCard, _card_type: CardType, _db: &CardsDatabase) {
+        self.cards.iter_mut().for_each(|c| {
+            if c.illustration_idx == card.illustration_idx && c.card_number == card.card_number {
+                c.amount = c.amount.saturating_sub(card.amount);
             }
-        };
-        format!("{approx_price}{price}")
+        });
+        self.merge();
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum DeckOrPile {
+    Deck(CommonDeck),
+    Pile(PileOfCards),
+}
+
+impl Default for DeckOrPile {
+    fn default() -> Self {
+        DeckOrPile::Deck(CommonDeck::default())
+    }
+}
+
+impl DeckLike for DeckOrPile {
+    fn name(&self) -> &Option<String> {
+        match self {
+            DeckOrPile::Deck(d) => d.name(),
+            DeckOrPile::Pile(p) => p.name(),
+        }
+    }
+
+    fn name_mut(&mut self) -> &mut Option<String> {
+        match self {
+            DeckOrPile::Deck(d) => d.name_mut(),
+            DeckOrPile::Pile(p) => p.name_mut(),
+        }
+    }
+
+    fn oshi(&self) -> &Option<CommonCard> {
+        match self {
+            DeckOrPile::Deck(d) => d.oshi(),
+            DeckOrPile::Pile(p) => p.oshi(),
+        }
+    }
+
+    fn into_deck(self, db: &CardsDatabase) -> CommonDeck {
+        match self {
+            DeckOrPile::Deck(d) => d.into_deck(db),
+            DeckOrPile::Pile(p) => p.into_deck(db),
+        }
+    }
+
+    fn into_pile(self) -> PileOfCards {
+        match self {
+            DeckOrPile::Deck(d) => d.into_pile(),
+            DeckOrPile::Pile(p) => p.into_pile(),
+        }
+    }
+
+    fn all_cards(&self) -> Box<dyn Iterator<Item = &CommonCard> + '_> {
+        match self {
+            DeckOrPile::Deck(d) => d.all_cards(),
+            DeckOrPile::Pile(p) => p.all_cards(),
+        }
+    }
+
+    fn all_cards_mut(&mut self) -> Box<dyn Iterator<Item = &mut CommonCard> + '_> {
+        match self {
+            DeckOrPile::Deck(d) => d.all_cards_mut(),
+            DeckOrPile::Pile(p) => p.all_cards_mut(),
+        }
+    }
+
+    fn merge(&mut self) {
+        match self {
+            DeckOrPile::Deck(d) => d.merge(),
+            DeckOrPile::Pile(p) => p.merge(),
+        }
+    }
+
+    fn add_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase, sort: bool) {
+        match self {
+            DeckOrPile::Deck(d) => d.add_card(card, card_type, db, sort),
+            DeckOrPile::Pile(p) => p.add_card(card, card_type, db, sort),
+        }
+    }
+
+    fn sort(&mut self, db: &CardsDatabase) {
+        match self {
+            DeckOrPile::Deck(d) => d.sort(db),
+            DeckOrPile::Pile(p) => p.sort(db),
+        }
+    }
+
+    fn remove_card(&mut self, card: CommonCard, card_type: CardType, db: &CardsDatabase) {
+        match self {
+            DeckOrPile::Deck(d) => d.remove_card(card, card_type, db),
+            DeckOrPile::Pile(p) => p.remove_card(card, card_type, db),
+        }
     }
 }

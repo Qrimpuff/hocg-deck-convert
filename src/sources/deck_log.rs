@@ -7,6 +7,7 @@ use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::components::deck_validation::DeckValidation;
+use crate::sources::{DeckLike, DeckOrPile};
 use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
@@ -221,7 +222,7 @@ fn http_client() -> &'static Client {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -296,7 +297,7 @@ pub fn Import(
                         error: None,
                     },
                 );
-                *common_deck.write() = Deck::to_common_deck(deck, &db.read());
+                *common_deck.write() = DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
                 *show_price.write() = false;
             }
             Err(e) => {
@@ -372,7 +373,7 @@ pub fn Import(
 static PUBLISH_CACHE: GlobalSignal<HashMap<(u32, u64), String>> = Signal::global(Default::default);
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
+pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -397,6 +398,15 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
 
     let publish_deck = move |_| async move {
         let common_deck = common_deck.read();
+
+        // validate before publish
+        if !common_deck
+            .validate(&db.read(), false, *card_lang.read())
+            .is_empty()
+        {
+            return;
+        }
+
         *loading.write() = true;
         *deck_log_url.write() = String::new();
         *deck_error.write() = String::new();
@@ -416,7 +426,11 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             8 => CardLanguage::English,
             _ => unreachable!(),
         };
-        let deck = Deck::from_common_deck(common_deck.clone(), language, &db.read());
+        let deck = Deck::from_common_deck(
+            common_deck.clone().into_deck(&db.read()),
+            language,
+            &db.read(),
+        );
         if let Some(mut deck) = deck {
             match deck.publish(*game_title_id.read()).await {
                 Ok(url) => {
@@ -457,6 +471,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             deck_check: true,
             proxy_check: false,
             allow_unreleased: false,
+            allow_pile: false,
             card_lang,
             db,
             common_deck,

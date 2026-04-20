@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::DeckType;
+use crate::sources::DeckOrPile;
 
 use super::json::{JsonExport, JsonImport};
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
@@ -104,7 +105,7 @@ impl Deck {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -121,7 +122,7 @@ pub fn Import(
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
+pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
         JsonExport {
             deck_type: DeckType::HoloDelta,

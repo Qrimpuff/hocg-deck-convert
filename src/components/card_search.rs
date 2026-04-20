@@ -9,7 +9,7 @@ use crate::{
     ALL_CARDS_SORTED, CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, GLOBAL_RARITY,
     GLOBAL_RELEASE,
     components::{card::Card, modal_popup::ModelPopup},
-    sources::{CommonCard, CommonDeck, ImageOptions},
+    sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, track_event},
 };
 
@@ -603,7 +603,7 @@ fn is_scrolled_to_bottom(container: &web_sys::Element) -> bool {
 pub fn CardSearch(
     #[props(default)] popup_id: usize,
     db: Signal<CardsDatabase>,
-    common_deck: Signal<CommonDeck>,
+    common_deck: Signal<DeckOrPile>,
     is_edit: Signal<bool>,
     #[props(default)] default_filters: Filters,
     #[props(default = true)] show_inputs: bool,

@@ -1,12 +1,15 @@
 use dioxus::prelude::*;
 
-use crate::components::card_search::CardSearch;
+use crate::{
+    components::card_search::CardSearch,
+    sources::{DeckLike, DeckOrPile},
+};
 
-use super::{CardsDatabase, CommonDeck};
+use super::CardsDatabase;
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     is_edit: Signal<bool>,
 ) -> Element {

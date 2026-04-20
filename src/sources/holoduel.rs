@@ -8,7 +8,7 @@ use super::{
     MergeCommonCards,
     json::{JsonExport, JsonImport},
 };
-use crate::DeckType;
+use crate::{DeckType, sources::DeckOrPile};
 
 use super::{CardsDatabase, CommonCard, CommonDeck};
 
@@ -114,7 +114,7 @@ impl Deck {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -131,7 +131,7 @@ pub fn Import(
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
+pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
         JsonExport {
             deck_type: DeckType::HoloDuel,

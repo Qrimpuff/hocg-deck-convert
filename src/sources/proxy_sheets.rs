@@ -12,8 +12,9 @@ use imageproc::drawing::draw_line_segment_mut;
 use printpdf::*;
 use serde::Serialize;
 
-use super::{CardsDatabase, CommonDeck, ImageOptions};
+use super::{CardsDatabase, ImageOptions};
 use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
+use crate::sources::{DeckLike, DeckOrPile};
 use crate::{CardLanguage, EventType, PREVIEW_CARD_LANG, download_file, track_event};
 
 #[derive(Clone, Copy, Serialize, PartialEq, Eq)]
@@ -232,7 +233,7 @@ fn draw_line_thick_mut(
 }
 
 async fn generate_pdf(
-    deck: &CommonDeck,
+    deck: &DeckOrPile,
     db: &CardsDatabase,
     card_lang: CardLanguage,
     paper_size: PaperSize,
@@ -261,7 +262,10 @@ async fn generate_pdf(
     let cards: Box<dyn Iterator<Item = &crate::CommonCard>> = if include_cheers {
         Box::new(deck.all_cards())
     } else {
-        Box::new(deck.oshi.iter().chain(deck.main_deck.iter()))
+        Box::new(
+            deck.all_cards()
+                .filter(|c| c.card_type(db) != Some(crate::CardType::Cheer)),
+        )
     };
     let cards: Vec<_> = cards
         .filter(|c| {
@@ -465,7 +469,7 @@ async fn generate_pdf(
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
+pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -555,6 +559,7 @@ pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) ->
             deck_check: true,
             proxy_check: true,
             allow_unreleased: true,
+            allow_pile: true,
             card_lang,
             db,
             common_deck,

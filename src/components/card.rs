@@ -6,7 +6,9 @@ use crate::{
     CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, FREE_BASIC_CHEERS, PREVIEW_CARD_LANG,
     PRICE_SERVICE,
     components::modal_popup::{Popup, show_popup},
-    sources::{CommonCard, CommonDeck, DeckType, ImageOptions, price_check::PriceCheckService},
+    sources::{
+        CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
+    },
     tracker::{EventType, track_event, track_url},
 };
 
@@ -18,7 +20,7 @@ pub fn Card(
     is_preview: bool,
     image_options: ImageOptions,
     db: Signal<CardsDatabase>,
-    common_deck: Option<Signal<CommonDeck>>,
+    common_deck: Option<Signal<DeckOrPile>>,
     is_edit: Signal<bool>,
     show_price: Option<Signal<bool>>,
     card_detail: Option<Signal<CommonCard>>,
@@ -27,6 +29,10 @@ pub fn Card(
     struct EventData {
         action: String,
     }
+
+    let deck_is_pile = common_deck
+        .as_ref()
+        .is_some_and(|d| matches!(*d.read(), DeckOrPile::Pile(_)));
 
     let img_class = if card_type == CardType::Oshi {
         "card-img-oshi"
@@ -72,7 +78,11 @@ pub fn Card(
     } else {
         0
     };
-    let max_amount = card.max_amount(*card_lang.read(), &db.read());
+    let max_amount = if deck_is_pile {
+        100
+    } else {
+        card.max_amount(*card_lang.read(), &db.read())
+    };
     let warning_amount = total_amount > max_amount;
     let warning_amount_class = if warning_amount {
         "is-warning"
@@ -211,7 +221,10 @@ pub fn Card(
             }
             if *is_edit.read() {
                 div { class: "mt-1 is-flex is-justify-content-center",
-                    if card.card_type(&db.read()) == Some(CardType::Oshi) || card_type == CardType::Oshi {
+                    if !deck_is_pile
+                        && (card.card_type(&db.read()) == Some(CardType::Oshi)
+                            || card_type == CardType::Oshi)
+                    {
                         if card.amount > 0 {
                             button {
                                 r#type: "button",
@@ -253,10 +266,14 @@ pub fn Card(
                                 title: "Add 1 {tooltip}",
                                 // disable when reaching max amount. not total amount. allows some buffer for deck building
                                 disabled: card.amount
-                                    >= match card.card_info(&db.read()).map(|info| info.card_type) {
-                                        Some(hocg::CardType::OshiHoloMember) => 1,
-                                        Some(hocg::CardType::Cheer) => 20,
-                                        _ => 50,
+                                    >= if deck_is_pile {
+                                        100
+                                    } else {
+                                        match card.card_info(&db.read()).map(|info| info.card_type) {
+                                            Some(hocg::CardType::OshiHoloMember) => 1,
+                                            Some(hocg::CardType::Cheer) => 20,
+                                            _ => 50,
+                                        }
                                     },
                                 onclick: add_card,
                                 span { class: "icon is-small has-text-success",

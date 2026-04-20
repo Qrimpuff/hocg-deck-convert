@@ -498,7 +498,7 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -508,7 +508,7 @@ pub fn Import(
         deck_id: String,
     }
 
-    let mut starter_deck_idx: Signal<Option<usize>> = use_signal(|| Some(0));
+    let mut starter_deck_idx: Signal<Option<usize>> = use_signal(|| None);
     let mut oshi_option_idx: Signal<Option<usize>> = use_signal(|| Some(0));
     let mut loading = use_signal(|| false);
 
@@ -540,7 +540,7 @@ pub fn Import(
                 },
             );
         }
-        *common_deck.write() = deck.map(|d| d.deck.clone()).unwrap_or_default();
+        *common_deck.write() = DeckOrPile::Deck(deck.map(|d| d.deck.clone()).unwrap_or_default());
 
         *show_price.write() = false;
         *loading.write() = false;
@@ -586,6 +586,11 @@ pub fn Import(
                             *starter_deck_idx.write() = ev.value().parse().ok();
                             load_deck();
                         },
+                        option {
+                            value: "",
+                            selected: starter_deck_idx.read().is_none(),
+                            "Select"
+                        }
                         for (idx , deck) in starter_decks(&db.read()).iter().enumerate() {
                             option {
                                 value: "{idx}",

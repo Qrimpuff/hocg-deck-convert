@@ -49,7 +49,7 @@ static CURRENT_PAGE: GlobalSignal<Page> = Signal::global(|| Page::Import);
 static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 
-static COMMON_DECK: GlobalSignal<CommonDeck> = Signal::global(Default::default);
+static COMMON_DECK: GlobalSignal<DeckOrPile> = Signal::global(Default::default);
 static PREVIEW_CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
 // default to the first export format (holoDelta)
 static PREVIEW_IMAGE_OPTIONS: GlobalSignal<ImageOptions> = Signal::global(ImageOptions::holodelta);
@@ -158,6 +158,7 @@ fn App() -> Element {
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 *CURRENT_PAGE.write() = Page::Edit;
+                                *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
                                 *EDIT_DECK.write() = true;
                                 track_url("Edit deck");
                             },
@@ -171,8 +172,8 @@ fn App() -> Element {
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 *CURRENT_PAGE.write() = Page::Import;
+                                *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::deck_log();
                                 *EDIT_DECK.write() = false;
-                                *COMMON_DECK.write() = Default::default();
                                 *SHOW_PRICE.write() = false;
                                 *IMPORT_FORMAT.write() = Some(DeckType::StarterDecks);
                                 track_url("Official starter decks");
@@ -351,9 +352,17 @@ fn Form() -> Element {
                         r#type: "button",
                         title: "Import deck",
                         "aria-label": "Import deck",
-                        onclick: |_| {
+                        onclick: move |_| {
                             *CURRENT_PAGE.write() = Page::Import;
                             *EDIT_DECK.write() = false;
+                            *PREVIEW_IMAGE_OPTIONS.write() = match &*import_format.read() {
+                                Some(DeckType::StarterDecks) => ImageOptions::deck_log(),
+                                Some(DeckType::DeckLog) => ImageOptions::deck_log(),
+                                Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
+                                Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
+                                Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
+                                _ => ImageOptions::holodelta(),
+                            };
                         },
                         span { class: "icon is-small",
                             i { class: "fa-solid fa-cloud-arrow-down" }
@@ -371,6 +380,7 @@ fn Form() -> Element {
                         onclick: |_| {
                             *CURRENT_PAGE.write() = Page::Edit;
                             *EDIT_DECK.write() = true;
+                            *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
                         },
                         span { class: "icon is-small",
                             i { class: "fa-solid fa-pen-to-square" }
@@ -385,9 +395,18 @@ fn Form() -> Element {
                         r#type: "button",
                         title: "Export deck",
                         "aria-label": "Export deck",
-                        onclick: |_| {
+                        onclick: move |_| {
                             *CURRENT_PAGE.write() = Page::Export;
                             *EDIT_DECK.write() = false;
+                            *PREVIEW_IMAGE_OPTIONS.write() = match &*export_format.read() {
+                                Some(DeckType::DeckLog) => ImageOptions::deck_log(),
+                                Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
+                                Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
+                                Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
+                                Some(DeckType::ProxySheets) => ImageOptions::proxy_print(),
+                                Some(DeckType::PriceCheck) => ImageOptions::price_check(),
+                                _ => ImageOptions::holodelta(),
+                            };
                         },
                         span { class: "icon is-small",
                             i { class: "fa-solid fa-share" }
@@ -425,8 +444,15 @@ pub fn ImportPage() -> Element {
                     select {
                         id: "import_format",
                         oninput: move |ev| {
-                            *COMMON_DECK.write() = Default::default();
                             *SHOW_PRICE.write() = false;
+                            *PREVIEW_IMAGE_OPTIONS.write() = match ev.value().as_str() {
+                                "starter_decks" => ImageOptions::deck_log(),
+                                "deck_log" => ImageOptions::deck_log(),
+                                "holo_delta" => ImageOptions::holodelta(),
+                                "holo_duel" => ImageOptions::holodelta(),
+                                "hocg_tts" => ImageOptions::deck_log(),
+                                _ => ImageOptions::holodelta(),
+                            };
                             *import_format.write() = match ev.value().as_str() {
                                 "starter_decks" => Some(DeckType::StarterDecks),
                                 "deck_log" => Some(DeckType::DeckLog),
@@ -632,7 +658,7 @@ pub fn ExportPage() -> Element {
 
 #[component]
 pub fn UnknownImport(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -650,7 +676,6 @@ pub fn UnknownImport(
     let mut file_name = use_signal(String::new);
 
     let from_file = move |event: Event<FormData>| async move {
-        *common_deck.write() = Default::default();
         *show_price.write() = false;
         *deck_error.write() = "".into();
         *deck_success.write() = "".into();
@@ -666,7 +691,8 @@ pub fn UnknownImport(
                 let deck = holodelta::Deck::from_file(&contents);
                 debug!("{:?}", deck);
                 if let Ok(deck) = deck {
-                    *common_deck.write() = holodelta::Deck::to_common_deck(deck, &db.read());
+                    *common_deck.write() =
+                        DeckOrPile::Deck(holodelta::Deck::to_common_deck(deck, &db.read()));
                     *deck_success.write() = "Deck file format: holoDelta".into();
                     *show_price.write() = false;
                     track_event(
@@ -684,7 +710,8 @@ pub fn UnknownImport(
                 let deck = holoduel::Deck::from_file(&contents);
                 debug!("{:?}", deck);
                 if let Ok(deck) = deck {
-                    *common_deck.write() = holoduel::Deck::to_common_deck(deck, &db.read());
+                    *common_deck.write() =
+                        DeckOrPile::Deck(holoduel::Deck::to_common_deck(deck, &db.read()));
                     *deck_success.write() = "Deck file format: HoloDuel".into();
                     *show_price.write() = false;
                     track_event(
@@ -702,7 +729,8 @@ pub fn UnknownImport(
                 let deck = tabletop_sim::Deck::from_file(&contents);
                 debug!("{:?}", deck);
                 if let Ok(deck) = deck {
-                    *common_deck.write() = tabletop_sim::Deck::to_common_deck(deck, &db.read());
+                    *common_deck.write() =
+                        DeckOrPile::Deck(tabletop_sim::Deck::to_common_deck(deck, &db.read()));
                     *deck_success.write() =
                         "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
                     *show_price.write() = false;

@@ -7,6 +7,7 @@ use super::json::{JsonExport, JsonImport};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
 use crate::DeckType;
+use crate::sources::DeckOrPile;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OshiCard([String; 1]);
@@ -100,7 +101,7 @@ impl Deck {
 
 #[component]
 pub fn Import(
-    mut common_deck: Signal<CommonDeck>,
+    mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     show_price: Signal<bool>,
 ) -> Element {
@@ -117,7 +118,7 @@ pub fn Import(
 }
 
 #[component]
-pub fn Export(mut common_deck: Signal<CommonDeck>, db: Signal<CardsDatabase>) -> Element {
+pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
         JsonExport {
             deck_type: DeckType::TabletopSim,
