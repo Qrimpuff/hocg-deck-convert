@@ -158,6 +158,7 @@ fn App() -> Element {
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 *CURRENT_PAGE.write() = Page::Edit;
+                                *EDIT_DECK.write() = true;
                                 track_url("Edit deck");
                             },
                             "Edit deck"
@@ -170,6 +171,7 @@ fn App() -> Element {
                             onclick: move |evt| {
                                 evt.prevent_default();
                                 *CURRENT_PAGE.write() = Page::Import;
+                                *EDIT_DECK.write() = false;
                                 *COMMON_DECK.write() = Default::default();
                                 *SHOW_PRICE.write() = false;
                                 *IMPORT_FORMAT.write() = Some(DeckType::StarterDecks);
