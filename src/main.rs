@@ -30,6 +30,7 @@ use crate::{
     components::{
         card_search::{FilterRarity, FilterRelease, prepare_text_cache},
         modal_popup::ModalPopupStack,
+        tooltip::Tooltip,
     },
     sources::price_check::PriceCheckService,
     tracker::track_error,
@@ -282,10 +283,12 @@ fn App() -> Element {
                         "v{VERSION}"
                         if let Some(git_hash) = GIT_HASH {
                             " ("
-                            span {
-                                class: "has-tooltip-arrow has-tooltip-top",
-                                border_bottom_color: "currentColor",
-                                "data-tooltip": if let Some(git_timestamp) = GIT_TIMESTAMP { format!("{git_timestamp}") },
+                            if let Some(git_timestamp) = GIT_TIMESTAMP {
+                                Tooltip {
+                                    tooltip: String::from(git_timestamp),
+                                    "{git_hash}"
+                                }
+                            } else {
                                 "{git_hash}"
                             }
                             ")"

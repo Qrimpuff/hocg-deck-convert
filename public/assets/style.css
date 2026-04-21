@@ -196,6 +196,26 @@
     position: relative;
 }
 
+.custom-tooltip.custom-tooltip-no-underline {
+    border-bottom: none;
+}
+
+.custom-tooltip.custom-tooltip-right .custom-tooltip-content {
+    left: calc(100% + 0.45rem);
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.custom-tooltip.custom-tooltip-right .custom-tooltip-content::after {
+    border-color: transparent hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 18%) transparent transparent;
+    border-width: 0.35rem 0.35rem 0.35rem 0;
+    left: auto;
+    right: 100%;
+    top: var(--tooltip-arrow-top, 50%);
+    transform: translateY(-50%);
+}
+
 .custom-tooltip-content {
     background: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 18%);
     border-radius: 0.5rem;
@@ -205,7 +225,7 @@
     font-size: 0.75rem;
     left: 50%;
     line-height: 1.35;
-    max-width: min(22rem, calc(100vw - 2rem));
+    max-width: min(16rem, calc(100vw - 2rem));
     opacity: 0;
     padding: 0.45rem 0.6rem;
     pointer-events: none;

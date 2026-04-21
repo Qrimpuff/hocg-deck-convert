@@ -14,6 +14,7 @@ use crate::{
         card::Card,
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
         modal_popup::{ModelPopup, Popup, show_popup},
+        tooltip::{Tooltip, TooltipPlacement},
     },
     sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, track_event, track_url},
@@ -112,16 +113,24 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                 div { class: "subtitle",
                     "{subtitle}"
                     if unreleased.read().0 {
-                        span {
-                            class: "icon is-small has-text-warning ml-2",
-                            title: "This card is unreleased",
-                            i { class: "fa-solid fa-triangle-exclamation" }
+                        Tooltip {
+                            tooltip: String::from("This card is unreleased."),
+                            underline: false,
+                            placement: TooltipPlacement::Right,
+                            span {
+                                class: "icon is-small has-text-warning ml-2",
+                                i { class: "fa-solid fa-triangle-exclamation" }
+                            }
                         }
                     } else if !unreleased.read().1.is_empty() {
-                        span {
-                            class: "icon is-small has-text-info ml-2",
-                            title: "This card is unreleased in {unreleased.read().1}",
-                            i { class: "fa-solid fa-info-circle" }
+                        Tooltip {
+                            tooltip: format!("This card is unreleased in {}.", unreleased.read().1),
+                            underline: false,
+                            placement: TooltipPlacement::Right,
+                            span {
+                                class: "icon is-small has-text-info ml-2",
+                                i { class: "fa-solid fa-info-circle" }
+                            }
                         }
                     }
                 }
@@ -1151,13 +1160,27 @@ fn CheersDisplay(
                 class: "icon-text",
                 vertical_align: "sub",
                 user_select: if no_title { "none" },
-                span {
-                    class: "icon",
-                    class: if is_small { "is-small" },
-                    margin_right: "0.1rem",
-                    img {
-                        title: if !no_title { "{cheer_alt}" },
-                        src: "{cheer_img}",
+                if no_title {
+                    span {
+                        class: "icon",
+                        class: if is_small { "is-small" },
+                        margin_right: "0.1rem",
+                        img {
+                            src: "{cheer_img}",
+                        }
+                    }
+                } else {
+                    Tooltip {
+                        tooltip: String::from(cheer_alt),
+                        underline: false,
+                        span {
+                            class: "icon",
+                            class: if is_small { "is-small" },
+                            margin_right: "0.1rem",
+                            img {
+                                src: "{cheer_img}",
+                            }
+                        }
                     }
                 }
             }
