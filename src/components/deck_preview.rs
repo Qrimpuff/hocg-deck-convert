@@ -65,6 +65,7 @@ pub fn DeckPreview(
                 },
             );
         }
+        common_deck.write().sort(&db.read());
         *is_pile.write() ^= true;
     };
 
