@@ -117,8 +117,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                             tooltip: String::from("This card is unreleased."),
                             underline: false,
                             placement: TooltipPlacement::Right,
-                            span {
-                                class: "icon is-small has-text-warning ml-2",
+                            span { class: "icon is-small has-text-warning ml-2",
                                 i { class: "fa-solid fa-triangle-exclamation" }
                             }
                         }
@@ -127,8 +126,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                             tooltip: format!("This card is unreleased in {}.", unreleased.read().1),
                             underline: false,
                             placement: TooltipPlacement::Right,
-                            span {
-                                class: "icon is-small has-text-info ml-2",
+                            span { class: "icon is-small has-text-info ml-2",
                                 i { class: "fa-solid fa-info-circle" }
                             }
                         }
@@ -823,7 +821,7 @@ pub fn CardDetailsContent(
                 }
 
                 div { class: "block",
-                    for (tag , is_link) in tags.read().iter().cloned() {
+                    for (tag, is_link) in tags.read().iter().cloned() {
                         if is_link {
                             span { class: "tag",
                                 a {
@@ -1155,7 +1153,7 @@ fn CheersDisplay(
     });
 
     rsx! {
-        for (cheer_img , cheer_alt) in cheers {
+        for (cheer_img, cheer_alt) in cheers {
             span {
                 class: "icon-text",
                 vertical_align: "sub",
@@ -1165,21 +1163,15 @@ fn CheersDisplay(
                         class: "icon",
                         class: if is_small { "is-small" },
                         margin_right: "0.1rem",
-                        img {
-                            src: "{cheer_img}",
-                        }
+                        img { src: "{cheer_img}" }
                     }
                 } else {
-                    Tooltip {
-                        tooltip: String::from(cheer_alt),
-                        underline: false,
+                    Tooltip { tooltip: String::from(cheer_alt), underline: false,
                         span {
                             class: "icon",
                             class: if is_small { "is-small" },
                             margin_right: "0.1rem",
-                            img {
-                                src: "{cheer_img}",
-                            }
+                            img { src: "{cheer_img}" }
                         }
                     }
                 }

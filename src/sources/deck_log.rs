@@ -221,11 +221,7 @@ fn http_client() -> &'static Client {
 }
 
 #[component]
-pub fn Import(
-    mut common_deck: Signal<DeckOrPile>,
-    db: Signal<CardsDatabase>,
-    show_price: Signal<bool>,
-) -> Element {
+pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -298,7 +294,6 @@ pub fn Import(
                     },
                 );
                 *common_deck.write() = DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
-                *show_price.write() = false;
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();

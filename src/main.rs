@@ -30,6 +30,7 @@ use crate::{
     components::{
         card_search::{FilterRarity, FilterRelease, prepare_text_cache},
         modal_popup::ModalPopupStack,
+        save_load::{SaveDeckOrPile, SaveLoadPage},
         tooltip::Tooltip,
     },
     sources::price_check::PriceCheckService,
@@ -62,13 +63,14 @@ static PRICE_SERVICE: GlobalSignal<PriceCheckService> =
 static SHOW_PRICE: GlobalSignal<bool> = Signal::global(|| false);
 static FREE_BASIC_CHEERS: GlobalSignal<bool> = Signal::global(|| false);
 
-const PAGE_LABELS_MIN_WIDTH: i32 = 320;
+const PAGE_LABELS_MIN_WIDTH: i32 = 360;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {
     Import,
     Edit,
     Export,
+    SaveLoad,
 }
 
 fn main() {
@@ -161,6 +163,7 @@ fn App() -> Element {
                                 *CURRENT_PAGE.write() = Page::Edit;
                                 *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
                                 *EDIT_DECK.write() = true;
+                                *SHOW_PRICE.write() = false;
                                 track_url("Edit deck");
                             },
                             "Edit deck"
@@ -284,10 +287,7 @@ fn App() -> Element {
                         if let Some(git_hash) = GIT_HASH {
                             " ("
                             if let Some(git_timestamp) = GIT_TIMESTAMP {
-                                Tooltip {
-                                    tooltip: String::from(git_timestamp),
-                                    "{git_hash}"
-                                }
+                                Tooltip { tooltip: String::from(git_timestamp), "{git_hash}" }
                             } else {
                                 "{git_hash}"
                             }
@@ -348,7 +348,27 @@ fn Form() -> Element {
             div {
                 class: "mb-4 is-flex is-justify-content-center",
                 id: "page-buttons-row",
-                div { class: "buttons has-addons",
+                div { class: "buttons has-addons is-flex-wrap-nowrap",
+                    button {
+                        class: "button",
+                        class: if *CURRENT_PAGE.read() == Page::SaveLoad { "is-link is-selected" },
+                        r#type: "button",
+                        title: "Save or load deck",
+                        "aria-label": "Save or load deck",
+                        onclick: |_| {
+                            *CURRENT_PAGE.write() = Page::SaveLoad;
+                            *EDIT_DECK.write() = false;
+                            *SHOW_PRICE.write() = false;
+                            *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
+                        },
+                        span { class: "icon is-small",
+                            i { class: "fa-solid fa-floppy-disk" }
+                        }
+                        // only show label on mobile
+                        if !show_page_labels && *CURRENT_PAGE.read() == Page::SaveLoad {
+                            span { "Save/Load" }
+                        }
+                    }
                     button {
                         class: "button",
                         class: if *CURRENT_PAGE.read() == Page::Import { "is-link is-selected" },
@@ -358,6 +378,7 @@ fn Form() -> Element {
                         onclick: move |_| {
                             *CURRENT_PAGE.write() = Page::Import;
                             *EDIT_DECK.write() = false;
+                            *SHOW_PRICE.write() = false;
                             *PREVIEW_IMAGE_OPTIONS.write() = match &*import_format.read() {
                                 Some(DeckType::StarterDecks) => ImageOptions::deck_log(),
                                 Some(DeckType::DeckLog) => ImageOptions::deck_log(),
@@ -383,6 +404,7 @@ fn Form() -> Element {
                         onclick: |_| {
                             *CURRENT_PAGE.write() = Page::Edit;
                             *EDIT_DECK.write() = true;
+                            *SHOW_PRICE.write() = false;
                             *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
                         },
                         span { class: "icon is-small",
@@ -401,6 +423,12 @@ fn Form() -> Element {
                         onclick: move |_| {
                             *CURRENT_PAGE.write() = Page::Export;
                             *EDIT_DECK.write() = false;
+                            *SHOW_PRICE.write() = false;
+                            *PRICE_SERVICE.write() = PriceCheckService::Yuyutei;
+                            *PREVIEW_CARD_LANG.write() = match &*export_format.read() {
+                                Some(DeckType::ProxySheets) => CardLanguage::English,
+                                _ => CardLanguage::Japanese,
+                            };
                             *PREVIEW_IMAGE_OPTIONS.write() = match &*export_format.read() {
                                 Some(DeckType::DeckLog) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
@@ -430,6 +458,9 @@ fn Form() -> Element {
                 },
                 Page::Export => rsx! {
                     ExportPage {}
+                },
+                Page::SaveLoad => rsx! {
+                    SaveLoadPage { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
                 },
             }
         }
@@ -503,46 +534,22 @@ pub fn ImportPage() -> Element {
 
         div {
             if *import_format.read() == Some(DeckType::StarterDecks) {
-                starter_decks::Import {
-                    common_deck: COMMON_DECK.signal(),
-                    db: CARDS_DB.signal(),
-                    show_price: SHOW_PRICE.signal(),
-                }
+                starter_decks::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::DeckLog) {
-                deck_log::Import {
-                    common_deck: COMMON_DECK.signal(),
-                    db: CARDS_DB.signal(),
-                    show_price: SHOW_PRICE.signal(),
-                }
+                deck_log::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::HoloDelta) {
-                holodelta::Import {
-                    common_deck: COMMON_DECK.signal(),
-                    db: CARDS_DB.signal(),
-                    show_price: SHOW_PRICE.signal(),
-                }
+                holodelta::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::HoloDuel) {
-                holoduel::Import {
-                    common_deck: COMMON_DECK.signal(),
-                    db: CARDS_DB.signal(),
-                    show_price: SHOW_PRICE.signal(),
-                }
+                holoduel::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::TabletopSim) {
-                tabletop_sim::Import {
-                    common_deck: COMMON_DECK.signal(),
-                    db: CARDS_DB.signal(),
-                    show_price: SHOW_PRICE.signal(),
-                }
+                tabletop_sim::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::Unknown) {
-                UnknownImport {
-                    common_deck: COMMON_DECK.signal(),
-                    db: CARDS_DB.signal(),
-                    show_price: SHOW_PRICE.signal(),
-                }
+                UnknownImport { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
         }
     }
@@ -660,11 +667,7 @@ pub fn ExportPage() -> Element {
 }
 
 #[component]
-pub fn UnknownImport(
-    mut common_deck: Signal<DeckOrPile>,
-    db: Signal<CardsDatabase>,
-    show_price: Signal<bool>,
-) -> Element {
+pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -679,7 +682,6 @@ pub fn UnknownImport(
     let mut file_name = use_signal(String::new);
 
     let from_file = move |event: Event<FormData>| async move {
-        *show_price.write() = false;
         *deck_error.write() = "".into();
         *deck_success.write() = "".into();
         *file_name.write() = "".into();
@@ -696,8 +698,8 @@ pub fn UnknownImport(
                 if let Ok(deck) = deck {
                     *common_deck.write() =
                         DeckOrPile::Deck(holodelta::Deck::to_common_deck(deck, &db.read()));
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
                     *deck_success.write() = "Deck file format: holoDelta".into();
-                    *show_price.write() = false;
                     track_event(
                         EventType::Import("Unknown".into()),
                         EventData {
@@ -715,8 +717,8 @@ pub fn UnknownImport(
                 if let Ok(deck) = deck {
                     *common_deck.write() =
                         DeckOrPile::Deck(holoduel::Deck::to_common_deck(deck, &db.read()));
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
                     *deck_success.write() = "Deck file format: HoloDuel".into();
-                    *show_price.write() = false;
                     track_event(
                         EventType::Import("Unknown".into()),
                         EventData {
@@ -734,14 +736,33 @@ pub fn UnknownImport(
                 if let Ok(deck) = deck {
                     *common_deck.write() =
                         DeckOrPile::Deck(tabletop_sim::Deck::to_common_deck(deck, &db.read()));
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::deck_log();
                     *deck_success.write() =
                         "Deck file format: Tabletop Simulator (by Noodlebrain)".into();
-                    *show_price.write() = false;
                     track_event(
                         EventType::Import("Unknown".into()),
                         EventData {
                             format: "Unknown",
                             file_format: Some("Tabletop Sim"),
+                            error: None,
+                        },
+                    );
+                    return;
+                }
+
+                // Saved deck file
+                let deck = serde_json::from_slice::<SaveDeckOrPile>(&contents);
+                debug!("{:?}", deck);
+                if let Ok(deck) = deck {
+                    *common_deck.write() = deck.to_deck_or_pile(&db.read());
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
+                    *deck_success.write() =
+                        "Deck file format: hololive OCG Deck Converter Saved deck".into();
+                    track_event(
+                        EventType::Import("Unknown".into()),
+                        EventData {
+                            format: "Unknown",
+                            file_format: Some("Saved deck"),
                             error: None,
                         },
                     );

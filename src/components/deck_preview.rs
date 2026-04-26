@@ -246,7 +246,7 @@ pub fn DeckPreview(
                                     "pile of cards"
                                 }
                             }
-
+                        
                         }
                     }
                 }

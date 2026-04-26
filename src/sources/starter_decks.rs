@@ -497,11 +497,7 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
 }
 
 #[component]
-pub fn Import(
-    mut common_deck: Signal<DeckOrPile>,
-    db: Signal<CardsDatabase>,
-    show_price: Signal<bool>,
-) -> Element {
+pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     #[derive(Serialize)]
     struct EventData {
         format: &'static str,
@@ -542,7 +538,6 @@ pub fn Import(
         }
         *common_deck.write() = DeckOrPile::Deck(deck.map(|d| d.deck.clone()).unwrap_or_default());
 
-        *show_price.write() = false;
         *loading.write() = false;
     };
 
@@ -591,7 +586,7 @@ pub fn Import(
                             selected: starter_deck_idx.read().is_none(),
                             "Select"
                         }
-                        for (idx , deck) in starter_decks(&db.read()).iter().enumerate() {
+                        for (idx, deck) in starter_decks(&db.read()).iter().enumerate() {
                             option {
                                 value: "{idx}",
                                 selected: *starter_deck_idx.read() == Some(idx),
@@ -614,7 +609,7 @@ pub fn Import(
                                 *oshi_option_idx.write() = ev.value().parse().ok();
                                 change_oshi();
                             },
-                            for (idx , oshi) in oshi_options.iter().enumerate() {
+                            for (idx, oshi) in oshi_options.iter().enumerate() {
                                 if let Some(oshi) = oshi.card_info(&db.read()) {
                                     option {
                                         value: "{idx}",

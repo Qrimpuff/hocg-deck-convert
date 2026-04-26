@@ -40,7 +40,7 @@ pub fn Card(
         "card-img"
     };
 
-    let error_img_path: &str = match card_type {
+    let error_img_path: &str = match card.card_type(&db.read()).unwrap_or(card_type) {
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
         CardType::Main => "card-back.webp",
     };

@@ -59,7 +59,9 @@ fn update_tooltip_position(
         }
     };
 
-    tooltip.set_attribute("style", &style).expect("set tooltip style");
+    tooltip
+        .set_attribute("style", &style)
+        .expect("set tooltip style");
 }
 
 #[component]

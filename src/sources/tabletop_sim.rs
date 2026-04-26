@@ -100,11 +100,7 @@ impl Deck {
 }
 
 #[component]
-pub fn Import(
-    mut common_deck: Signal<DeckOrPile>,
-    db: Signal<CardsDatabase>,
-    show_price: Signal<bool>,
-) -> Element {
+pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
         JsonImport {
             deck_type: DeckType::TabletopSim,
@@ -112,7 +108,6 @@ pub fn Import(
             import_name: "Tabletop Sim",
             common_deck,
             db,
-            show_price,
         }
     }
 }

@@ -827,7 +827,8 @@ pub trait DeckLike: Clone + Hash {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 /// Is a partial representation of a deck, used for editing and importing/exporting
 pub struct CommonDeck {
     pub name: Option<String>,
@@ -970,7 +971,8 @@ impl DeckLike for CommonDeck {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 /// Is a list of cards, useful for features that don't require a valid deck representation
 pub struct PileOfCards {
     pub name: Option<String>,
@@ -997,15 +999,13 @@ impl DeckLike for PileOfCards {
         };
         for mut card in self.cards {
             match card.card_type(db) {
-                Some(CardType::Oshi) => {
-                    if deck.oshi.is_none() {
-                        card.amount = 1;
-                        deck.oshi = Some(card);
-                    }
+                Some(CardType::Oshi) if deck.oshi.is_none() => {
+                    card.amount = 1;
+                    deck.oshi = Some(card);
                 }
                 Some(CardType::Main) => deck.main_deck.push(card),
                 Some(CardType::Cheer) => deck.cheer_deck.push(card),
-                None => {}
+                _ => {}
             }
         }
         deck
@@ -1057,7 +1057,8 @@ impl DeckLike for PileOfCards {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DeckOrPile {
     Deck(CommonDeck),
     Pile(PileOfCards),

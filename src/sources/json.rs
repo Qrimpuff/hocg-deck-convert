@@ -87,7 +87,6 @@ pub fn JsonImport(
     import_name: String,
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
-    show_price: Signal<bool>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
@@ -105,7 +104,6 @@ pub fn JsonImport(
 
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
-        *show_price.write() = false;
         *deck_error.write() = "".into();
         *file_name.write() = "".into();
         if event.value().is_empty() {
@@ -123,7 +121,6 @@ pub fn JsonImport(
         match deck {
             Ok(deck) => {
                 *common_deck.write() = DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
-                *show_price.write() = false;
                 track_event(
                     EventType::Import(import_name.read().clone()),
                     EventData {
@@ -146,7 +143,6 @@ pub fn JsonImport(
     };
 
     let from_file = move |event: Event<FormData>| async move {
-        *show_price.write() = false;
         *deck_error.write() = "".into();
         *json.write() = "".into();
         *file_name.write() = "".into();
@@ -168,7 +164,6 @@ pub fn JsonImport(
                     Ok(deck) => {
                         *common_deck.write() =
                             DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
-                        *show_price.write() = false;
                         match String::from_utf8(contents) {
                             Ok(contents) => {
                                 *json.write() = contents;
