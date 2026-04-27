@@ -563,6 +563,9 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
             }
         }
 
+        // p { class: "help is-success content", "{deck_success}" }
+        p { class: "help is-danger content", "{deck_error}" }
+
         if !*is_loading.read() && saved_decks.read().is_empty() {
             div { class: "notification",
                 p { "No saved decks yet. Save the current deck to add it to the list." }
@@ -575,8 +578,6 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                         " ({saved_decks.read().len()})"
                     }
                 }
-                // p { class: "help is-success", "{deck_success}" }
-                p { class: "help is-danger", "{deck_error}" }
             }
             div {
                 class: "fixed-grid has-1-cols",
