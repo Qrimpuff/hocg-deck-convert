@@ -358,6 +358,14 @@ self.addEventListener('message', (event) => {
           }
         }
 
+        // Skip already cached URLs.
+        const urlsToFetch = [];
+        for (const url of urls) {
+          const cached = await cache.match(url, { ignoreVary: true });
+          if (cached) continue;
+          urlsToFetch.push(url);
+        }
+
         let completed = 0;
         let totalBytes = 0;
 
@@ -376,8 +384,8 @@ self.addEventListener('message', (event) => {
 
           const message = {
             type: 'PREFETCH_PROGRESS',
-            loaded: Math.min(completed, urls.length),
-            total: urls.length,
+            loaded: Math.min(completed, urlsToFetch.length),
+            total: urlsToFetch.length,
             size: totalBytes
           };
 
@@ -393,11 +401,11 @@ self.addEventListener('message', (event) => {
         // Notify start
         sendProgress(0, true);
 
-        const workerCount = Math.max(1, Math.min(CONCURRENCY, urls.length));
+        const workerCount = Math.max(1, Math.min(CONCURRENCY, urlsToFetch.length));
 
         const worker = async (workerId) => {
-          for (let idx = workerId; idx < urls.length; idx += workerCount) {
-            const url = urls[idx];
+          for (let idx = workerId; idx < urlsToFetch.length; idx += workerCount) {
+            const url = urlsToFetch[idx];
             try {
               const cached = await cache.match(url, { ignoreVary: true });
               if (cached) {
