@@ -3,7 +3,7 @@ use hocg_fan_sim_assets_model::CardsDatabase;
 use serde::Serialize;
 
 use crate::{
-    CARDS_PRICES, CardLanguage, CardType, FREE_BASIC_CHEERS, PRICE_SERVICE,
+    CARDS_PRICES, CURRENT_PAGE, CardLanguage, CardType, FREE_BASIC_CHEERS, PRICE_SERVICE, Page,
     components::{card::Card, tooltip::Tooltip},
     sources::{DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, track_event},
@@ -69,10 +69,15 @@ pub fn DeckPreview(
         *is_pile.write() ^= true;
     };
 
+    let mut is_details_edit = use_signal(|| *is_edit.read());
+    use_effect(move || {
+        is_details_edit.set(*is_edit.read() || *CURRENT_PAGE.read() == Page::Export);
+    });
+
     let deck = common_deck.read();
 
     // Don't render anything if the deck is empty
-    if *deck == Default::default() {
+    if *deck == Default::default() && !*is_edit.read() {
         return rsx! {};
     };
 
@@ -90,6 +95,7 @@ pub fn DeckPreview(
                         db,
                         common_deck,
                         is_edit,
+                        is_details_edit,
                         show_price,
                     }
                 }
@@ -107,6 +113,7 @@ pub fn DeckPreview(
                         db,
                         common_deck,
                         is_edit,
+                        is_details_edit,
                         show_price,
                     }
                 }
@@ -124,6 +131,7 @@ pub fn DeckPreview(
                         db,
                         common_deck,
                         is_edit,
+                        is_details_edit,
                         show_price,
                     }
                 }
@@ -167,6 +175,7 @@ pub fn DeckPreview(
                         db,
                         common_deck,
                         is_edit,
+                        is_details_edit,
                         show_price,
                     }
                 }
@@ -246,7 +255,6 @@ pub fn DeckPreview(
                                     "pile of cards"
                                 }
                             }
-                        
                         }
                     }
                 }

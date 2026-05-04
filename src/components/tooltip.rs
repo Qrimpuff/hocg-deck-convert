@@ -122,7 +122,9 @@ pub fn Tooltip(
                 onmount: move |elem| {
                     *tooltip_ref.write() = Some(elem.as_web_event());
                 },
-                "{tooltip}"
+                for tooltip in tooltip.lines() {
+                    p { "{tooltip}" }
+                }
             }
         }
     }

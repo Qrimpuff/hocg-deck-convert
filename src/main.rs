@@ -331,7 +331,6 @@ fn Form() -> Element {
     let mut show_page_labels = use_signal(|| true);
     use_effect(move || {
         import_format.set(Some(DeckType::DeckLog));
-        export_format.set(Some(DeckType::HoloDelta));
         show_page_labels.set(should_show_page_labels());
     });
 
@@ -376,6 +375,9 @@ fn Form() -> Element {
                         title: "Import deck",
                         "aria-label": "Import deck",
                         onclick: move |_| {
+                            if import_format.read().is_none() {
+                                *import_format.write() = Some(DeckType::DeckLog);
+                            }
                             *CURRENT_PAGE.write() = Page::Import;
                             *EDIT_DECK.write() = false;
                             *SHOW_PRICE.write() = false;
@@ -421,15 +423,14 @@ fn Form() -> Element {
                         title: "Export deck",
                         "aria-label": "Export deck",
                         onclick: move |_| {
+                            if export_format.read().is_none() {
+                                *export_format.write() = Some(DeckType::HoloDelta);
+                            }
                             *CURRENT_PAGE.write() = Page::Export;
                             *EDIT_DECK.write() = false;
-                            *SHOW_PRICE.write() = false;
-                            *PRICE_SERVICE.write() = PriceCheckService::Yuyutei;
-                            *PREVIEW_CARD_LANG.write() = match &*export_format.read() {
-                                Some(DeckType::ProxySheets) => CardLanguage::English,
-                                _ => CardLanguage::Japanese,
-                            };
+                            *SHOW_PRICE.write() = *export_format.read() == Some(DeckType::PriceCheck);
                             *PREVIEW_IMAGE_OPTIONS.write() = match &*export_format.read() {
+                                Some(DeckType::Unknown) => ImageOptions::card_details(),
                                 Some(DeckType::DeckLog) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
                                 Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
@@ -449,19 +450,11 @@ fn Form() -> Element {
                 }
             }
 
-            match *CURRENT_PAGE.read() {
-                Page::Import => rsx! {
-                    ImportPage {}
-                },
-                Page::Edit => rsx! {
-                    EditPage {}
-                },
-                Page::Export => rsx! {
-                    ExportPage {}
-                },
-                Page::SaveLoad => rsx! {
-                    SaveLoadPage { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
-                },
+            span { class: if *CURRENT_PAGE.read() != Page::Import { "is-hidden" }, ImportPage {} }
+            span { class: if *CURRENT_PAGE.read() != Page::Edit { "is-hidden" }, EditPage {} }
+            span { class: if *CURRENT_PAGE.read() != Page::Export { "is-hidden" }, ExportPage {} }
+            span { class: if *CURRENT_PAGE.read() != Page::SaveLoad { "is-hidden" },
+                SaveLoadPage { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
         }
     }
@@ -577,13 +570,13 @@ pub fn ExportPage() -> Element {
                     select {
                         id: "export_format",
                         oninput: move |ev| {
-                            *SHOW_PRICE.write() = false;
                             *PRICE_SERVICE.write() = PriceCheckService::Yuyutei;
                             *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
                                 "proxy_sheets" => CardLanguage::English,
                                 _ => CardLanguage::Japanese,
                             };
                             *PREVIEW_IMAGE_OPTIONS.write() = match ev.value().as_str() {
+                                "unknown" => ImageOptions::card_details(),
                                 "deck_log" => ImageOptions::deck_log(),
                                 "holo_delta" => ImageOptions::holodelta(),
                                 "holo_duel" => ImageOptions::holodelta(),
@@ -593,6 +586,8 @@ pub fn ExportPage() -> Element {
                                 _ => ImageOptions::holodelta(),
                             };
                             *export_format.write() = match ev.value().as_str() {
+                                // disable any validation warning
+                                "unknown" => Some(DeckType::Unknown),
                                 "deck_log" => Some(DeckType::DeckLog),
                                 "holo_delta" => Some(DeckType::HoloDelta),
                                 "holo_duel" => Some(DeckType::HoloDuel),
@@ -601,7 +596,13 @@ pub fn ExportPage() -> Element {
                                 "price_check" => Some(DeckType::PriceCheck),
                                 _ => None,
                             };
+                            *SHOW_PRICE.write() = *export_format.read() == Some(DeckType::PriceCheck);
                         },
+                        option {
+                            value: "unknown",
+                            selected: *export_format.read() == Some(DeckType::Unknown) || export_format.read().is_none(),
+                            "None"
+                        }
                         option {
                             value: "deck_log",
                             selected: *export_format.read() == Some(DeckType::DeckLog),

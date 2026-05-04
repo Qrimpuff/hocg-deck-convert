@@ -9,14 +9,17 @@ use regex::Regex;
 use serde::Serialize;
 
 use crate::{
-    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, GLOBAL_RARITY, GLOBAL_RELEASE,
+    CARDS_DB, COMMON_DECK, CardLanguage, CardType, EXPORT_FORMAT, GLOBAL_RARITY, GLOBAL_RELEASE,
+    PREVIEW_CARD_LANG, PRICE_SERVICE,
     components::{
         card::Card,
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
         modal_popup::{ModelPopup, Popup, show_popup},
         tooltip::{Tooltip, TooltipPlacement},
     },
-    sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
+    sources::{
+        CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
+    },
     tracker::{EventType, track_event, track_url},
 };
 
@@ -30,7 +33,13 @@ struct EventData {
 }
 
 #[component]
-pub fn CardDetailsPopup(popup_id: usize, card: CommonCard, card_type: CardType) -> Element {
+pub fn CardDetailsPopup(
+    popup_id: usize,
+    card: CommonCard,
+    card_type: CardType,
+    is_edit: Signal<bool>,
+    show_price: Signal<bool>,
+) -> Element {
     let popup_card = use_signal(|| card.clone());
 
     rsx! {
@@ -46,7 +55,8 @@ pub fn CardDetailsPopup(popup_id: usize, card: CommonCard, card_type: CardType) 
                     card_type,
                     db: CARDS_DB.signal(),
                     common_deck: COMMON_DECK.signal(),
-                    is_edit: EDIT_DECK.signal(),
+                    is_edit,
+                    show_price,
                 }
             },
             modal_class: Some("card-details-modal".into()),
@@ -107,14 +117,98 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
         )
     });
 
+    // highlight cards that cause the warnings
+    let is_unknown = use_memo(move || card.read().is_unknown(&db.read()));
+    let is_unreleased = use_memo(move || {
+        card.read()
+            .is_unreleased(*PREVIEW_CARD_LANG.read(), &db.read())
+    });
+    let card_warnings = use_memo(move || {
+        let db = db.read();
+        let illust = card.read().card_illustration(&db);
+
+        let Some(format) = *EXPORT_FORMAT.read() else {
+            return vec![];
+        };
+
+        let mut warnings = vec![];
+
+        if *is_unknown.read() {
+            return vec!["This card is unknown."];
+        }
+
+        if matches!(
+            format,
+            DeckType::DeckLog | DeckType::HoloDuel | DeckType::TabletopSim
+        ) && *is_unreleased.read()
+        {
+            if illust.is_none_or(|i| !i.manage_id.has_value()) {
+                warnings.push("This card is unreleased.");
+            } else {
+                match *PREVIEW_CARD_LANG.read() {
+                    CardLanguage::Japanese => warnings.push("This card is unreleased in Japanese."),
+                    CardLanguage::English => warnings.push("This card is unreleased in English."),
+                }
+            }
+        }
+
+        if format == DeckType::ProxySheets
+            && card.read().card_type(&db) != Some(CardType::Cheer)
+            && card
+                .read()
+                .image_path(
+                    &db,
+                    *PREVIEW_CARD_LANG.read(),
+                    ImageOptions::proxy_validation_strict(),
+                )
+                .is_none()
+        {
+            match *PREVIEW_CARD_LANG.read() {
+                CardLanguage::Japanese => warnings.push("Missing Japanese proxy."),
+                CardLanguage::English => warnings.push("Missing English proxy."),
+            }
+        }
+
+        if format == DeckType::PriceCheck {
+            match *PRICE_SERVICE.read() {
+                PriceCheckService::Yuyutei => {
+                    if illust.is_none_or(|i| i.yuyutei_sell_url.is_none()) {
+                        warnings.push("No price data on Yuyutei.");
+                        if *is_unreleased.read() {
+                            if illust.is_none_or(|i| !i.manage_id.has_value()) {
+                                warnings.push("This card is unreleased.");
+                            } else {
+                                warnings.push("This card is unreleased in Japanese.");
+                            }
+                        }
+                    }
+                }
+                PriceCheckService::TcgPlayer => {
+                    if illust.is_none_or(|i| i.tcgplayer_product_id.is_none()) {
+                        warnings.push("No price data on TCGPlayer.");
+                        if *is_unreleased.read() {
+                            if illust.is_none_or(|i| !i.manage_id.has_value()) {
+                                warnings.push("This card is unreleased.");
+                            } else {
+                                warnings.push("This card is unreleased in English.");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        warnings
+    });
+
     rsx! {
         div { class: "is-flex is-justify-content-space-between",
             h4 {
                 div { class: "subtitle",
                     "{subtitle}"
-                    if unreleased.read().0 {
+                    if card_warnings.read().is_empty().not() {
                         Tooltip {
-                            tooltip: String::from("This card is unreleased."),
+                            tooltip: card_warnings.read().join("\n"),
                             underline: false,
                             placement: TooltipPlacement::Right,
                             span { class: "icon is-small has-text-warning ml-2",
@@ -182,6 +276,7 @@ pub fn CardDetailsContent(
     db: Signal<CardsDatabase>,
     common_deck: Option<Signal<DeckOrPile>>,
     is_edit: Signal<bool>,
+    show_price: Signal<bool>,
 ) -> Element {
     let error_img_path: &str = match card_type {
         CardType::Oshi | CardType::Cheer => "cheer-back.webp",
@@ -223,7 +318,8 @@ pub fn CardDetailsContent(
                         db,
                         common_deck,
                         is_edit,
-                        card_detail: Some(card),
+                        show_price,
+                        card_details: Some(card),
                     }
                 }
             }

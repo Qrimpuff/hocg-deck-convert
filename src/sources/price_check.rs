@@ -371,7 +371,7 @@ pub fn Export(
                     select {
                         id: "service",
                         oninput: move |ev| {
-                            *show_price.write() = false;
+                            *show_price.write() = true;
                             *price_service.write() = match ev.value().as_str() {
                                 "yuyutei" => PriceCheckService::Yuyutei,
                                 "tcgplayer" => PriceCheckService::TcgPlayer,

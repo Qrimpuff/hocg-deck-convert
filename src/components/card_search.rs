@@ -1,5 +1,5 @@
 use dioxus::{logger::tracing::debug, prelude::*, web::WebEventExt};
-use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase, Localized, SupportType};
+use hocg_fan_sim_assets_model::{self as hocg, CardRarity, CardsDatabase, Localized, SupportType};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
@@ -561,7 +561,7 @@ fn filter_cards(
                     filters.release != FilterRelease::Unreleased || *n == 0
                 }
             }
-            FilterRarity::Rarity(rarity) => illust.rarity.eq_ignore_ascii_case(rarity),
+            FilterRarity::Rarity(rarity) => &illust.rarity.to_string() == rarity,
         })
         // filter by release
         .filter(|(_, _, illust, _)| match filters.release {
@@ -637,10 +637,10 @@ pub fn CardSearch(
         let mut rarities = db
             .values()
             .flat_map(|card| card.illustrations.iter())
-            .map(|i| i.rarity.clone())
+            .map(|i| i.rarity.to_string())
             .unique()
+            .map(CardRarity::from)
             .collect::<Vec<_>>();
-        // TODO not sure about sort
         rarities.sort();
         rarities
     });
@@ -1170,8 +1170,8 @@ pub fn CardSearch(
                                         }
                                         for rarity in all_rarities.iter() {
                                             option {
-                                                value: rarity.clone(),
-                                                selected: *filter_rarity.read() == FilterRarity::Rarity(rarity.clone()),
+                                                value: rarity.to_string(),
+                                                selected: *filter_rarity.read() == FilterRarity::Rarity(rarity.to_string()),
                                                 "{rarity}"
                                             }
                                         }

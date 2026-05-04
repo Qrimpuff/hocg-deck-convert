@@ -20,7 +20,12 @@ static MODAL_POPUP_LIST: GlobalSignal<Vec<(usize, Popup)>> = Signal::global(Vec:
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Popup {
-    CardDetails(CommonCard, CardType),
+    CardDetails {
+        card: CommonCard,
+        card_type: CardType,
+        is_edit: bool,
+        show_price: bool,
+    },
     CardSearch(Filters),
 }
 
@@ -55,12 +60,19 @@ pub fn ModalPopupStack() -> Element {
 
     let popups = MODAL_POPUP_LIST.read();
     let popups_list = popups.iter().map(|(id, popup)| match popup {
-        Popup::CardDetails(common_card, card_type) => rsx! {
+        Popup::CardDetails {
+            card,
+            card_type,
+            is_edit,
+            show_price,
+        } => rsx! {
             CardDetailsPopup {
                 key: "{id}",
                 popup_id: *id,
-                card: common_card.clone(),
+                card: card.clone(),
                 card_type: *card_type,
+                is_edit: Signal::new(*is_edit),
+                show_price: Signal::new(*show_price),
             }
         },
         Popup::CardSearch(filters) => rsx! {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.0.2';
+const CACHE_NAME = 'hocg-deck-convert-v1.1.0';
 const BASE_PATH = '/hocg-deck-convert';
 let offlineHint = false;
 

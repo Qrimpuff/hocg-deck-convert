@@ -22,13 +22,16 @@ pub fn Card(
     db: Signal<CardsDatabase>,
     common_deck: Option<Signal<DeckOrPile>>,
     is_edit: Signal<bool>,
+    is_details_edit: Option<Signal<bool>>,
     show_price: Option<Signal<bool>>,
-    card_detail: Option<Signal<CommonCard>>,
+    card_details: Option<Signal<CommonCard>>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
         action: String,
     }
+
+    let is_details_edit = is_details_edit.unwrap_or(is_edit);
 
     let deck_is_pile = common_deck
         .as_ref()
@@ -78,10 +81,19 @@ pub fn Card(
     } else {
         0
     };
-    let max_amount = if deck_is_pile {
-        100
-    } else {
+    let max_amount = if !deck_is_pile
+        || matches!(
+            *EXPORT_FORMAT.read(),
+            Some(
+                DeckType::DeckLog
+                    | DeckType::HoloDelta
+                    | DeckType::HoloDuel
+                    | DeckType::TabletopSim
+            )
+        ) {
         card.max_amount(*card_lang.read(), &db.read())
+    } else {
+        u32::MAX
     };
     let warning_amount = total_amount > max_amount;
     let warning_amount_class = if warning_amount {
@@ -93,7 +105,7 @@ pub fn Card(
     // highlight cards that cause the warnings
     let is_unknown = card.is_unknown(&db.read());
     let is_unreleased = card.is_unreleased(*PREVIEW_CARD_LANG.read(), &db.read());
-    let is_warning_card = match is_preview.then(|| *EXPORT_FORMAT.read()).flatten() {
+    let is_warning_card = match *EXPORT_FORMAT.read() {
         Some(DeckType::DeckLog) => is_unknown || is_unreleased,
         Some(DeckType::HoloDelta) => is_unknown,
         Some(DeckType::HoloDuel) => is_unknown || is_unreleased,
@@ -103,10 +115,21 @@ pub fn Card(
                 && card
                     .image_path(
                         &db.read(),
-                        *card_lang.read(),
-                        ImageOptions::proxy_validation(),
+                        *PREVIEW_CARD_LANG.read(),
+                        if is_preview {
+                            ImageOptions::proxy_validation()
+                        } else {
+                            ImageOptions::proxy_validation_strict()
+                        },
                     )
                     .is_none()
+        }
+        Some(DeckType::PriceCheck) => {
+            card.card_illustration(&db.read())
+                .is_none_or(|i| match *PRICE_SERVICE.read() {
+                    PriceCheckService::Yuyutei => i.yuyutei_sell_url.is_none(),
+                    PriceCheckService::TcgPlayer => i.tcgplayer_product_id.is_none(),
+                })
         }
         _ => false,
     };
@@ -151,8 +174,8 @@ pub fn Card(
 
     let _card = card.clone();
     let is_selected = use_memo(move || {
-        if let Some(card_detail) = card_detail {
-            *card_detail.read() == _card
+        if let Some(card_details) = card_details {
+            *card_details.read() == _card
         } else {
             false
         }
@@ -163,15 +186,15 @@ pub fn Card(
             figure {
                 class: "image {img_class}",
                 class: if *is_selected.read() { "selected" },
-                class: if is_warning_card { "warning" },
+                class: if is_warning_card && !*is_selected.read() { "warning" },
                 a {
                     href: "#",
                     role: "button",
                     title: "Show card details for {tooltip}",
                     onclick: move |evt| {
                         evt.prevent_default();
-                        if let Some(mut card_detail) = card_detail {
-                            card_detail.set(card.clone());
+                        if let Some(mut card_details) = card_details {
+                            card_details.set(card.clone());
                             track_event(
                                 EventType::EditDeck,
                                 EventData {
@@ -179,7 +202,12 @@ pub fn Card(
                                 },
                             );
                         } else {
-                            show_popup(Popup::CardDetails(card.clone(), card_type));
+                            show_popup(Popup::CardDetails {
+                                card: card.clone(),
+                                card_type,
+                                is_edit: *is_details_edit.read(),
+                                show_price,
+                            });
                             track_event(
                                 EventType::EditDeck,
                                 EventData {
@@ -201,7 +229,7 @@ pub fn Card(
                         class: "badge is-bottom {warning_amount_class} card-amount",
                         style: "z-index: 10",
                         " {price} × {card.amount} "
-                        if let Some(price_url) = price_url {
+                        if let Some(price_url) = price_url && is_preview {
                             a {
                                 title: "Go to {price_name} for {card.card_number}",
                                 href: "{price_url}",

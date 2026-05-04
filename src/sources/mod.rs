@@ -491,6 +491,15 @@ impl ImageOptions {
         }
     }
 
+    pub fn proxy_validation_strict() -> Self {
+        ImageOptions {
+            fallback_similar: true,
+            fallback_rarity: false,
+            fallback_lang: false,
+            allow_proxy: true,
+        }
+    }
+
     pub fn proxy_print() -> Self {
         ImageOptions {
             fallback_similar: true,
@@ -522,7 +531,7 @@ impl ImageOptions {
         ImageOptions {
             fallback_similar: false,
             fallback_rarity: false,
-            fallback_lang: false,
+            fallback_lang: true,
             allow_proxy: false,
         }
     }
