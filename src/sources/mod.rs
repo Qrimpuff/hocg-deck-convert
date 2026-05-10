@@ -1,14 +1,12 @@
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
-    str::FromStr,
 };
 
 use hocg_fan_sim_assets_model::{
     self as hocg, CardIllustration, CardOrderingOptions, CardsDatabase,
 };
-use icu::decimal::{DecimalFormatter, input::Decimal};
-use icu::locale::locale;
+use hocg_fan_sim_prices_model::Price;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use jiff::Timestamp;
@@ -260,9 +258,12 @@ impl CommonCard {
         prices: &PriceCache,
         service: PriceCheckService,
         free_basic_cheers: bool,
-    ) -> Option<f64> {
+    ) -> Option<Price> {
         if free_basic_cheers && self.is_basic_cheer() {
-            Some(0.0)
+            Some(match service {
+                PriceCheckService::Yuyutei => Price::from_yen(0),
+                PriceCheckService::TcgPlayer => Price::from_dollar(0.0),
+            })
         } else {
             self.price_cache(db, prices, service).map(|p| p.1)
         }
@@ -275,22 +276,7 @@ impl CommonCard {
         free_basic_cheers: bool,
     ) -> Option<String> {
         self.price(db, prices, service, free_basic_cheers)
-            .map(|p| match service {
-                PriceCheckService::Yuyutei => {
-                    let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
-                        .expect("locale should be present");
-                    let p = Decimal::from_str(format!("{p}").as_str()).unwrap();
-                    let p = f.format(&p);
-                    format!("¥{p}")
-                }
-                PriceCheckService::TcgPlayer => {
-                    let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
-                        .expect("locale should be present");
-                    let p = Decimal::from_str(format!("{p:.2}").as_str()).unwrap();
-                    let p = f.format(&p);
-                    format!("${p}")
-                }
-            })
+            .map(|p| p.to_string())
     }
     pub fn price_url(&self, db: &CardsDatabase, service: PriceCheckService) -> Option<String> {
         self.card_illustration(db).and_then(|c| match service {
@@ -303,7 +289,7 @@ impl CommonCard {
         db: &CardsDatabase,
         prices: &'a PriceCache,
         service: PriceCheckService,
-    ) -> Option<&'a (Timestamp, f64)> {
+    ) -> Option<&'a (Timestamp, Price)> {
         self.card_illustration(db).and_then(|c| {
             prices.get(&match service {
                 PriceCheckService::Yuyutei => {
@@ -784,13 +770,13 @@ pub trait DeckLike: Clone + Hash {
         prices: &PriceCache,
         service: PriceCheckService,
         free_basic_cheers: bool,
-    ) -> f64 {
+    ) -> Price {
         self.all_cards()
             .filter_map(|c| {
                 c.price(db, prices, service, free_basic_cheers)
                     .map(|p| (c, p))
             })
-            .map(|(c, p)| p * c.amount as f64)
+            .map(|(c, p)| p * c.amount)
             .sum()
     }
     fn is_price_approximate(
@@ -817,20 +803,8 @@ pub trait DeckLike: Clone + Hash {
         };
         let price = self.price(db, prices, service, free_basic_cheers);
         let price = match service {
-            PriceCheckService::Yuyutei => {
-                let f = DecimalFormatter::try_new(locale!("ja-JP").into(), Default::default())
-                    .expect("locale should be present");
-                let p = Decimal::from_str(format!("{price}").as_str()).unwrap();
-                let p = f.format(&p);
-                format!("¥{p}")
-            }
-            PriceCheckService::TcgPlayer => {
-                let f = DecimalFormatter::try_new(locale!("en-US").into(), Default::default())
-                    .expect("locale should be present");
-                let p = Decimal::from_str(format!("{price:.2}").as_str()).unwrap();
-                let p = f.format(&p);
-                format!("${p} USD")
-            }
+            PriceCheckService::Yuyutei => price.to_string(),
+            PriceCheckService::TcgPlayer => format!("{} USD", price),
         };
         format!("{approx_price}{price}")
     }

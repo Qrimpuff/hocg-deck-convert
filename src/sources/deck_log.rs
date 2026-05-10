@@ -329,7 +329,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         id: "deck_log_import_url_code",
                         class: "input",
                         disabled: *loading.read(),
-                        r#type: "text",
+                        r#type: "search",
                         placeholder: "https://decklog.bushiroad.com/view/....",
                         oninput: update_url_code,
                         value: "{import_url_code}",

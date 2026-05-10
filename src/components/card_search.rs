@@ -767,7 +767,7 @@ pub fn CardSearch(
                     input {
                         id: "card_search_{popup_id}",
                         class: "input",
-                        r#type: "text",
+                        r#type: "search",
                         oninput: update_filter,
                         value: "{cards_filter}",
                         maxlength: 100,

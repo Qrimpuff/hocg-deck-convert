@@ -4,19 +4,23 @@ use dioxus::{
     logger::tracing::{debug, error},
     prelude::*,
 };
+use hocg_fan_sim_prices_model::{Price, PricesDatabase, ServiceId};
 use itertools::Itertools;
 use jiff::{SignedDuration, Timestamp};
 use reqwest::{Client, ClientBuilder};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::CardsDatabase;
 use crate::{
-    CardLanguage, EventType, FREE_BASIC_CHEERS, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG,
+    CardLanguage, EventType, FREE_BASIC_CHEERS, PREVIEW_CARD_LANG,
     sources::{DeckLike, DeckOrPile},
     track_event,
 };
 
-pub type PriceCache = HashMap<PriceCacheKey, (Timestamp, f64)>;
+const HOCG_FAN_SIM_PRICES_URL: &str =
+    "https://qrimpuff.github.io/hocg-fan-sim-prices/hocg_prices.json";
+
+pub type PriceCache = HashMap<PriceCacheKey, (Timestamp, Price)>;
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum PriceCacheKey {
     Yuyutei(String),
@@ -29,32 +33,11 @@ pub enum PriceCheckService {
     TcgPlayer,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-struct YuyuteiPriceCheckRequest {
-    urls: Vec<String>,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-struct YuyuteiPriceCheckResult {
-    url: String,
-    card_number: String,
-    price_yen: u32,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-struct TcgPlayerPriceCheckRequest {
-    product_ids: Vec<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-struct TcgPlayerPriceCheckResult {
-    product_id: u32,
-    price_usd: f64,
+fn price_lookup_key(key: &PriceCacheKey) -> ServiceId {
+    match key {
+        PriceCacheKey::Yuyutei(url) => ServiceId::from_yuyutei(url.clone()),
+        PriceCacheKey::TcgPlayer(product_id) => ServiceId::from_tcgplayer(*product_id),
+    }
 }
 
 fn http_client() -> &'static Client {
@@ -98,70 +81,27 @@ async fn price_check(
         return Ok(PriceCache::new());
     }
 
-    let lookup_prices: HashMap<_, _> = {
-        match service {
-            PriceCheckService::Yuyutei => {
-                let req = YuyuteiPriceCheckRequest {
-                    urls: keys
-                        .into_iter()
-                        .map(|k| match k {
-                            PriceCacheKey::Yuyutei(url) => url,
-                            _ => unreachable!(),
-                        })
-                        .collect(),
-                };
+    let resp = http_client()
+        .get(HOCG_FAN_SIM_PRICES_URL)
+        .send()
+        .await
+        .map_err(|err| {
+            error!("Failed to fetch prices from hocg-fan-sim-prices: {err}");
+            "service unavailable"
+        })?;
 
-                let resp = http_client()
-                    .post(format!("{HOCG_DECK_CONVERT_API}/price-check-yuyutei"))
-                    .json(&req)
-                    .send()
-                    .await
-                    .map_err(|err| {
-                        error!("Failed to fetch prices from Yuyutei: {err}");
-                        "service unavailable"
-                    })?;
+    let content = resp.text().await.unwrap();
+    debug!("loaded shared prices db ({} bytes)", content.len());
 
-                let content = resp.text().await.unwrap();
-                debug!("{:?}", content);
+    let shared_prices: PricesDatabase = serde_json::from_str(&content).map_err(|_| content)?;
 
-                let res: Vec<YuyuteiPriceCheckResult> =
-                    serde_json::from_str(&content).map_err(|_| content)?;
-                res.into_iter()
-                    .map(|r| (PriceCacheKey::Yuyutei(r.url), r.price_yen as f64))
-                    .collect()
-            }
-            PriceCheckService::TcgPlayer => {
-                let req = TcgPlayerPriceCheckRequest {
-                    product_ids: keys
-                        .into_iter()
-                        .map(|k| match k {
-                            PriceCacheKey::TcgPlayer(id) => id,
-                            _ => unreachable!(),
-                        })
-                        .collect(),
-                };
-
-                let resp = http_client()
-                    .post(format!("{HOCG_DECK_CONVERT_API}/price-check-tcgplayer"))
-                    .json(&req)
-                    .send()
-                    .await
-                    .map_err(|err| {
-                        error!("Failed to fetch prices from TCGplayer: {err}");
-                        "service unavailable"
-                    })?;
-
-                let content = resp.text().await.unwrap();
-                debug!("{:?}", content);
-
-                let res: Vec<TcgPlayerPriceCheckResult> =
-                    serde_json::from_str(&content).map_err(|_| content)?;
-                res.into_iter()
-                    .map(|r| (PriceCacheKey::TcgPlayer(r.product_id), r.price_usd)) // convert to cents
-                    .collect()
-            }
-        }
-    };
+    let lookup_prices: HashMap<_, _> = keys
+        .into_iter()
+        .filter_map(|key| {
+            let (_timestamp, price) = shared_prices.get(&price_lookup_key(&key))?;
+            Some((key, *price))
+        })
+        .collect();
     debug!("{:?}", lookup_prices);
 
     // update the price
@@ -278,15 +218,15 @@ pub fn Export(
                     .is_some()
                 })
                 .sorted_by_key(|c| {
-                    u32::MAX
-                        - (c.price(
+                    std::cmp::Reverse(
+                        c.price(
                             &db.read(),
                             &prices.read(),
                             *price_service.read(),
                             *FREE_BASIC_CHEERS.read(),
                         )
-                        .expect("it's some")
-                            * 100.0) as u32 // convert to cents
+                        .expect("it's some"),
+                    )
                 }) // this is the highest price
                 .next()
             {
@@ -331,14 +271,13 @@ pub fn Export(
                     .is_some()
                 })
                 .sorted_by_key(|c| {
-                    (c.price(
+                    c.price(
                         &db.read(),
                         &prices.read(),
                         *price_service.read(),
                         *FREE_BASIC_CHEERS.read(),
                     )
                     .expect("it's some")
-                        * 100.0) as u32 // convert to cents
                 }) // this is the lowest price
                 .next()
             {
