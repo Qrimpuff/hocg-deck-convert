@@ -28,11 +28,11 @@ const ASSETS = [
   BASE_PATH + '/assets/cheer-back.webp',
   BASE_PATH + '/assets/favicon-16x16.png',
   BASE_PATH + '/assets/favicon-32x32.png',
-  BASE_PATH + '/assets/favicon.ico',
   BASE_PATH + '/assets/image.png',
   BASE_PATH + '/assets/site.webmanifest',
   BASE_PATH + '/assets/style.css',
-  BASE_PATH + '/assets/untrack.html'
+  BASE_PATH + '/assets/untrack.html',
+  BASE_PATH + '/favicon.ico'
 ];
 
 const INDEX_URL = BASE_PATH + '/index.html';
