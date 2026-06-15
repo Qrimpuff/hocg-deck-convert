@@ -571,13 +571,13 @@ fn filter_cards(
             FilterRelease::Unreleased => !illust.manage_id.has_value(),
         })
         // remove duplicate looking cards in search
-        .unique_by(|(_, _, i, n)| {
+        .unique_by(|(_, _, i, _)| {
             (
                 &i.card_number,
                 if filters.rarity == FilterRarity::NoAlternateArt {
                     0
                 } else {
-                    i.delta_art_index.unwrap_or(u32::MAX - *n as u32)
+                    i.similarity_index
                 },
             )
         })

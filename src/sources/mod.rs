@@ -362,8 +362,7 @@ impl CommonCard {
                             .is_some_and(|path| !path.contains("proxies"))
                 })
                 .find(|i| {
-                    i.delta_art_index.is_some()
-                        && i.delta_art_index == card.delta_art_index
+                    i.similarity_index == card.similarity_index
                         && i.img_path.value(language.into()).is_some()
                 })
                 .and_then(|i| i.img_path.value(language.into()).as_ref())
