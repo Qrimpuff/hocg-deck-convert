@@ -87,6 +87,7 @@ pub fn JsonImport(
     import_name: String,
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
+    message: Option<Element>,
 ) -> Element {
     #[derive(Serialize)]
     struct EventData {
@@ -229,6 +230,9 @@ pub fn JsonImport(
                 }
             }
         }
+
+        {{ message.clone() }}
+
         div { class: "field",
             label { "for": "{import_id}_import_json", class: "label", "{import_name} json" }
             div { class: "control",
@@ -256,6 +260,7 @@ pub fn JsonExport(
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     base64_direct_import_url: Option<String>,
+    message: Option<Element>,
 ) -> Element {
     #[derive(Serialize)]
     enum ExportKind {
@@ -411,6 +416,9 @@ pub fn JsonExport(
                 }
             }
         }
+
+        {{ message.clone() }}
+
         div { class: "field",
             label { "for": "{export_id}_export_json", class: "label", "{export_name} json" }
             div { class: "control",

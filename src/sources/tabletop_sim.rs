@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use super::json::{JsonExport, JsonImport};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
-use crate::DeckType;
 use crate::sources::DeckOrPile;
+use crate::tracker::track_url;
+use crate::{DeckType, EXPORT_FORMAT};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OshiCard([String; 1]);
@@ -120,6 +121,22 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             export_name: "Tabletop Sim",
             export_id: "hocg_tts",
             allow_unreleased: false,
+            message: Some(rsx! {
+                div { class: "notification is-warning",
+                    "The Tabletop Sim board has better support for importing "
+                    a {
+                        href: "#",
+                        role: "button",
+                        onclick: move |evt| {
+                            evt.prevent_default();
+                            *EXPORT_FORMAT.write() = Some(DeckType::DeckLog);
+                            track_url("Export - Deck Log");
+                        },
+                        "Deck Log"
+                    }
+                    " URLs."
+                }
+            }),
             common_deck,
             db,
         }

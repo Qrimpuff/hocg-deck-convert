@@ -8,7 +8,7 @@ use super::{
     MergeCommonCards,
     json::{JsonExport, JsonImport},
 };
-use crate::{DeckType, sources::DeckOrPile};
+use crate::{DeckType, EXPORT_FORMAT, IMPORT_FORMAT, sources::DeckOrPile, tracker::track_url};
 
 use super::{CardsDatabase, CommonCard, CommonDeck};
 
@@ -119,6 +119,22 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::HoloDuel,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "HoloDuel",
+            message: Some(rsx! {
+                div { class: "notification is-warning",
+                    "HoloDuel is deprecated and no longer receives updates. You may want to use "
+                    a {
+                        href: "#",
+                        role: "button",
+                        onclick: move |evt| {
+                            evt.prevent_default();
+                            *IMPORT_FORMAT.write() = Some(DeckType::HoloDelta);
+                            track_url("Import - HoloDelta");
+                        },
+                        "holoDelta"
+                    }
+                    "."
+                }
+            }),
             common_deck,
             db,
         }
@@ -133,6 +149,22 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             export_name: "HoloDuel",
             export_id: "holoduel",
             allow_unreleased: false,
+            message: Some(rsx! {
+                div { class: "notification is-warning",
+                    "HoloDuel is deprecated and no longer receives updates. You may want to use "
+                    a {
+                        href: "#",
+                        role: "button",
+                        onclick: move |evt| {
+                            evt.prevent_default();
+                            *EXPORT_FORMAT.write() = Some(DeckType::HoloDelta);
+                            track_url("Export - HoloDelta");
+                        },
+                        "holoDelta"
+                    }
+                    "."
+                }
+            }),
             common_deck,
             db,
         }
