@@ -66,7 +66,7 @@ static FREE_BASIC_CHEERS: GlobalSignal<bool> = Signal::global(|| false);
 const PAGE_LABELS_MIN_WIDTH: i32 = 360;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Page {
+pub enum Page {
     Import,
     Edit,
     Export,

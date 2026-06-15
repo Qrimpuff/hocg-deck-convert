@@ -11,9 +11,10 @@ use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::JsValue;
 
 use crate::{
-    CardLanguage, VERSION, download_file,
-    sources::{CommonCard, CommonDeck, DeckLike, DeckOrPile, ImageOptions, PileOfCards},
-    tracker::{EventType, track_event},
+    CURRENT_PAGE, CardLanguage, EDIT_DECK, IMPORT_FORMAT, PREVIEW_IMAGE_OPTIONS, Page, SHOW_PRICE,
+    VERSION, download_file,
+    sources::{CommonCard, CommonDeck, DeckLike, DeckOrPile, DeckType, ImageOptions, PileOfCards},
+    tracker::{EventType, track_event, track_url},
 };
 
 const SAVE_DB_NAME: &str = "hocg-deck-convert";
@@ -383,6 +384,7 @@ struct SaveLoadEventData {
 #[component]
 pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     let mut deck_error = use_signal(String::new);
+    let mut is_error_from_file = use_signal(|| false);
     let deck_success = use_signal(String::new);
     let mut is_loading = use_signal(|| true);
     let mut saved_decks = use_signal(Vec::<SavedResult>::new);
@@ -412,6 +414,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
         let save = SaveData::from_deck_or_pile(common_deck.read().clone(), &db.read());
         spawn(async move {
             *deck_error.write() = String::new();
+            is_error_from_file.set(false);
             *deck_success.write() = String::new();
             pending_delete.set(None);
             match save_deck(&save).await {
@@ -454,6 +457,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
 
         async move {
             *deck_error.write() = String::new();
+            is_error_from_file.set(false);
             *deck_success.write() = String::new();
             pending_delete.set(None);
 
@@ -490,6 +494,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                         },
                                     );
                                     *deck_error.write() = err;
+                                    is_error_from_file.set(true);
                                 }
                             }
                         }
@@ -503,6 +508,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                 },
                             );
                             *deck_error.write() = format!("Could not decode save file: {err}");
+                            is_error_from_file.set(true);
                         }
                     },
                     Err(err) => {
@@ -515,6 +521,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                             },
                         );
                         *deck_error.write() = format!("Could not read file: {err}");
+                        is_error_from_file.set(true);
                     }
                 }
             }
@@ -565,6 +572,26 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
 
         // p { class: "help is-success content", "{deck_success}" }
         p { class: "help is-danger content", "{deck_error}" }
+        if is_error_from_file.read().to_owned() {
+            div { class: "notification is-warning",
+                "If you are uncertain about the kind of file you have, try importing using "
+                a {
+                    href: "#",
+                    role: "button",
+                    onclick: move |evt| {
+                        evt.prevent_default();
+                        *IMPORT_FORMAT.write() = Some(DeckType::Unknown);
+                        *CURRENT_PAGE.write() = Page::Import;
+                        *EDIT_DECK.write() = false;
+                        *SHOW_PRICE.write() = false;
+                        *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
+                        track_url("Import - I don't know...");
+                    },
+                    "\"I don't know...\""
+                }
+                " instead. "
+            }
+        }
 
         if !*is_loading.read() && saved_decks.read().is_empty() {
             div { class: "notification",
@@ -628,16 +655,12 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                             let mut saved_decks = saved_decks;
                                                             spawn(async move {
                                                                 *deck_error.write() = String::new();
+                                                                is_error_from_file.set(false);
                                                                 *deck_success.write() = String::new();
                                                                 match delete_saved_deck(&id).await {
                                                                     Ok(_) => {
-                                                                        saved_decks
-                                                                            .write()
-                                                                            .retain(|save| {
-                                                                               save.id() != id
-                                                                            });
-                                                                        *deck_success.write() = "Deleted error entry."
-                                                                            .to_string();
+                                                                        saved_decks.write().retain(|save| { save.id() != id });
+                                                                        *deck_success.write() = "Deleted error entry.".to_string();
                                                                         track_event(
                                                                             EventType::SaveLoad,
                                                                             SaveLoadEventData {
@@ -721,11 +744,11 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                         let mut pending_delete = pending_delete;
                                                         move |_| {
                                                             *deck_error.write() = String::new();
+                                                            is_error_from_file.set(false);
                                                             *deck_success.write() = String::new();
                                                             pending_delete.set(None);
                                                             *common_deck.write() = save.to_deck_or_pile(&db.read());
-                                                            *deck_success.write() =
-                                                                format!("Loaded '{}'.", save.name);
+                                                            *deck_success.write() = format!("Loaded '{}'.", save.name);
                                                             track_event(
                                                                 EventType::SaveLoad,
                                                                 SaveLoadEventData {
@@ -754,6 +777,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                         let mut pending_delete = pending_delete;
                                                         move |_| {
                                                             *deck_error.write() = String::new();
+                                                            is_error_from_file.set(false);
                                                             *deck_success.write() = String::new();
                                                             pending_delete.set(None);
                                                             match serde_json::to_vec_pretty(&save.deck) {
@@ -778,8 +802,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                                             error: Some(format!("Could not encode save file: {err}")),
                                                                         },
                                                                     );
-                                                                    *deck_error.write() =
-                                                                        format!("Could not encode save file: {err}");
+                                                                    *deck_error.write() = format!("Could not encode save file: {err}");
                                                                 }
                                                             }
                                                         }
@@ -815,6 +838,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                             let mut saved_decks = saved_decks;
                                                             spawn(async move {
                                                                 *deck_error.write() = String::new();
+                                                                is_error_from_file.set(false);
                                                                 *deck_success.write() = String::new();
                                                                 match delete_saved_deck(&id).await {
                                                                     Ok(_) => {
