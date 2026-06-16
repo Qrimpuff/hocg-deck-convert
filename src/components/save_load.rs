@@ -388,6 +388,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
     let deck_success = use_signal(String::new);
     let mut is_loading = use_signal(|| true);
     let mut saved_decks = use_signal(Vec::<SavedResult>::new);
+    let pending_overwrite = use_signal(|| None::<String>);
     let pending_delete = use_signal(|| None::<String>);
     let mut container_ref = use_signal(|| None::<web_sys::Element>);
 
@@ -408,6 +409,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
     let save_to_browser = move |_| {
         let mut deck_error = deck_error;
         let mut deck_success = deck_success;
+        let mut pending_overwrite = pending_overwrite;
         let mut pending_delete = pending_delete;
         let mut saved_decks = saved_decks;
         let mut container_ref = container_ref;
@@ -416,6 +418,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
             *deck_error.write() = String::new();
             is_error_from_file.set(false);
             *deck_success.write() = String::new();
+            pending_overwrite.set(None);
             pending_delete.set(None);
             match save_deck(&save).await {
                 Ok(_) => {
@@ -451,6 +454,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
     let save_from_file = move |event: Event<FormData>| {
         let mut deck_error = deck_error;
         let mut deck_success = deck_success;
+        let mut pending_overwrite = pending_overwrite;
         let mut pending_delete = pending_delete;
         let mut saved_decks = saved_decks;
         let mut container_ref = container_ref;
@@ -459,6 +463,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
             *deck_error.write() = String::new();
             is_error_from_file.set(false);
             *deck_success.write() = String::new();
+            pending_overwrite.set(None);
             pending_delete.set(None);
 
             let files = event.files();
@@ -717,7 +722,11 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                     p { class: "has-text-weight-semibold",
                                                         "{save.name}"
                                                     }
-                                                    if pending_delete.read().as_ref() == Some(&save.id) {
+                                                    if pending_overwrite.read().as_ref() == Some(&save.id) {
+                                                        p { class: "is-size-7 has-text-warning",
+                                                            "Click save again to confirm."
+                                                        }
+                                                    } else if pending_delete.read().as_ref() == Some(&save.id) {
                                                         p { class: "is-size-7 has-text-danger",
                                                             "Click delete again to confirm."
                                                         }
@@ -741,11 +750,13 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                         let mut common_deck = common_deck;
                                                         let mut deck_error = deck_error;
                                                         let mut deck_success = deck_success;
+                                                        let mut pending_overwrite = pending_overwrite;
                                                         let mut pending_delete = pending_delete;
                                                         move |_| {
                                                             *deck_error.write() = String::new();
                                                             is_error_from_file.set(false);
                                                             *deck_success.write() = String::new();
+                                                            pending_overwrite.set(None);
                                                             pending_delete.set(None);
                                                             *common_deck.write() = save.to_deck_or_pile(&db.read());
                                                             *deck_success.write() = format!("Loaded '{}'.", save.name);
@@ -766,6 +777,81 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                     span { "Load" }
                                                 }
                                                 button {
+                                                    class: if pending_overwrite.read().as_ref() == Some(&save.id) { "button is-success" } else { "button" },
+                                                    r#type: "button",
+                                                    title: if pending_overwrite.read().as_ref() == Some(&save.id) { "Click again to overwrite this deck" } else { "Overwrite this deck" },
+                                                    aria_label: format!("Overwrite saved deck '{}'", save.name),
+                                                    onclick: {
+                                                        let id = save.id.clone();
+                                                        let name = save.name.clone();
+                                                        let item_kind = save.deck.kind();
+                                                        let mut pending_overwrite = pending_overwrite;
+                                                        let mut pending_delete = pending_delete;
+                                                        let deck_error = deck_error;
+                                                        let saved_decks = saved_decks;
+                                                        move |_| {
+                                                            let id = id.clone();
+                                                            let name = name.clone();
+                                                            let item_kind = item_kind;
+                                                            pending_delete.set(None);
+                                                            if pending_overwrite.read().as_ref() != Some(&id) {
+                                                                pending_overwrite.set(Some(id.clone()));
+                                                                return;
+                                                            }
+                                                            pending_overwrite.set(None);
+                                                            let mut deck_error = deck_error;
+                                                            let mut deck_success = deck_success;
+                                                            let mut saved_decks = saved_decks;
+                                                            spawn(async move {
+                                                                *deck_error.write() = String::new();
+                                                                is_error_from_file.set(false);
+                                                                *deck_success.write() = String::new();
+                                                                let mut new_save = SaveData::from_deck_or_pile(
+                                                                    common_deck.read().clone(),
+                                                                    &db.read(),
+                                                                );
+                                                                new_save.id = id.clone();
+                                                                match save_deck(&new_save).await {
+                                                                    Ok(_) => {
+                                                                        if let Some(save) = saved_decks
+                                                                            .write()
+                                                                            .iter_mut()
+                                                                            .find(|save| save.id() == id)
+                                                                        {
+                                                                            *save = SavedResult::Ok(new_save.clone());
+                                                                        }
+                                                                        *deck_success.write() = format!("Overwritten '{}'.", name);
+                                                                        track_event(
+                                                                            EventType::SaveLoad,
+                                                                            SaveLoadEventData {
+                                                                                action: "Overwrite deck",
+                                                                                item_kind,
+                                                                                error: None,
+                                                                            },
+                                                                        );
+                                                                    }
+                                                                    Err(err) => {
+                                                                        track_event(
+                                                                            EventType::SaveLoad,
+                                                                            SaveLoadEventData {
+                                                                                action: "Overwrite deck",
+                                                                                item_kind,
+                                                                                error: Some(err.clone()),
+                                                                            },
+                                                                        );
+                                                                        *deck_error.write() = err;
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
+                                                    },
+                                                    disabled: *is_loading.read() || common_deck.read().is_empty(),
+                                                    span { class: "icon",
+                                                        i { class: "fa-solid fa-floppy-disk" }
+                                                    }
+                                                    span { "Save" }
+                                                }
+                                                button {
                                                     class: "button",
                                                     r#type: "button",
                                                     title: "Download this deck",
@@ -774,11 +860,13 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                         let save = save.clone();
                                                         let mut deck_error = deck_error;
                                                         let mut deck_success = deck_success;
+                                                        let mut pending_overwrite = pending_overwrite;
                                                         let mut pending_delete = pending_delete;
                                                         move |_| {
                                                             *deck_error.write() = String::new();
                                                             is_error_from_file.set(false);
                                                             *deck_success.write() = String::new();
+                                                            pending_overwrite.set(None);
                                                             pending_delete.set(None);
                                                             match serde_json::to_vec_pretty(&save.deck) {
                                                                 Ok(contents) => {
@@ -821,6 +909,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                         let id = save.id.clone();
                                                         let name = save.name.clone();
                                                         let item_kind = save.deck.kind();
+                                                        let mut pending_overwrite = pending_overwrite;
                                                         let mut pending_delete = pending_delete;
                                                         let deck_error = deck_error;
                                                         let saved_decks = saved_decks;
@@ -828,6 +917,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                             let id = id.clone();
                                                             let name = name.clone();
                                                             let item_kind = item_kind;
+                                                            pending_overwrite.set(None);
                                                             if pending_delete.read().as_ref() != Some(&id) {
                                                                 pending_delete.set(Some(id.clone()));
                                                                 return;
