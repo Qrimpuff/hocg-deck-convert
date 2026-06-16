@@ -3,7 +3,8 @@ use hocg_fan_sim_assets_model::CardsDatabase;
 use serde::Serialize;
 
 use crate::{
-    CARDS_PRICES, CURRENT_PAGE, CardLanguage, CardType, FREE_BASIC_CHEERS, PRICE_SERVICE, Page,
+    AUTO_SAVE_DECK, CARDS_PRICES, CURRENT_PAGE, CardLanguage, CardType, FREE_BASIC_CHEERS,
+    PRICE_SERVICE, Page,
     components::{card::Card, tooltip::Tooltip},
     sources::{DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, track_event},
@@ -42,6 +43,8 @@ pub fn DeckPreview(
                 action: "Update deck name".into(),
             },
         );
+
+        AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
     };
 
     let mut is_pile = use_signal(|| matches!(*common_deck.read(), DeckOrPile::Pile(_)));

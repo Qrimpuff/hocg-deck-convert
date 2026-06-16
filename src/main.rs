@@ -52,6 +52,7 @@ static IMPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 static EXPORT_FORMAT: GlobalSignal<Option<DeckType>> = Signal::global(|| None);
 
 static COMMON_DECK: GlobalSignal<DeckOrPile> = Signal::global(Default::default);
+static AUTO_SAVE_DECK: GlobalSignal<Option<DeckOrPile>> = Signal::global(|| None);
 static PREVIEW_CARD_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::Japanese);
 // default to the first export format (holoDelta)
 static PREVIEW_IMAGE_OPTIONS: GlobalSignal<ImageOptions> = Signal::global(ImageOptions::holodelta);

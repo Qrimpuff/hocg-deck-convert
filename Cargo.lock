@@ -1358,6 +1358,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dioxus-sdk-time"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80c25ae93a3f72e734873b97fbd09d9b1b6adff97205fb0ffd8543e3564fb78e"
+dependencies = [
+ "dioxus",
+ "futures",
+ "gloo-timers 0.3.0",
+ "tokio",
+]
+
+[[package]]
 name = "dioxus-signals"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2142,6 +2154,7 @@ dependencies = [
  "base64",
  "bitflags",
  "dioxus",
+ "dioxus-sdk-time",
  "futures",
  "gloo",
  "hocg-fan-sim-assets-model",

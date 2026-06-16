@@ -13,6 +13,7 @@ hocg-fan-sim-prices-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-pr
 base64 = "0.22.1"
 bitflags = "2.11.1"
 dioxus = { version = "0.7.5", features = ["web", "router"] }
+dioxus-sdk-time = "0.7.0"
 futures = "0.3.32"
 gloo = "0.12.0"
 icu = "2.2.0"

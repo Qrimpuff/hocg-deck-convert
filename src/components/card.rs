@@ -3,8 +3,8 @@ use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use serde::Serialize;
 
 use crate::{
-    CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, FREE_BASIC_CHEERS, PREVIEW_CARD_LANG,
-    PRICE_SERVICE,
+    AUTO_SAVE_DECK, CARDS_PRICES, CardLanguage, CardType, EXPORT_FORMAT, FREE_BASIC_CHEERS,
+    PREVIEW_CARD_LANG, PRICE_SERVICE,
     components::modal_popup::{Popup, show_popup},
     sources::{
         CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
@@ -153,6 +153,8 @@ pub fn Card(
                     action: "Add card".into(),
                 },
             );
+
+            AUTO_SAVE_DECK.write().replace(deck.clone());
         }
     };
     let _card = card.clone();
@@ -169,6 +171,8 @@ pub fn Card(
                     action: "Remove card".into(),
                 },
             );
+
+            AUTO_SAVE_DECK.write().replace(deck.clone());
         }
     };
 
