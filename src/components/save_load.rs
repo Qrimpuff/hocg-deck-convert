@@ -642,372 +642,163 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
             }
         }
 
-        if !*is_loading.read() && saved_decks.read().is_empty() {
-            div { class: "notification",
-                p { "No saved decks yet. Save the current deck to add it to the list." }
-            }
-        } else {
-            // auto-saved deck
-            if let Some(save) = auto_save.read().as_ref() {
-                div {
-                    p { class: "mt-3 mb-2",
-                        "Auto-saved "
-                        match save.deck {
-                            SaveDeckOrPile::Deck(_) => "deck",
-                            SaveDeckOrPile::Pile(_) => "pile of cards",
-                        }
+        // auto-saved deck
+        if let Some(save) = auto_save.read().as_ref() {
+            div {
+                p { class: "mt-3 mb-2",
+                    "Auto-saved "
+                    match save.deck {
+                        SaveDeckOrPile::Deck(_) => "deck",
+                        SaveDeckOrPile::Pile(_) => "pile of cards",
                     }
                 }
-                div {
-                    class: "cell",
-                    style: "transition: background-color 0.2s;",
-                    article { class: "message is-small",
-                        div { class: "message-body",
-                            div { class: "is-flex is-justify-content-end is-align-items-center is-flex-wrap-wrap is-gap-2",
-                                div {
-                                    class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
-                                    style: "flex: 1 1 14.75rem; min-width: 0;",
-                                    div { class: "is-flex is-align-items-center",
-                                        img {
-                                            style: "height: 42px; width: 30px; min-width: 30px;",
-                                            width: "400",
-                                            height: "560",
-                                            border_radius: "3.7%",
-                                            src: "{save.image_path(&db.read())}",
-                                            "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
-                                        }
-                                    }
-                                    div {
-                                        class: "is-flex-grow-1",
-                                        style: "min-width: 0;",
-                                        p { class: "has-text-weight-semibold", "{save.name}" }
-                                        p { class: "is-size-7 has-text-grey",
-                                            "Saved at {format_datetime(&save.saved_at)}"
-                                        }
+            }
+            div { class: "cell", style: "transition: background-color 0.2s;",
+                article { class: "message is-small",
+                    div { class: "message-body",
+                        div { class: "is-flex is-justify-content-end is-align-items-center is-flex-wrap-wrap is-gap-2",
+                            div {
+                                class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
+                                style: "flex: 1 1 14.75rem; min-width: 0;",
+                                div { class: "is-flex is-align-items-center",
+                                    img {
+                                        style: "height: 42px; width: 30px; min-width: 30px;",
+                                        width: "400",
+                                        height: "560",
+                                        border_radius: "3.7%",
+                                        src: "{save.image_path(&db.read())}",
+                                        "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
                                     }
                                 }
                                 div {
-                                    class: "buttons are-small is-flex-wrap-nowrap",
-                                    style: "flex: 0 0 auto; margin-bottom: 0; gap: 0.25rem;",
-                                    button {
-                                        class: "button is-link",
-                                        r#type: "button",
-                                        title: "Load this deck",
-                                        aria_label: format!("Load saved deck '{}'", save.name),
-                                        onclick: {
-                                            let save = save.clone();
-                                            let mut common_deck = common_deck;
-                                            let mut deck_error = deck_error;
-                                            let mut deck_success = deck_success;
-                                            let mut pending_overwrite = pending_overwrite;
-                                            let mut pending_delete = pending_delete;
-                                            move |_| {
-                                                *deck_error.write() = String::new();
-                                                is_error_from_file.set(false);
-                                                *deck_success.write() = String::new();
-                                                pending_overwrite.set(None);
-                                                pending_delete.set(None);
-                                                *common_deck.write() = save.to_deck_or_pile(&db.read());
-                                                *deck_success.write() = format!("Loaded '{}'.", save.name);
-                                                track_event(
-                                                    EventType::SaveLoad,
-                                                    SaveLoadEventData {
-                                                        action: "Load auto-saved deck",
-                                                        item_kind: save.deck.kind(),
-                                                        error: None,
-                                                    },
-                                                );
-                                            }
-                                        },
-                                        disabled: *is_loading.read(),
-                                        span { class: "icon",
-                                            i { class: "fa-solid fa-arrow-right-from-bracket" }
-                                        }
-                                        span { "Load" }
+                                    class: "is-flex-grow-1",
+                                    style: "min-width: 0;",
+                                    p { class: "has-text-weight-semibold", "{save.name}" }
+                                    p { class: "is-size-7 has-text-grey",
+                                        "Saved at {format_datetime(&save.saved_at)}"
                                     }
+                                }
+                            }
+                            div {
+                                class: "buttons are-small is-flex-wrap-nowrap",
+                                style: "flex: 0 0 auto; margin-bottom: 0; gap: 0.25rem;",
+                                button {
+                                    class: "button is-link",
+                                    r#type: "button",
+                                    title: "Load this deck",
+                                    aria_label: format!("Load saved deck '{}'", save.name),
+                                    onclick: {
+                                        let save = save.clone();
+                                        let mut common_deck = common_deck;
+                                        let mut deck_error = deck_error;
+                                        let mut deck_success = deck_success;
+                                        let mut pending_overwrite = pending_overwrite;
+                                        let mut pending_delete = pending_delete;
+                                        move |_| {
+                                            *deck_error.write() = String::new();
+                                            is_error_from_file.set(false);
+                                            *deck_success.write() = String::new();
+                                            pending_overwrite.set(None);
+                                            pending_delete.set(None);
+                                            *common_deck.write() = save.to_deck_or_pile(&db.read());
+                                            *deck_success.write() = format!("Loaded '{}'.", save.name);
+                                            track_event(
+                                                EventType::SaveLoad,
+                                                SaveLoadEventData {
+                                                    action: "Load auto-saved deck",
+                                                    item_kind: save.deck.kind(),
+                                                    error: None,
+                                                },
+                                            );
+                                        }
+                                    },
+                                    disabled: *is_loading.read(),
+                                    span { class: "icon",
+                                        i { class: "fa-solid fa-arrow-right-from-bracket" }
+                                    }
+                                    span { "Load" }
                                 }
                             }
                         }
                     }
                 }
             }
+        }
 
-            // saved decks list
-            if !saved_decks.read().is_empty() {
-                div {
-                    p { class: "mt-3 mb-2",
-                        "Saved decks"
-                        if !saved_decks.read().is_empty() {
-                            " ({saved_decks.read().len()})"
-                        }
+        // saved decks list
+        if !*is_loading.read() && saved_decks.read().is_empty() {
+            div { class: "mt-5 notification",
+                p { "No saved decks yet. Save the current deck to add it to the list." }
+            }
+        } else if !saved_decks.read().is_empty() {
+            div {
+                p { class: "mt-3 mb-2",
+                    "Saved decks"
+                    if !saved_decks.read().is_empty() {
+                        " ({saved_decks.read().len()})"
                     }
                 }
-                div {
-                    class: "fixed-grid has-1-cols",
-                    style: "max-height: 65vh; overflow: scroll;",
-                    onmounted: move |elem| {
-                        *container_ref.write() = Some(elem.as_web_event());
-                    },
-                    div { class: "grid",
-                        for save in saved_decks.read().iter() {
-                            div {
-                                class: "cell",
-                                style: "transition: background-color 0.2s;",
-                                if let SavedResult::Err { id, error } = &save {
-                                    article { class: "message is-small is-danger",
-                                        div { class: "message-body",
-                                            div { class: "is-flex is-justify-content-end is-align-items-center is-flex-wrap-wrap is-gap-2",
+            }
+            div {
+                class: "fixed-grid has-1-cols",
+                style: "max-height: 65vh; overflow: scroll;",
+                onmounted: move |elem| {
+                    *container_ref.write() = Some(elem.as_web_event());
+                },
+                div { class: "grid",
+                    for save in saved_decks.read().iter() {
+                        div {
+                            class: "cell",
+                            style: "transition: background-color 0.2s;",
+                            if let SavedResult::Err { id, error } = &save {
+                                article { class: "message is-small is-danger",
+                                    div { class: "message-body",
+                                        div { class: "is-flex is-justify-content-end is-align-items-center is-flex-wrap-wrap is-gap-2",
+                                            div {
+                                                class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
+                                                style: "flex: 1 1 14.75rem; min-width: 0;",
                                                 div {
-                                                    class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
-                                                    style: "flex: 1 1 14.75rem; min-width: 0;",
-                                                    div {
-                                                        div { class: "is-flex is-align-items-center is-gap-2",
-                                                            span { class: "icon",
-                                                                i { class: "fa-solid fa-lg fa-triangle-exclamation" }
-                                                            }
-                                                            p { "Error loading this saved deck: " }
-                                                        }
-                                                        p { class: "is-size-7 has-text-grey",
-                                                            "{error}"
-                                                        }
-                                                    }
-                                                }
-                                                div {
-                                                    class: "buttons are-small is-flex-wrap-nowrap",
-                                                    style: "flex: 0 0 auto; margin-bottom: 0; gap: 0.25rem;",
-                                                    button {
-                                                        class: "button is-danger",
-                                                        r#type: "button",
-                                                        title: "Delete this entry",
-                                                        aria_label: "Delete this error entry",
-                                                        onclick: {
-                                                            let id = id.clone();
-                                                            let deck_error = deck_error;
-                                                            let saved_decks = saved_decks;
-                                                            move |_| {
-                                                                let id = id.clone();
-                                                                let mut deck_error = deck_error;
-                                                                let mut deck_success = deck_success;
-                                                                let mut saved_decks = saved_decks;
-                                                                spawn(async move {
-                                                                    *deck_error.write() = String::new();
-                                                                    is_error_from_file.set(false);
-                                                                    *deck_success.write() = String::new();
-                                                                    match delete_saved_deck(&id).await {
-                                                                        Ok(_) => {
-                                                                            saved_decks.write().retain(|save| { save.id() != id });
-                                                                            *deck_success.write() = "Deleted error entry.".to_string();
-                                                                            track_event(
-                                                                                EventType::SaveLoad,
-                                                                                SaveLoadEventData {
-                                                                                    action: "Delete deck",
-                                                                                    item_kind: "unknown",
-                                                                                    error: None,
-                                                                                },
-                                                                            );
-                                                                        }
-                                                                        Err(err) => {
-                                                                            track_event(
-                                                                                EventType::SaveLoad,
-                                                                                SaveLoadEventData {
-                                                                                    action: "Delete deck",
-                                                                                    item_kind: "unknown",
-                                                                                    error: Some(err.clone()),
-                                                                                },
-                                                                            );
-                                                                            *deck_error.write() = err;
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }
-                                                        },
-                                                        disabled: *is_loading.read(),
+                                                    div { class: "is-flex is-align-items-center is-gap-2",
                                                         span { class: "icon",
-                                                            i { class: "fa-solid fa-trash" }
+                                                            i { class: "fa-solid fa-lg fa-triangle-exclamation" }
                                                         }
+                                                        p { "Error loading this saved deck: " }
+                                                    }
+                                                    p { class: "is-size-7 has-text-grey",
+                                                        "{error}"
                                                     }
                                                 }
                                             }
-                                        }
-                                    }
-                                } else if let SavedResult::Ok(save) = &save {
-                                    article { class: "message is-small",
-                                        div { class: "message-body",
-                                            div { class: "is-flex is-justify-content-end is-align-items-center is-flex-wrap-wrap is-gap-2",
-                                                div {
-                                                    class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
-                                                    style: "flex: 1 1 14.75rem; min-width: 0;",
-                                                    div { class: "is-flex is-align-items-center",
-                                                        img {
-                                                            style: "height: 42px; width: 30px; min-width: 30px;",
-                                                            width: "400",
-                                                            height: "560",
-                                                            border_radius: "3.7%",
-                                                            src: "{save.image_path(&db.read())}",
-                                                            "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
-                                                        }
-                                                    }
-                                                    div {
-                                                        class: "is-flex-grow-1",
-                                                        style: "min-width: 0;",
-                                                        p { class: "has-text-weight-semibold",
-                                                            "{save.name}"
-                                                        }
-                                                        if pending_overwrite.read().as_ref() == Some(&save.id) {
-                                                            p { class: "is-size-7 has-text-warning",
-                                                                "Click save again to confirm."
-                                                            }
-                                                        } else if pending_delete.read().as_ref() == Some(&save.id) {
-                                                            p { class: "is-size-7 has-text-danger",
-                                                                "Click delete again to confirm."
-                                                            }
-                                                        } else {
-                                                            p { class: "is-size-7 has-text-grey",
-                                                                "Saved at {format_datetime(&save.saved_at)}"
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                div {
-                                                    class: "buttons are-small is-flex-wrap-nowrap",
-                                                    style: "flex: 0 0 auto; margin-bottom: 0; gap: 0.25rem;",
-                                                    button {
-                                                        class: "button is-link",
-                                                        r#type: "button",
-                                                        title: "Load this deck",
-                                                        aria_label: format!("Load saved deck '{}'", save.name),
-                                                        onclick: {
-                                                            let save = save.clone();
-                                                            let mut common_deck = common_deck;
+                                            div {
+                                                class: "buttons are-small is-flex-wrap-nowrap",
+                                                style: "flex: 0 0 auto; margin-bottom: 0; gap: 0.25rem;",
+                                                button {
+                                                    class: "button is-danger",
+                                                    r#type: "button",
+                                                    title: "Delete this entry",
+                                                    aria_label: "Delete this error entry",
+                                                    onclick: {
+                                                        let id = id.clone();
+                                                        let deck_error = deck_error;
+                                                        let saved_decks = saved_decks;
+                                                        move |_| {
+                                                            let id = id.clone();
                                                             let mut deck_error = deck_error;
                                                             let mut deck_success = deck_success;
-                                                            let mut pending_overwrite = pending_overwrite;
-                                                            let mut pending_delete = pending_delete;
-                                                            move |_| {
+                                                            let mut saved_decks = saved_decks;
+                                                            spawn(async move {
                                                                 *deck_error.write() = String::new();
                                                                 is_error_from_file.set(false);
                                                                 *deck_success.write() = String::new();
-                                                                pending_overwrite.set(None);
-                                                                pending_delete.set(None);
-                                                                *common_deck.write() = save.to_deck_or_pile(&db.read());
-                                                                *deck_success.write() = format!("Loaded '{}'.", save.name);
-                                                                track_event(
-                                                                    EventType::SaveLoad,
-                                                                    SaveLoadEventData {
-                                                                        action: "Load deck",
-                                                                        item_kind: save.deck.kind(),
-                                                                        error: None,
-                                                                    },
-                                                                );
-                                                            }
-                                                        },
-                                                        disabled: *is_loading.read(),
-                                                        span { class: "icon",
-                                                            i { class: "fa-solid fa-arrow-right-from-bracket" }
-                                                        }
-                                                        span { "Load" }
-                                                    }
-                                                    button {
-                                                        class: if pending_overwrite.read().as_ref() == Some(&save.id) { "button is-success" } else { "button" },
-                                                        r#type: "button",
-                                                        title: if pending_overwrite.read().as_ref() == Some(&save.id) { "Click again to overwrite this deck" } else { "Overwrite this deck" },
-                                                        aria_label: format!("Overwrite saved deck '{}'", save.name),
-                                                        onclick: {
-                                                            let id = save.id.clone();
-                                                            let name = save.name.clone();
-                                                            let item_kind = save.deck.kind();
-                                                            let mut pending_overwrite = pending_overwrite;
-                                                            let mut pending_delete = pending_delete;
-                                                            let deck_error = deck_error;
-                                                            let saved_decks = saved_decks;
-                                                            move |_| {
-                                                                let id = id.clone();
-                                                                let name = name.clone();
-                                                                let item_kind = item_kind;
-                                                                pending_delete.set(None);
-                                                                if pending_overwrite.read().as_ref() != Some(&id) {
-                                                                    pending_overwrite.set(Some(id.clone()));
-                                                                    return;
-                                                                }
-                                                                pending_overwrite.set(None);
-                                                                let mut deck_error = deck_error;
-                                                                let mut deck_success = deck_success;
-                                                                let mut saved_decks = saved_decks;
-                                                                spawn(async move {
-                                                                    *deck_error.write() = String::new();
-                                                                    is_error_from_file.set(false);
-                                                                    *deck_success.write() = String::new();
-                                                                    let mut new_save = SaveData::from_deck_or_pile(
-                                                                        common_deck.read().clone(),
-                                                                        &db.read(),
-                                                                    );
-                                                                    new_save.id = id.clone();
-                                                                    match save_deck(&new_save).await {
-                                                                        Ok(_) => {
-                                                                            if let Some(save) = saved_decks
-                                                                                .write()
-                                                                                .iter_mut()
-                                                                                .find(|save| save.id() == id)
-                                                                            {
-                                                                                *save = SavedResult::Ok(new_save.clone());
-                                                                            }
-                                                                            *deck_success.write() = format!("Overwritten '{}'.", name);
-                                                                            track_event(
-                                                                                EventType::SaveLoad,
-                                                                                SaveLoadEventData {
-                                                                                    action: "Overwrite deck",
-                                                                                    item_kind,
-                                                                                    error: None,
-                                                                                },
-                                                                            );
-                                                                        }
-                                                                        Err(err) => {
-                                                                            track_event(
-                                                                                EventType::SaveLoad,
-                                                                                SaveLoadEventData {
-                                                                                    action: "Overwrite deck",
-                                                                                    item_kind,
-                                                                                    error: Some(err.clone()),
-                                                                                },
-                                                                            );
-                                                                            *deck_error.write() = err;
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }
-                                                        },
-                                                        disabled: *is_loading.read() || common_deck.read().is_empty(),
-                                                        span { class: "icon",
-                                                            i { class: "fa-solid fa-floppy-disk" }
-                                                        }
-                                                        span { "Save" }
-                                                    }
-                                                    button {
-                                                        class: "button",
-                                                        r#type: "button",
-                                                        title: "Download this deck",
-                                                        aria_label: format!("Download saved deck '{}'", save.name),
-                                                        onclick: {
-                                                            let save = save.clone();
-                                                            let mut deck_error = deck_error;
-                                                            let mut deck_success = deck_success;
-                                                            let mut pending_overwrite = pending_overwrite;
-                                                            let mut pending_delete = pending_delete;
-                                                            move |_| {
-                                                                *deck_error.write() = String::new();
-                                                                is_error_from_file.set(false);
-                                                                *deck_success.write() = String::new();
-                                                                pending_overwrite.set(None);
-                                                                pending_delete.set(None);
-                                                                match serde_json::to_vec_pretty(&save.deck) {
-                                                                    Ok(contents) => {
-                                                                        download_file(&save.deck.file_name(), &contents[..]);
-                                                                        *deck_success.write() = format!("Downloaded '{}'.", save.name);
+                                                                match delete_saved_deck(&id).await {
+                                                                    Ok(_) => {
+                                                                        saved_decks.write().retain(|save| { save.id() != id });
+                                                                        *deck_success.write() = "Deleted error entry.".to_string();
                                                                         track_event(
                                                                             EventType::SaveLoad,
                                                                             SaveLoadEventData {
-                                                                                action: "Download deck",
-                                                                                item_kind: save.deck.kind(),
+                                                                                action: "Delete deck",
+                                                                                item_kind: "unknown",
                                                                                 error: None,
                                                                             },
                                                                         );
@@ -1016,83 +807,288 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                                         track_event(
                                                                             EventType::SaveLoad,
                                                                             SaveLoadEventData {
-                                                                                action: "Download deck",
-                                                                                item_kind: save.deck.kind(),
-                                                                                error: Some(format!("Could not encode save file: {err}")),
+                                                                                action: "Delete deck",
+                                                                                item_kind: "unknown",
+                                                                                error: Some(err.clone()),
                                                                             },
                                                                         );
-                                                                        *deck_error.write() = format!("Could not encode save file: {err}");
+                                                                        *deck_error.write() = err;
                                                                     }
                                                                 }
-                                                            }
-                                                        },
-                                                        disabled: *is_loading.read(),
-                                                        span { class: "icon",
-                                                            i { class: "fa-solid fa-download" }
+                                                            });
+                                                        }
+                                                    },
+                                                    disabled: *is_loading.read(),
+                                                    span { class: "icon",
+                                                        i { class: "fa-solid fa-trash" }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if let SavedResult::Ok(save) = &save {
+                                article { class: "message is-small",
+                                    div { class: "message-body",
+                                        div { class: "is-flex is-justify-content-end is-align-items-center is-flex-wrap-wrap is-gap-2",
+                                            div {
+                                                class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
+                                                style: "flex: 1 1 14.75rem; min-width: 0;",
+                                                div { class: "is-flex is-align-items-center",
+                                                    img {
+                                                        style: "height: 42px; width: 30px; min-width: 30px;",
+                                                        width: "400",
+                                                        height: "560",
+                                                        border_radius: "3.7%",
+                                                        src: "{save.image_path(&db.read())}",
+                                                        "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
+                                                    }
+                                                }
+                                                div {
+                                                    class: "is-flex-grow-1",
+                                                    style: "min-width: 0;",
+                                                    p { class: "has-text-weight-semibold",
+                                                        "{save.name}"
+                                                    }
+                                                    if pending_overwrite.read().as_ref() == Some(&save.id) {
+                                                        p { class: "is-size-7 has-text-warning",
+                                                            "Click save again to confirm."
+                                                        }
+                                                    } else if pending_delete.read().as_ref() == Some(&save.id) {
+                                                        p { class: "is-size-7 has-text-danger",
+                                                            "Click delete again to confirm."
+                                                        }
+                                                    } else {
+                                                        p { class: "is-size-7 has-text-grey",
+                                                            "Saved at {format_datetime(&save.saved_at)}"
                                                         }
                                                     }
-                                                    button {
-                                                        class: if pending_delete.read().as_ref() == Some(&save.id) { "button is-danger" } else { "button" },
-                                                        r#type: "button",
-                                                        title: if pending_delete.read().as_ref() == Some(&save.id) { "Click again to delete this deck" } else { "Delete this deck" },
-                                                        aria_label: format!("Delete saved deck '{}'", save.name),
-                                                        onclick: {
-                                                            let id = save.id.clone();
-                                                            let name = save.name.clone();
-                                                            let item_kind = save.deck.kind();
-                                                            let mut pending_overwrite = pending_overwrite;
-                                                            let mut pending_delete = pending_delete;
-                                                            let deck_error = deck_error;
-                                                            let saved_decks = saved_decks;
-                                                            move |_| {
-                                                                let id = id.clone();
-                                                                let name = name.clone();
-                                                                let item_kind = item_kind;
-                                                                pending_overwrite.set(None);
-                                                                if pending_delete.read().as_ref() != Some(&id) {
-                                                                    pending_delete.set(Some(id.clone()));
-                                                                    return;
-                                                                }
-                                                                pending_delete.set(None);
-                                                                let mut deck_error = deck_error;
-                                                                let mut deck_success = deck_success;
-                                                                let mut saved_decks = saved_decks;
-                                                                spawn(async move {
-                                                                    *deck_error.write() = String::new();
-                                                                    is_error_from_file.set(false);
-                                                                    *deck_success.write() = String::new();
-                                                                    match delete_saved_deck(&id).await {
-                                                                        Ok(_) => {
-                                                                            saved_decks.write().retain(|save| { save.id() != id });
-                                                                            *deck_success.write() = format!("Deleted '{}'.", name);
-                                                                            track_event(
-                                                                                EventType::SaveLoad,
-                                                                                SaveLoadEventData {
-                                                                                    action: "Delete deck",
-                                                                                    item_kind,
-                                                                                    error: None,
-                                                                                },
-                                                                            );
-                                                                        }
-                                                                        Err(err) => {
-                                                                            track_event(
-                                                                                EventType::SaveLoad,
-                                                                                SaveLoadEventData {
-                                                                                    action: "Delete deck",
-                                                                                    item_kind,
-                                                                                    error: Some(err.clone()),
-                                                                                },
-                                                                            );
-                                                                            *deck_error.write() = err;
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }
-                                                        },
-                                                        disabled: *is_loading.read(),
-                                                        span { class: if pending_delete.read().as_ref() == Some(&save.id) { "icon " } else { "icon has-text-danger" },
-                                                            i { class: "fa-solid fa-trash" }
+                                                }
+                                            }
+                                            div {
+                                                class: "buttons are-small is-flex-wrap-nowrap",
+                                                style: "flex: 0 0 auto; margin-bottom: 0; gap: 0.25rem;",
+                                                button {
+                                                    class: "button is-link",
+                                                    r#type: "button",
+                                                    title: "Load this deck",
+                                                    aria_label: format!("Load saved deck '{}'", save.name),
+                                                    onclick: {
+                                                        let save = save.clone();
+                                                        let mut common_deck = common_deck;
+                                                        let mut deck_error = deck_error;
+                                                        let mut deck_success = deck_success;
+                                                        let mut pending_overwrite = pending_overwrite;
+                                                        let mut pending_delete = pending_delete;
+                                                        move |_| {
+                                                            *deck_error.write() = String::new();
+                                                            is_error_from_file.set(false);
+                                                            *deck_success.write() = String::new();
+                                                            pending_overwrite.set(None);
+                                                            pending_delete.set(None);
+                                                            *common_deck.write() = save.to_deck_or_pile(&db.read());
+                                                            *deck_success.write() = format!("Loaded '{}'.", save.name);
+                                                            track_event(
+                                                                EventType::SaveLoad,
+                                                                SaveLoadEventData {
+                                                                    action: "Load deck",
+                                                                    item_kind: save.deck.kind(),
+                                                                    error: None,
+                                                                },
+                                                            );
                                                         }
+                                                    },
+                                                    disabled: *is_loading.read(),
+                                                    span { class: "icon",
+                                                        i { class: "fa-solid fa-arrow-right-from-bracket" }
+                                                    }
+                                                    span { "Load" }
+                                                }
+                                                button {
+                                                    class: if pending_overwrite.read().as_ref() == Some(&save.id) { "button is-success" } else { "button" },
+                                                    r#type: "button",
+                                                    title: if pending_overwrite.read().as_ref() == Some(&save.id) { "Click again to overwrite this deck" } else { "Overwrite this deck" },
+                                                    aria_label: format!("Overwrite saved deck '{}'", save.name),
+                                                    onclick: {
+                                                        let id = save.id.clone();
+                                                        let name = save.name.clone();
+                                                        let item_kind = save.deck.kind();
+                                                        let mut pending_overwrite = pending_overwrite;
+                                                        let mut pending_delete = pending_delete;
+                                                        let deck_error = deck_error;
+                                                        let saved_decks = saved_decks;
+                                                        move |_| {
+                                                            let id = id.clone();
+                                                            let name = name.clone();
+                                                            let item_kind = item_kind;
+                                                            pending_delete.set(None);
+                                                            if pending_overwrite.read().as_ref() != Some(&id) {
+                                                                pending_overwrite.set(Some(id.clone()));
+                                                                return;
+                                                            }
+                                                            pending_overwrite.set(None);
+                                                            let mut deck_error = deck_error;
+                                                            let mut deck_success = deck_success;
+                                                            let mut saved_decks = saved_decks;
+                                                            spawn(async move {
+                                                                *deck_error.write() = String::new();
+                                                                is_error_from_file.set(false);
+                                                                *deck_success.write() = String::new();
+                                                                let mut new_save = SaveData::from_deck_or_pile(
+                                                                    common_deck.read().clone(),
+                                                                    &db.read(),
+                                                                );
+                                                                new_save.id = id.clone();
+                                                                match save_deck(&new_save).await {
+                                                                    Ok(_) => {
+                                                                        if let Some(save) = saved_decks
+                                                                            .write()
+                                                                            .iter_mut()
+                                                                            .find(|save| save.id() == id)
+                                                                        {
+                                                                            *save = SavedResult::Ok(new_save.clone());
+                                                                        }
+                                                                        *deck_success.write() = format!("Overwritten '{}'.", name);
+                                                                        track_event(
+                                                                            EventType::SaveLoad,
+                                                                            SaveLoadEventData {
+                                                                                action: "Overwrite deck",
+                                                                                item_kind,
+                                                                                error: None,
+                                                                            },
+                                                                        );
+                                                                    }
+                                                                    Err(err) => {
+                                                                        track_event(
+                                                                            EventType::SaveLoad,
+                                                                            SaveLoadEventData {
+                                                                                action: "Overwrite deck",
+                                                                                item_kind,
+                                                                                error: Some(err.clone()),
+                                                                            },
+                                                                        );
+                                                                        *deck_error.write() = err;
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
+                                                    },
+                                                    disabled: *is_loading.read() || common_deck.read().is_empty(),
+                                                    span { class: "icon",
+                                                        i { class: "fa-solid fa-floppy-disk" }
+                                                    }
+                                                    span { "Save" }
+                                                }
+                                                button {
+                                                    class: "button",
+                                                    r#type: "button",
+                                                    title: "Download this deck",
+                                                    aria_label: format!("Download saved deck '{}'", save.name),
+                                                    onclick: {
+                                                        let save = save.clone();
+                                                        let mut deck_error = deck_error;
+                                                        let mut deck_success = deck_success;
+                                                        let mut pending_overwrite = pending_overwrite;
+                                                        let mut pending_delete = pending_delete;
+                                                        move |_| {
+                                                            *deck_error.write() = String::new();
+                                                            is_error_from_file.set(false);
+                                                            *deck_success.write() = String::new();
+                                                            pending_overwrite.set(None);
+                                                            pending_delete.set(None);
+                                                            match serde_json::to_vec_pretty(&save.deck) {
+                                                                Ok(contents) => {
+                                                                    download_file(&save.deck.file_name(), &contents[..]);
+                                                                    *deck_success.write() = format!("Downloaded '{}'.", save.name);
+                                                                    track_event(
+                                                                        EventType::SaveLoad,
+                                                                        SaveLoadEventData {
+                                                                            action: "Download deck",
+                                                                            item_kind: save.deck.kind(),
+                                                                            error: None,
+                                                                        },
+                                                                    );
+                                                                }
+                                                                Err(err) => {
+                                                                    track_event(
+                                                                        EventType::SaveLoad,
+                                                                        SaveLoadEventData {
+                                                                            action: "Download deck",
+                                                                            item_kind: save.deck.kind(),
+                                                                            error: Some(format!("Could not encode save file: {err}")),
+                                                                        },
+                                                                    );
+                                                                    *deck_error.write() = format!("Could not encode save file: {err}");
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    disabled: *is_loading.read(),
+                                                    span { class: "icon",
+                                                        i { class: "fa-solid fa-download" }
+                                                    }
+                                                }
+                                                button {
+                                                    class: if pending_delete.read().as_ref() == Some(&save.id) { "button is-danger" } else { "button" },
+                                                    r#type: "button",
+                                                    title: if pending_delete.read().as_ref() == Some(&save.id) { "Click again to delete this deck" } else { "Delete this deck" },
+                                                    aria_label: format!("Delete saved deck '{}'", save.name),
+                                                    onclick: {
+                                                        let id = save.id.clone();
+                                                        let name = save.name.clone();
+                                                        let item_kind = save.deck.kind();
+                                                        let mut pending_overwrite = pending_overwrite;
+                                                        let mut pending_delete = pending_delete;
+                                                        let deck_error = deck_error;
+                                                        let saved_decks = saved_decks;
+                                                        move |_| {
+                                                            let id = id.clone();
+                                                            let name = name.clone();
+                                                            let item_kind = item_kind;
+                                                            pending_overwrite.set(None);
+                                                            if pending_delete.read().as_ref() != Some(&id) {
+                                                                pending_delete.set(Some(id.clone()));
+                                                                return;
+                                                            }
+                                                            pending_delete.set(None);
+                                                            let mut deck_error = deck_error;
+                                                            let mut deck_success = deck_success;
+                                                            let mut saved_decks = saved_decks;
+                                                            spawn(async move {
+                                                                *deck_error.write() = String::new();
+                                                                is_error_from_file.set(false);
+                                                                *deck_success.write() = String::new();
+                                                                match delete_saved_deck(&id).await {
+                                                                    Ok(_) => {
+                                                                        saved_decks.write().retain(|save| { save.id() != id });
+                                                                        *deck_success.write() = format!("Deleted '{}'.", name);
+                                                                        track_event(
+                                                                            EventType::SaveLoad,
+                                                                            SaveLoadEventData {
+                                                                                action: "Delete deck",
+                                                                                item_kind,
+                                                                                error: None,
+                                                                            },
+                                                                        );
+                                                                    }
+                                                                    Err(err) => {
+                                                                        track_event(
+                                                                            EventType::SaveLoad,
+                                                                            SaveLoadEventData {
+                                                                                action: "Delete deck",
+                                                                                item_kind,
+                                                                                error: Some(err.clone()),
+                                                                            },
+                                                                        );
+                                                                        *deck_error.write() = err;
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
+                                                    },
+                                                    disabled: *is_loading.read(),
+                                                    span { class: if pending_delete.read().as_ref() == Some(&save.id) { "icon " } else { "icon has-text-danger" },
+                                                        i { class: "fa-solid fa-trash" }
                                                     }
                                                 }
                                             }
@@ -1105,6 +1101,5 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                 }
             }
         }
-
     }
 }
