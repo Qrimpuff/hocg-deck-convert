@@ -8,7 +8,9 @@ use super::{
     MergeCommonCards,
     json::{JsonExport, JsonImport},
 };
-use crate::{DeckType, EXPORT_FORMAT, IMPORT_FORMAT, sources::DeckOrPile, tracker::track_internal_url};
+use crate::{
+    DeckType, EXPORT_FORMAT, IMPORT_FORMAT, sources::DeckOrPile, tracker::track_internal_url,
+};
 
 use super::{CardsDatabase, CommonCard, CommonDeck};
 

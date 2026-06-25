@@ -11,7 +11,7 @@ hocg-fan-sim-assets-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-as
 hocg-fan-sim-prices-model = { git = "https://github.com/Qrimpuff/hocg-fan-sim-prices" }
 
 base64 = "0.22.1"
-bitflags = "2.11.1"
+bitflags = "2.13.0"
 dioxus = { version = "0.7.5", features = ["web", "router"] }
 dioxus-sdk-time = "0.7.0"
 futures = "0.3.32"
@@ -20,7 +20,7 @@ icu_timezone = { version = "1.5.0", features = ["compiled_data"] }
 image = { version = "0.25.10", features = ["png", "webp"] }
 imageproc = "0.27.0"
 indexmap = { version = "2.14.0", features = ["serde"] }
-itertools = "0.14.0"
+itertools = "0.15.0"
 js-sys = "0.3.95"
 jiff = { version = "0.2.23", features = ["js", "serde"] }
 printpdf = { version = "0.9.1", default-features = false, features = ["png"] }

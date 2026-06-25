@@ -683,6 +683,18 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
     let mut loading = use_signal(|| false);
     let mut show_advanced = use_signal(|| false);
 
+    let settings_count = use_memo(move || {
+        [
+            *crop_marks_size.read() != DEFAULT_CROP_MARK_SIZE,
+            *crop_marks_position.read() != DEFAULT_CROP_MARK_POSITION,
+            *card_size.read() != DEFAULT_CARD_SIZE,
+            *gap.read() != DEFAULT_GAP,
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count()
+    });
+
     let print_deck = move |_| async move {
         let common_deck = common_deck.read();
 
@@ -886,6 +898,9 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                     }
                 }
                 "Advanced settings"
+                if *settings_count.read() > 0 {
+                    " ({settings_count})"
+                }
             }
         }
 
