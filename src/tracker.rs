@@ -36,15 +36,19 @@ pub enum EventType {
     Error,
 }
 
-// Generate a key for the throttling map based on event type and data
-fn generate_event_key<T: Serialize>(event_name: &str, data: &T) -> String {
-    let data_str = serde_json::to_string(data).unwrap_or_default();
-    format!("{event_name}:{data_str}")
+pub trait TrackEvent: Serialize {
+    /// Generate a key for the throttling map based on event type and data
+    fn key(&self, event_name: &str) -> String {
+        let data_str = serde_json::to_string(self).unwrap_or_default();
+        format!("{event_name}:{data_str}")
+    }
 }
+
+impl TrackEvent for Option<()> {}
 
 pub fn track_event<T>(event: EventType, data: T)
 where
-    T: serde::ser::Serialize,
+    T: TrackEvent,
 {
     let is_entry = matches!(event, EventType::Entry);
 
@@ -60,7 +64,7 @@ where
 
     // Check throttling for events that have a name
     if let Some(event) = event {
-        let event_key = generate_event_key(event, &data);
+        let event_key = data.key(event);
 
         // Check if this event has been tracked recently
         let mut timestamps = event_timestamps().lock().unwrap();
@@ -142,6 +146,7 @@ pub fn track_url(title: &str) {
     struct EventData<'a> {
         title: &'a str,
     }
+    impl TrackEvent for EventData<'_> {}
 
     track_event(EventType::Url(title.into()), EventData { title });
 }
@@ -151,6 +156,7 @@ pub fn track_error(message: &str) {
     struct EventData<'a> {
         message: &'a str,
     }
+    impl TrackEvent for EventData<'_> {}
 
     track_event(EventType::Error, EventData { message });
 }

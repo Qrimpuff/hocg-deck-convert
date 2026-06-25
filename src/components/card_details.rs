@@ -20,7 +20,7 @@ use crate::{
     sources::{
         CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
     },
-    tracker::{EventType, track_event, track_url},
+    tracker::{EventType, TrackEvent, track_event, track_url},
 };
 
 static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
@@ -31,6 +31,7 @@ struct EventData {
     #[serde(skip_serializing_if = "Option::is_none")]
     filter_type: Option<String>,
 }
+impl TrackEvent for EventData {}
 
 #[component]
 pub fn CardDetailsPopup(

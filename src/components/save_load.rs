@@ -16,7 +16,7 @@ use crate::{
     AUTO_SAVE_DECK, CURRENT_PAGE, CardLanguage, EDIT_DECK, IMPORT_FORMAT, PREVIEW_IMAGE_OPTIONS,
     Page, SHOW_PRICE, VERSION, download_file,
     sources::{CommonCard, CommonDeck, DeckLike, DeckOrPile, DeckType, ImageOptions, PileOfCards},
-    tracker::{EventType, track_event, track_url},
+    tracker::{EventType, TrackEvent, track_event, track_url},
 };
 
 const SAVE_DB_NAME: &str = "hocg-deck-convert";
@@ -400,6 +400,8 @@ struct SaveLoadEventData {
     error: Option<String>,
 }
 
+impl TrackEvent for SaveLoadEventData {}
+
 #[component]
 pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     let mut deck_error = use_signal(String::new);
@@ -434,7 +436,9 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
             }
         });
     use_effect(move || {
-        if let Some(deck) = AUTO_SAVE_DECK.read().as_ref() {
+        if let Some(deck) = AUTO_SAVE_DECK.read().as_ref()
+            && !deck.is_empty()
+        {
             *auto_save.write() = Some(SaveData::from_deck_or_pile(deck.clone(), &db.read()));
             debounced_save.action(());
         } else {

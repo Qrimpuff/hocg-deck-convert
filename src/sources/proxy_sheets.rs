@@ -15,19 +15,76 @@ use serde::Serialize;
 use super::{CardsDatabase, ImageOptions};
 use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
 use crate::sources::{DeckLike, DeckOrPile};
-use crate::{CardLanguage, EventType, PREVIEW_CARD_LANG, download_file, track_event};
+use crate::tracker::TrackEvent;
+use crate::{
+    CardLanguage, EventType, PREVIEW_CARD_LANG, download_file, get_local_country, track_event,
+};
 
-#[derive(Clone, Copy, Serialize, PartialEq, Eq)]
+const DPI: f32 = 300.0;
+const INCH_PER_MM: f32 = 0.0393701;
+const DEFAULT_MARGIN: Mm = Mm(4.5);
+const DEFAULT_CROP_MARK_THICKNESS: Mm = Mm(0.25);
+
+const DEFAULT_INCLUDE_CHEERS: bool = false;
+const DEFAULT_CROP_MARK_SIZE: CropMarksSize = CropMarksSize::Mm(3.0);
+const DEFAULT_CROP_MARK_POSITION: CropMarksPosition = CropMarksPosition::Centered;
+const DEFAULT_CARD_SIZE: CardSize = CardSize::Metric;
+const DEFAULT_GAP: Mm = Mm(0.5);
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 enum PaperSize {
     A4,
     Letter,
+    Legal,
 }
 
-#[derive(Clone, Copy, Serialize, PartialEq, Eq)]
-enum IncludeCropMarks {
-    No,
-    Yes,
+impl PaperSize {
+    fn dimensions(&self) -> (Mm, Mm) {
+        match self {
+            PaperSize::A4 => (Mm(210.0), Mm(297.0)),
+            PaperSize::Letter => (Mm(215.9), Mm(279.4)),
+            PaperSize::Legal => (Mm(215.9), Mm(355.6)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+enum CardSize {
+    Metric,
+    Imperial,
+}
+
+impl CardSize {
+    fn dimensions(&self) -> (Mm, Mm) {
+        match self {
+            CardSize::Metric => (Mm(63.0), Mm(88.0)),
+            CardSize::Imperial => (Mm(63.5), Mm(88.9)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+enum CropMarksSize {
+    None,
+    Mm(f32),
     FullLength,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+enum CropMarksPosition {
+    Centered,
+    CardCorners,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+struct ProxySheetSettings {
+    card_lang: CardLanguage,
+    paper_size: PaperSize,
+    include_cheers: bool,
+    crop_marks_size: CropMarksSize,
+    crop_marks_position: CropMarksPosition,
+    card_size: CardSize,
+    gap: Mm,
 }
 
 #[derive(Clone, Copy)]
@@ -38,11 +95,13 @@ struct Layout {
     margin_x: Mm,
     margin_y: Mm,
     gap: Mm,
+    rotated: bool,
     card_w: Mm,
     card_h: Mm,
     fit_w: usize,
     fit_h: usize,
     cards_per_page: usize,
+    crop_marks_position: CropMarksPosition,
 }
 
 bitflags! {
@@ -60,22 +119,45 @@ bitflags! {
 }
 
 impl Layout {
-    fn compute(page_width: Mm, page_height: Mm, dpi: f32, card_w: Mm, card_h: Mm) -> Self {
-        // TODO maybe custom margin and gap
-        let mut margin_x = Mm(5.0);
-        let mut margin_y = Mm(5.0);
-        let gap = Mm(0.5);
+    fn compute(
+        page_width: Mm,
+        page_height: Mm,
+        dpi: f32,
+        card_w: Mm,
+        card_h: Mm,
+        gap: Mm,
+        crop_marks_position: CropMarksPosition,
+    ) -> Self {
+        let mut margin_x = DEFAULT_MARGIN;
+        let mut margin_y = DEFAULT_MARGIN;
 
-        let fit_w_f = ((page_width - margin_x - margin_x) / (card_w + gap)).floor();
-        let fit_h_f = ((page_height - margin_y - margin_y) / (card_h + gap)).floor();
+        // Compute how many cards fit on the page vertically
+        let fit_w = ((page_width - margin_x - margin_x) / (card_w + gap))
+            .floor()
+            .max(0.0) as usize;
+        let fit_h = ((page_height - margin_y - margin_y) / (card_h + gap))
+            .floor()
+            .max(0.0) as usize;
 
-        let fit_w = fit_w_f.max(0.0) as usize;
-        let fit_h = fit_h_f.max(0.0) as usize;
+        // Compute how many cards fit if we rotate the cards
+        let rot_fit_w = ((page_width - margin_x - margin_x) / (card_h + gap))
+            .floor()
+            .max(0.0) as usize;
+        let rot_fit_h = ((page_height - margin_y - margin_y) / (card_w + gap))
+            .floor()
+            .max(0.0) as usize;
+
+        // Choose the orientation that fits more cards on the page
+        let (rotated, card_w, card_h, fit_w, fit_h) = if fit_w * fit_h >= rot_fit_w * rot_fit_h {
+            (false, card_w, card_h, fit_w, fit_h)
+        } else {
+            (true, card_h, card_w, rot_fit_w, rot_fit_h)
+        };
 
         // Center the grid on the page
         if fit_w > 0 && fit_h > 0 {
-            margin_x = (page_width - (card_w + gap) * (fit_w as f32)) / 2.0;
-            margin_y = (page_height - (card_h + gap) * (fit_h as f32)) / 2.0;
+            margin_x = (page_width - (card_w * (fit_w as f32) + gap * ((fit_w - 1) as f32))) / 2.0;
+            margin_y = (page_height - (card_h * (fit_h as f32) + gap * ((fit_h - 1) as f32))) / 2.0;
         }
 
         Self {
@@ -85,11 +167,13 @@ impl Layout {
             margin_x,
             margin_y,
             gap,
+            rotated,
             card_w,
             card_h,
             fit_w,
             fit_h,
             cards_per_page: fit_w * fit_h,
+            crop_marks_position,
         }
     }
 
@@ -115,58 +199,101 @@ impl Layout {
 
         let mut positions = Vec::new();
 
-        for row in 0..self.fit_h {
-            for col in 0..self.fit_w {
-                // Cross shapes
-                let flags = if row == 0 {
-                    CropMarkFlags::NORTH
-                } else {
-                    CropMarkFlags::empty()
-                } | if col == 0 {
-                    CropMarkFlags::WEST
-                } else {
-                    CropMarkFlags::empty()
-                };
+        // If the gap is too small, force crop marks to be centered to avoid overly thick crop marks
+        if self.crop_marks_position == CropMarksPosition::Centered
+            || self.gap <= DEFAULT_CROP_MARK_THICKNESS
+        {
+            // Centered crop marks
+            for row in 0..self.fit_h {
+                for col in 0..self.fit_w {
+                    // Cross shapes
+                    let flags = if self.crop_marks_position == CropMarksPosition::CardCorners {
+                        CropMarkFlags::CROSS
+                    } else {
+                        (if row == 0 {
+                            CropMarkFlags::NORTH
+                        } else {
+                            CropMarkFlags::empty()
+                        } | if col == 0 {
+                            CropMarkFlags::WEST
+                        } else {
+                            CropMarkFlags::empty()
+                        })
+                    };
 
-                let idx_in_page = row * self.fit_w + col;
-                let (mut tx, mut ty) = self.card_translate(idx_in_page);
+                    let idx_in_page = row * self.fit_w + col;
+                    let (mut tx, mut ty) = self.card_translate(idx_in_page);
+
+                    // Convert to origin top-left for easier use in the overlay
+                    ty = self.page_height - ty - self.card_h;
+
+                    // Adjust for gaps
+                    tx -= half_gap;
+                    ty -= half_gap;
+
+                    positions.push((
+                        tx,
+                        ty,
+                        // Cross in the centers
+                        if flags.is_empty() {
+                            CropMarkFlags::CROSS
+                        } else {
+                            flags
+                        },
+                    ));
+
+                    // Add bottom and right edges
+                    if row == self.fit_h - 1 {
+                        let ty = ty + self.card_h + self.gap;
+                        let flags = flags | CropMarkFlags::SOUTH;
+                        positions.push((tx, ty, flags));
+                    }
+                    if col == self.fit_w - 1 {
+                        let tx = tx + self.card_w + self.gap;
+                        let flags = flags | CropMarkFlags::EAST;
+                        positions.push((tx, ty, flags));
+                    }
+                    if row == self.fit_h - 1 && col == self.fit_w - 1 {
+                        let ty = ty + self.card_h + self.gap;
+                        let tx = tx + self.card_w + self.gap;
+                        let flags = flags | CropMarkFlags::SOUTH | CropMarkFlags::EAST;
+                        positions.push((tx, ty, flags));
+                    }
+                }
+            }
+        } else if self.crop_marks_position == CropMarksPosition::CardCorners {
+            // Card corners crop marks
+            for idx in 0..self.cards_per_page {
+                let thickness = DEFAULT_CROP_MARK_THICKNESS;
+                let flags = CropMarkFlags::CROSS;
+                let (tx, mut ty) = self.card_translate(idx);
 
                 // Convert to origin top-left for easier use in the overlay
                 ty = self.page_height - ty - self.card_h;
 
-                // Adjust for gaps
-                tx -= half_gap;
-                ty -= half_gap;
-
+                // Top-left corner
+                positions.push((tx - thickness / 2.0, ty - thickness / 2.0, flags));
+                // Top-right corner
                 positions.push((
-                    tx,
-                    ty,
-                    // Cross in the centers
-                    if flags.is_empty() {
-                        CropMarkFlags::CROSS
-                    } else {
-                        flags
-                    },
+                    tx + self.card_w + thickness / 2.0,
+                    ty - thickness / 2.0,
+                    flags,
                 ));
-
-                // Add bottom and right edges
-                if row == self.fit_h - 1 {
-                    let ty = ty + self.card_h + self.gap;
-                    let flags = flags | CropMarkFlags::SOUTH;
-                    positions.push((tx, ty, flags));
-                }
-                if col == self.fit_w - 1 {
-                    let tx = tx + self.card_w + self.gap;
-                    let flags = flags | CropMarkFlags::EAST;
-                    positions.push((tx, ty, flags));
-                }
-                if row == self.fit_h - 1 && col == self.fit_w - 1 {
-                    let ty = ty + self.card_h + self.gap;
-                    let tx = tx + self.card_w + self.gap;
-                    let flags = flags | CropMarkFlags::SOUTH | CropMarkFlags::EAST;
-                    positions.push((tx, ty, flags));
-                }
+                // Bottom-left corner
+                positions.push((
+                    tx - thickness / 2.0,
+                    ty + self.card_h + thickness / 2.0,
+                    flags,
+                ));
+                // Bottom-right corner
+                positions.push((
+                    tx + self.card_w + thickness / 2.0,
+                    ty + self.card_h + thickness / 2.0,
+                    flags,
+                ));
             }
+        } else {
+            unreachable!()
         }
 
         // from top-left top to bottom-right
@@ -198,16 +325,16 @@ impl CropMarkFlags {
         };
 
         if self.contains(CropMarkFlags::NORTH) {
-            draw_line_thick_mut(img, (x, y), (x, y - len_y), thickness, color);
+            draw_line_thick_mut(img, (x, y), (x, y.saturating_sub(len_y)), thickness, color);
         }
         if self.contains(CropMarkFlags::SOUTH) {
-            draw_line_thick_mut(img, (x, y), (x, y + len_y), thickness, color);
+            draw_line_thick_mut(img, (x, y), (x, y.saturating_add(len_y)), thickness, color);
         }
         if self.contains(CropMarkFlags::WEST) {
-            draw_line_thick_mut(img, (x, y), (x - len_x, y), thickness, color);
+            draw_line_thick_mut(img, (x, y), (x.saturating_sub(len_x), y), thickness, color);
         }
         if self.contains(CropMarkFlags::EAST) {
-            draw_line_thick_mut(img, (x, y), (x + len_x, y), thickness, color);
+            draw_line_thick_mut(img, (x, y), (x.saturating_add(len_x), y), thickness, color);
         }
     }
 }
@@ -235,31 +362,29 @@ fn draw_line_thick_mut(
 async fn generate_pdf(
     deck: &DeckOrPile,
     db: &CardsDatabase,
-    card_lang: CardLanguage,
-    paper_size: PaperSize,
-    include_cheers: bool,
-    include_crop_marks: IncludeCropMarks,
+    settings: ProxySheetSettings,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
-    const DPI: f32 = 300.0;
-    const INCH_PER_MM: f32 = 0.0393701;
-    const CARD_WIDTH: Mm = Mm(63.5);
-    const CARD_HEIGHT: Mm = Mm(88.9);
+    let (card_w, card_h) = settings.card_size.dimensions();
+    let card_width_px: u32 = (DPI * INCH_PER_MM * card_w.0).ceil() as u32;
+    let card_height_px: u32 = (DPI * INCH_PER_MM * card_h.0).ceil() as u32;
 
-    let card_width_px: u32 = (DPI * INCH_PER_MM * CARD_WIDTH.0) as u32;
-    let card_height_px: u32 = (DPI * INCH_PER_MM * CARD_HEIGHT.0) as u32;
+    let (page_width, page_height) = settings.paper_size.dimensions();
 
-    let (page_width, page_height) = match paper_size {
-        PaperSize::A4 => (Mm(210.0), Mm(297.0)),
-        PaperSize::Letter => (Mm(215.9), Mm(279.4)),
-    };
-
-    let layout = Layout::compute(page_width, page_height, DPI, CARD_WIDTH, CARD_HEIGHT);
+    let layout = Layout::compute(
+        page_width,
+        page_height,
+        DPI,
+        card_w,
+        card_h,
+        settings.gap,
+        settings.crop_marks_position,
+    );
     if layout.cards_per_page == 0 {
         return Err("Paper size is too small to fit any card with current margins/gap".into());
     }
 
     // Build the list of cards to print
-    let cards: Box<dyn Iterator<Item = &crate::CommonCard>> = if include_cheers {
+    let cards: Box<dyn Iterator<Item = &crate::CommonCard>> = if settings.include_cheers {
         Box::new(deck.all_cards())
     } else {
         Box::new(
@@ -269,7 +394,7 @@ async fn generate_pdf(
     };
     let cards: Vec<_> = cards
         .filter(|c| {
-            c.image_path(db, card_lang, ImageOptions::proxy_print())
+            c.image_path(db, settings.card_lang, ImageOptions::proxy_print())
                 .is_some()
         })
         .flat_map(|c| std::iter::repeat_n(c.clone(), c.amount as usize))
@@ -289,7 +414,9 @@ async fn generate_pdf(
     let download_tasks = deck.all_cards().map(|card| {
         let img_cache = img_cache.clone();
         async move {
-            let Some(img_path) = card.image_path(db, card_lang, ImageOptions::proxy_print()) else {
+            let Some(img_path) =
+                card.image_path(db, settings.card_lang, ImageOptions::proxy_print())
+            else {
                 // Skip missing card
                 return Ok::<(), Box<dyn Error>>(());
             };
@@ -297,6 +424,13 @@ async fn generate_pdf(
             let image_bytes = reqwest::get(&img_path).await?.bytes().await?;
             let image = ::image::load_from_memory_with_format(&image_bytes, ImageFormat::WebP)?;
             let image = image.resize_exact(card_width_px, card_height_px, FilterType::CatmullRom);
+
+            // Rotate the image if needed
+            let (image, card_width_px, card_height_px) = if layout.rotated {
+                (image.rotate90(), card_height_px, card_width_px)
+            } else {
+                (image, card_width_px, card_height_px)
+            };
 
             // Convert to PNG bytes, then decode into printpdf RawImage.
             let mut bytes = Cursor::new(vec![]);
@@ -327,12 +461,28 @@ async fn generate_pdf(
         .collect();
 
     // Optional crop marks overlay
-    let overlay_id: Option<XObjectId> = if include_crop_marks != IncludeCropMarks::No {
+    let overlay_id: Option<XObjectId> = if settings.crop_marks_size != CropMarksSize::None {
         let page_w_px = layout.page_width.into_pt().into_px(layout.dpi).0;
         let page_h_px = layout.page_height.into_pt().into_px(layout.dpi).0;
-        let crop_mark_len = Mm(3.0).into_pt().into_px(layout.dpi).0 as u32;
-        let crop_mark_thickness = Mm(0.25).into_pt().into_px(layout.dpi).0.max(1) as u32;
+        let crop_mark_thickness = DEFAULT_CROP_MARK_THICKNESS
+            .into_pt()
+            .into_px(layout.dpi)
+            .0
+            .max(1) as u32;
         let crop_mark_color = ::image::Rgba([0x68, 0x68, 0x68, 0xFF]);
+        let crop_mark_len = if let CropMarksSize::Mm(mark_size) = settings.crop_marks_size {
+            Mm(mark_size).into_pt().into_px(layout.dpi).0 as u32
+        } else if let CropMarksSize::Mm(default_size) = DEFAULT_CROP_MARK_SIZE {
+            Mm(match layout.crop_marks_position {
+                CropMarksPosition::Centered => default_size,
+                CropMarksPosition::CardCorners => default_size * 2.0,
+            })
+            .into_pt()
+            .into_px(layout.dpi)
+            .0 as u32
+        } else {
+            unreachable!()
+        };
 
         let mut overlay = ::image::RgbaImage::from_pixel(
             page_w_px as u32,
@@ -357,11 +507,20 @@ async fn generate_pdf(
         }
 
         // Draw lines between crop marks for easier cutting with scissors
-        if include_crop_marks == IncludeCropMarks::FullLength {
+        if settings.crop_marks_size == CropMarksSize::FullLength {
             // Vertical lines
-            for col in 0..=layout.fit_w {
+            let max_col = if layout.crop_marks_position == CropMarksPosition::Centered
+                || layout.gap <= DEFAULT_CROP_MARK_THICKNESS
+            {
+                layout.fit_w + 1
+            } else if layout.crop_marks_position == CropMarksPosition::CardCorners {
+                layout.fit_w * 2
+            } else {
+                unreachable!()
+            };
+            for col in 0..max_col {
                 let start = marks_positions[col];
-                let end = marks_positions[marks_positions.len() - 1 - layout.fit_w + col];
+                let end = marks_positions[marks_positions.len() - 1 - (max_col - 1 - col)];
 
                 let x1_px = start.0.into_pt().into_px(layout.dpi).0;
                 let y1_px = start.1.into_pt().into_px(layout.dpi).0;
@@ -379,9 +538,18 @@ async fn generate_pdf(
             }
 
             // Horizontal lines
-            for row in 0..=layout.fit_h {
-                let start = marks_positions[row * (layout.fit_w + 1)];
-                let end = marks_positions[row * (layout.fit_w + 1) + layout.fit_w];
+            let max_row = if layout.crop_marks_position == CropMarksPosition::Centered
+                || layout.gap <= DEFAULT_CROP_MARK_THICKNESS
+            {
+                layout.fit_h + 1
+            } else if layout.crop_marks_position == CropMarksPosition::CardCorners {
+                layout.fit_h * 2
+            } else {
+                unreachable!()
+            };
+            for row in 0..max_row {
+                let start = marks_positions[row * max_col];
+                let end = marks_positions[row * max_col + max_col - 1];
 
                 let x1_px = start.0.into_pt().into_px(layout.dpi).0;
                 let y1_px = start.1.into_pt().into_px(layout.dpi).0;
@@ -477,17 +645,43 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         missing_proxies: bool,
         paper_size: PaperSize,
         include_cheers: bool,
-        include_crop_marks: IncludeCropMarks,
+        crop_marks_size: CropMarksSize,
+        crop_marks_position: CropMarksPosition,
+        card_size: CardSize,
+        gap: Mm,
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
+    }
+    impl TrackEvent for EventData {
+        fn key(&self, event_name: &str) -> String {
+            let data_str = serde_json::to_string(&(
+                &self.format,
+                &self.language,
+                &self.missing_proxies,
+                &self.paper_size,
+                &self.include_cheers,
+                &self.error,
+            ))
+            .unwrap_or_default();
+            format!("{event_name}:{data_str}")
+        }
     }
 
     let mut deck_error = use_signal(String::new);
     let card_lang = PREVIEW_CARD_LANG.signal();
-    let mut paper_size = use_signal(|| PaperSize::A4);
-    let mut include_cheers = use_signal(|| false);
-    let mut include_crop_marks = use_signal(|| IncludeCropMarks::Yes);
+    let mut paper_size = use_signal(|| match get_local_country().as_deref() {
+        Some("US" | "CA" | "MX" | "CR" | "PA" | "DO" | "GT" | "CL" | "CO" | "VE" | "PE") => {
+            PaperSize::Letter
+        }
+        _ => PaperSize::A4,
+    });
+    let mut include_cheers = use_signal(|| DEFAULT_INCLUDE_CHEERS);
+    let mut crop_marks_size = use_signal(|| DEFAULT_CROP_MARK_SIZE);
+    let mut crop_marks_position = use_signal(|| DEFAULT_CROP_MARK_POSITION);
+    let mut card_size = use_signal(|| DEFAULT_CARD_SIZE);
+    let mut gap = use_signal(|| DEFAULT_GAP);
     let mut loading = use_signal(|| false);
+    let mut show_advanced = use_signal(|| false);
 
     let print_deck = move |_| async move {
         let common_deck = common_deck.read();
@@ -502,6 +696,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         let ps = match *paper_size.read() {
             PaperSize::A4 => "a4",
             PaperSize::Letter => "letter",
+            PaperSize::Legal => "legal",
         };
 
         let file_name = common_deck.file_name(&db.read());
@@ -512,10 +707,15 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         match generate_pdf(
             &common_deck,
             &db.read(),
-            *card_lang.read(),
-            *paper_size.read(),
-            *include_cheers.read(),
-            *include_crop_marks.read(),
+            ProxySheetSettings {
+                card_lang: *card_lang.read(),
+                paper_size: *paper_size.read(),
+                include_cheers: *include_cheers.read(),
+                crop_marks_size: *crop_marks_size.read(),
+                crop_marks_position: *crop_marks_position.read(),
+                card_size: *card_size.read(),
+                gap: *gap.read(),
+            },
         )
         .await
         {
@@ -529,7 +729,10 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
-                        include_crop_marks: *include_crop_marks.read(),
+                        crop_marks_size: *crop_marks_size.read(),
+                        crop_marks_position: *crop_marks_position.read(),
+                        card_size: *card_size.read(),
+                        gap: *gap.read(),
                         error: None,
                     },
                 );
@@ -544,7 +747,10 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
-                        include_crop_marks: *include_crop_marks.read(),
+                        crop_marks_size: *crop_marks_size.read(),
+                        crop_marks_position: *crop_marks_position.read(),
+                        card_size: *card_size.read(),
+                        gap: *gap.read(),
                         error: Some(e.to_string()),
                     },
                 );
@@ -565,110 +771,264 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             common_deck,
         }
 
-        div { class: "field",
-            label { "for": "card_language", class: "label", "Card language" }
-            div { class: "control",
-                div { class: "select",
-                    select {
-                        id: "card_language",
-                        oninput: move |ev| {
-                            *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
-                                "jp" => CardLanguage::Japanese,
-                                "en" => CardLanguage::English,
-                                _ => unreachable!(),
-                            };
-                        },
-                        option {
-                            selected: *PREVIEW_CARD_LANG.read() == CardLanguage::English,
-                            value: "en",
-                            "English"
-                        }
-                        option {
-                            selected: *PREVIEW_CARD_LANG.read() == CardLanguage::Japanese,
-                            value: "jp",
-                            "Japanese"
-                        }
-                    }
-                }
-            }
-        }
-
-        div { class: "field",
-            label { "for": "paper_size", class: "label", "Paper size" }
-            div { class: "control",
-                div { class: "select",
-                    select {
-                        id: "paper_size",
-                        oninput: move |ev| {
-                            *paper_size.write() = match ev.value().as_str() {
-                                "a4" => PaperSize::A4,
-                                "letter" => PaperSize::Letter,
-                                _ => unreachable!(),
-                            };
-                        },
-                        option {
-                            selected: *paper_size.read() == PaperSize::A4,
-                            value: "a4",
-                            "A4 (21.0x29.7 cm)"
-                        }
-                        option {
-                            selected: *paper_size.read() == PaperSize::Letter,
-                            value: "letter",
-                            "Letter (8.5x11.0 in)"
+        div { class: "block",
+            div { class: "grid is-col-min-8",
+                // Card language
+                div { class: "cell",
+                    label { "for": "card_language", class: "label", "Card language" }
+                    div { class: "control",
+                        div { class: "select",
+                            select {
+                                id: "card_language",
+                                oninput: move |ev| {
+                                    *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
+                                        "jp" => CardLanguage::Japanese,
+                                        "en" => CardLanguage::English,
+                                        _ => unreachable!(),
+                                    };
+                                },
+                                option {
+                                    selected: *PREVIEW_CARD_LANG.read() == CardLanguage::English,
+                                    value: "en",
+                                    "English"
+                                }
+                                option {
+                                    selected: *PREVIEW_CARD_LANG.read() == CardLanguage::Japanese,
+                                    value: "jp",
+                                    "Japanese"
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        div { class: "field",
-            label { "for": "include_cheers", class: "label", "Include cheers" }
-            div { class: "control",
-                div { class: "select",
-                    select {
-                        id: "include_cheers",
-                        oninput: move |ev| {
-                            *include_cheers.write() = match ev.value().as_str() {
-                                "no" => false,
-                                "yes" => true,
-                                _ => unreachable!(),
-                            };
-                        },
-                        option { selected: !*include_cheers.read(), value: "no", "No" }
-                        option { selected: *include_cheers.read(), value: "yes", "Yes" }
+                // Include cheers
+                div { class: "cell",
+                    label { "for": "include_cheers", class: "label", "Include cheers" }
+                    div { class: "control",
+                        div { class: "select",
+                            select {
+                                id: "include_cheers",
+                                oninput: move |ev| {
+                                    *include_cheers.write() = match ev.value().as_str() {
+                                        "no" => false,
+                                        "yes" => true,
+                                        _ => unreachable!(),
+                                    };
+                                },
+                                option {
+                                    selected: !*include_cheers.read(),
+                                    value: "no",
+                                    "No"
+                                }
+                                option {
+                                    selected: *include_cheers.read(),
+                                    value: "yes",
+                                    "Yes"
+                                }
+                            }
+                        }
                     }
                 }
+
+                // Paper size
+                div { class: "cell",
+                    label { "for": "paper_size", class: "label", "Paper size" }
+                    div { class: "control",
+                        div { class: "select",
+                            select {
+                                id: "paper_size",
+                                oninput: move |ev| {
+                                    *paper_size.write() = match ev.value().as_str() {
+                                        "a4" => PaperSize::A4,
+                                        "letter" => PaperSize::Letter,
+                                        "legal" => PaperSize::Legal,
+                                        _ => unreachable!(),
+                                    };
+                                },
+                                option {
+                                    selected: *paper_size.read() == PaperSize::A4,
+                                    value: "a4",
+                                    "A4 (210x297 mm)"
+                                }
+                                option {
+                                    selected: *paper_size.read() == PaperSize::Letter,
+                                    value: "letter",
+                                    "Letter (8.5x11 in)"
+                                }
+                                option {
+                                    selected: *paper_size.read() == PaperSize::Legal,
+                                    value: "legal",
+                                    "Legal (8.5x14 in)"
+                                }
+                            }
+                        }
+                    }
+                }
+
             }
         }
 
-        div { class: "field",
-            label { "for": "include_crop_marks", class: "label", "Crop marks" }
-            div { class: "control",
-                div { class: "select",
-                    select {
-                        id: "include_crop_marks",
-                        oninput: move |ev| {
-                            *include_crop_marks.write() = match ev.value().as_str() {
-                                "no" => IncludeCropMarks::No,
-                                "yes" => IncludeCropMarks::Yes,
-                                "full" => IncludeCropMarks::FullLength,
-                                _ => unreachable!(),
-                            };
-                        },
-                        option {
-                            selected: *include_crop_marks.read() == IncludeCropMarks::No,
-                            value: "no",
-                            "No"
+        // Advanced settings
+        div { class: if *show_advanced.read() { "field" } else { "block" },
+            a {
+                href: "#",
+                role: "button",
+                onclick: move |evt| {
+                    evt.prevent_default();
+                    let show = *show_advanced.read();
+                    *show_advanced.write() = !show;
+                },
+                span { class: "icon",
+                    i {
+                        class: "fa-solid",
+                        class: if *show_advanced.read() { "fa-chevron-down" } else { "fa-chevron-right" },
+                    }
+                }
+                "Advanced settings"
+            }
+        }
+
+        if *show_advanced.read() {
+            div { class: "block",
+                div { class: "grid is-col-min-8",
+                    // Crop marks
+                    div { class: "cell",
+                        label { "for": "include_crop_marks", class: "label", "Crop marks" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "include_crop_marks",
+                                    oninput: move |ev| {
+                                        *crop_marks_size.write() = match (
+                                            ev.value().as_str(),
+                                            ev.value().parse::<f32>(),
+                                        ) {
+                                            ("none", _) => CropMarksSize::None,
+                                            ("full", _) => CropMarksSize::FullLength,
+                                            (_, Ok(val)) => CropMarksSize::Mm(val),
+                                            _ => unreachable!(),
+                                        };
+                                    },
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::None,
+                                        value: "none",
+                                        "None"
+                                    }
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::Mm(3.0),
+                                        value: "3",
+                                        "3mm"
+                                    }
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::Mm(5.0),
+                                        value: "5",
+                                        "5mm"
+                                    }
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::Mm(10.0),
+                                        value: "10",
+                                        "10mm"
+                                    }
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::Mm(20.0),
+                                        value: "20",
+                                        "20mm"
+                                    }
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::Mm(30.0),
+                                        value: "30",
+                                        "30mm"
+                                    }
+                                    option {
+                                        selected: *crop_marks_size.read() == CropMarksSize::FullLength,
+                                        value: "full",
+                                        "Full length"
+                                    }
+                                }
+                            }
                         }
-                        option {
-                            selected: *include_crop_marks.read() == IncludeCropMarks::Yes,
-                            value: "yes",
-                            "Yes"
+                    }
+
+                    // Crop marks position
+                    div { class: "cell",
+                        label { "for": "crop_marks_position", class: "label", "Crop marks position" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "crop_marks_position",
+                                    disabled: *crop_marks_size.read() == CropMarksSize::None,
+                                    oninput: move |ev| {
+                                        *crop_marks_position.write() = match ev.value().as_str() {
+                                            "centered" => CropMarksPosition::Centered,
+                                            "card_corners" => CropMarksPosition::CardCorners,
+                                            _ => unreachable!(),
+                                        };
+                                    },
+                                    option {
+                                        selected: *crop_marks_position.read() == CropMarksPosition::Centered,
+                                        value: "centered",
+                                        "Centered"
+                                    }
+                                    option {
+                                        selected: *crop_marks_position.read() == CropMarksPosition::CardCorners,
+                                        value: "card_corners",
+                                        "Card corners"
+                                    }
+                                }
+                            }
                         }
-                        option {
-                            selected: *include_crop_marks.read() == IncludeCropMarks::FullLength,
-                            value: "full",
-                            "Full length"
+                    }
+
+                    // Card size
+                    div { class: "cell",
+                        label { "for": "card_size", class: "label", "Card size" }
+                        div { class: "control",
+                            div { class: "select",
+                                select {
+                                    id: "card_size",
+                                    oninput: move |ev| {
+                                        *card_size.write() = match ev.value().as_str() {
+                                            "metric" => CardSize::Metric,
+                                            "imperial" => CardSize::Imperial,
+                                            _ => unreachable!(),
+                                        };
+                                    },
+                                    option {
+                                        selected: *card_size.read() == CardSize::Metric,
+                                        value: "metric",
+                                        "Metric (63x88 mm)"
+                                    }
+                                    option {
+                                        selected: *card_size.read() == CardSize::Imperial,
+                                        value: "imperial",
+                                        "Imperial (2.5x3.5 in)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Gap
+                    div { class: "cell",
+                        label { "for": "gap", class: "label", "Gap between cards (mm)" }
+                        div { class: "control",
+                            input {
+                                id: "gap",
+                                r#type: "number",
+                                class: "input",
+                                style: "width: auto;",
+                                min: "0",
+                                max: "10",
+                                step: "0.5",
+                                maxlength: "4",
+                                value: gap.read().0.to_string(),
+                                oninput: move |ev| {
+                                    if let Ok(val) = ev.value().parse::<f32>() {
+                                        *gap.write() = Mm(val.max(0.0));
+                                    }
+                                },
+                            }
                         }
                     }
                 }

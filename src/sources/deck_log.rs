@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::components::deck_validation::DeckValidation;
 use crate::sources::{DeckLike, DeckOrPile};
+use crate::tracker::TrackEvent;
 use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
@@ -232,6 +233,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let mut deck_error = use_signal(String::new);
     let mut import_url_code = use_signal(String::new);
@@ -378,6 +380,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let mut deck_error = use_signal(String::new);
     let card_lang = PREVIEW_CARD_LANG.signal();

@@ -7,7 +7,7 @@ use crate::{
     PRICE_SERVICE, Page,
     components::{card::Card, tooltip::Tooltip},
     sources::{DeckLike, DeckOrPile, ImageOptions},
-    tracker::{EventType, track_event},
+    tracker::{EventType, TrackEvent, track_event},
 };
 
 #[component]
@@ -23,6 +23,7 @@ pub fn DeckPreview(
     struct EventData {
         action: String,
     }
+    impl TrackEvent for EventData {}
 
     let mut deck_name = use_signal(|| common_deck.read().name().clone().unwrap_or_default());
     // update deck name when importing

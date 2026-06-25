@@ -670,6 +670,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         format: &'static str,
         deck_id: String,
     }
+    impl TrackEvent for EventData {}
 
     let mut starter_deck_idx: Signal<Option<usize>> = use_signal(|| None);
     let mut oshi_option_idx: Signal<Option<usize>> = use_signal(|| Some(0));

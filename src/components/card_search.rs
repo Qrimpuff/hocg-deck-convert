@@ -10,7 +10,7 @@ use crate::{
     GLOBAL_RELEASE,
     components::{card::Card, modal_popup::ModelPopup},
     sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
-    tracker::{EventType, track_event},
+    tracker::{EventType, TrackEvent, track_event},
 };
 
 #[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
@@ -614,6 +614,7 @@ pub fn CardSearch(
         #[serde(skip_serializing_if = "Option::is_none")]
         filter_type: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let mut cards = use_signal(Vec::new);
     let mut cards_filter = use_signal(|| default_filters.to_filter_text());
@@ -776,7 +777,7 @@ pub fn CardSearch(
                 }
             }
             // Advanced filtering
-            div { class: " block",
+            div { class: if *show_filters.read() { "field" } else { "block" },
                 a {
                     href: "#",
                     role: "button",
@@ -801,7 +802,7 @@ pub fn CardSearch(
                 div { class: "block",
                     div { class: "grid",
                         // Card type
-                        div { class: "field cell",
+                        div { class: "cell",
                             label { "for": "card_type_{popup_id}", class: "label", "Card type" }
                             div { class: "control",
                                 div { class: "select",
@@ -927,7 +928,7 @@ pub fn CardSearch(
                             }
                         }
                         // Color
-                        div { class: "field cell",
+                        div { class: "cell",
                             label {
                                 "for": "card_color_{popup_id}",
                                 class: "label",
@@ -1007,7 +1008,7 @@ pub fn CardSearch(
                             }
                         }
                         // Bloom level
-                        div { class: "field cell",
+                        div { class: "cell",
                             label {
                                 "for": "card_bloom_level_{popup_id}",
                                 class: "label",
@@ -1081,7 +1082,7 @@ pub fn CardSearch(
                             }
                         }
                         // Tag
-                        div { class: "field cell",
+                        div { class: "cell",
                             label { "for": "card_tag_{popup_id}", class: "label", "Tag" }
                             div { class: "control",
                                 div { class: "select",
@@ -1123,7 +1124,7 @@ pub fn CardSearch(
                             }
                         }
                         // Rarity
-                        div { class: "field cell",
+                        div { class: "cell",
                             label {
                                 "for": "card_rarity_{popup_id}",
                                 class: "label",
@@ -1180,7 +1181,7 @@ pub fn CardSearch(
                             }
                         }
                         // Release
-                        div { class: "field cell",
+                        div { class: "cell",
                             label {
                                 "for": "card_release_{popup_id}",
                                 class: "label",

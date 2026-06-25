@@ -15,6 +15,7 @@ use crate::{
     CardLanguage, EventType, FREE_BASIC_CHEERS, PREVIEW_CARD_LANG,
     sources::{DeckLike, DeckOrPile},
     track_event,
+    tracker::TrackEvent,
 };
 
 const HOCG_FAN_SIM_PRICES_URL: &str =
@@ -149,6 +150,7 @@ pub fn Export(
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let mut deck_error = use_signal(String::new);
     let mut loading = use_signal(|| false);

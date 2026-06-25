@@ -9,7 +9,7 @@ use crate::{
     sources::{
         CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
     },
-    tracker::{EventType, track_event, track_url},
+    tracker::{EventType, TrackEvent, track_event, track_url},
 };
 
 #[component]
@@ -30,6 +30,7 @@ pub fn Card(
     struct EventData {
         action: String,
     }
+    impl TrackEvent for EventData {}
 
     let is_details_edit = is_details_edit.unwrap_or(is_edit);
 

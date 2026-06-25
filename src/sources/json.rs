@@ -14,6 +14,7 @@ use crate::{
     download_file,
     sources::{DeckLike, DeckOrPile},
     track_event,
+    tracker::TrackEvent,
 };
 
 use super::{CardsDatabase, CommonDeck, DeckType, holodelta, holoduel, tabletop_sim};
@@ -95,6 +96,7 @@ pub fn JsonImport(
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let import_id = import_name.to_lowercase();
 
@@ -276,6 +278,7 @@ pub fn JsonExport(
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let card_lang = use_signal(|| CardLanguage::Japanese);
     let export_name = use_signal(|| export_name);

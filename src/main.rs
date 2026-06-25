@@ -18,6 +18,7 @@ use gloo::{
 };
 use hocg_fan_sim_assets_model::{self as hocg, CardOrderingOptions};
 use hocg_fan_sim_assets_model::{CardsDatabase, Language};
+use icu_timezone::TimeZoneIdMapper;
 use itertools::Itertools;
 use price_check::PriceCache;
 use serde::{Deserialize, Serialize};
@@ -34,7 +35,7 @@ use crate::{
         tooltip::Tooltip,
     },
     sources::price_check::PriceCheckService,
-    tracker::track_error,
+    tracker::{TrackEvent, track_error},
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -678,6 +679,7 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     }
+    impl TrackEvent for EventData {}
 
     let mut deck_error = use_signal(String::new);
     let mut deck_success = use_signal(String::new);
@@ -859,5 +861,22 @@ pub fn done_loading() {
         loading.remove();
 
         track_event(EventType::Entry, Option::<()>::None);
+    }
+}
+
+pub fn get_local_country() -> Option<String> {
+    let local_iana_zone = js_sys::eval("Intl.DateTimeFormat().resolvedOptions().timeZone")
+        .ok()?
+        .as_string()?;
+    let mapper = TimeZoneIdMapper::new();
+    let borrowed_mapper = mapper.as_borrowed();
+    let bcp47_id = borrowed_mapper.iana_to_bcp47(&local_iana_zone)?;
+    let bcp47_str = bcp47_id.0.as_str();
+    if bcp47_str.len() >= 2 {
+        // Extract the prefix (e.g., "ca") and convert it to uppercase ("CA")
+        let country_iso = bcp47_str[0..2].to_uppercase();
+        Some(country_iso)
+    } else {
+        None
     }
 }
