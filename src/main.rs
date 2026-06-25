@@ -23,7 +23,7 @@ use itertools::Itertools;
 use price_check::PriceCache;
 use serde::{Deserialize, Serialize};
 use sources::*;
-use tracker::{EventType, track_event, track_url};
+use tracker::{EventType, track_event, track_external_url};
 use wasm_bindgen::prelude::*;
 use web_sys::Url;
 
@@ -35,7 +35,7 @@ use crate::{
         tooltip::Tooltip,
     },
     sources::price_check::PriceCheckService,
-    tracker::{TrackEvent, track_error},
+    tracker::{TrackEvent, track_error, track_internal_url},
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -130,26 +130,26 @@ fn App() -> Element {
                         a {
                             href: "https://decklog-en.bushiroad.com/ja/create?c=108",
                             target: "_blank",
-                            onclick: |_| { track_url("Deck Log") },
+                            onclick: |_| { track_external_url("Deck Log") },
                             "Deck Log"
                         }
                         ", "
                         a {
                             href: "https://holodelta.net/",
-                            onclick: |_| { track_url("holoDelta") },
+                            onclick: |_| { track_external_url("holoDelta") },
                             target: "_blank",
                             "holoDelta"
                         }
                         ", "
                         // a {
                         //     href: "https://daktagames.itch.io/holoduel",
-                        //     onclick: |_| { track_url("HoloDuel") },
+                        //     onclick: |_| { track_external_url("HoloDuel") },
                         //     target: "_blank",
                         //     "HoloDuel"
                         // }
                         a {
                             href: "https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285",
-                            onclick: |_| { track_url("Tabletop Simulator") },
+                            onclick: |_| { track_external_url("Tabletop Simulator") },
                             target: "_blank",
                             "Tabletop Simulator"
                         }
@@ -166,7 +166,7 @@ fn App() -> Element {
                                 *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
                                 *EDIT_DECK.write() = true;
                                 *SHOW_PRICE.write() = false;
-                                track_url("Edit deck");
+                                track_internal_url("Edit deck");
                             },
                             "Edit deck"
                         }
@@ -182,7 +182,7 @@ fn App() -> Element {
                                 *EDIT_DECK.write() = false;
                                 *SHOW_PRICE.write() = false;
                                 *IMPORT_FORMAT.write() = Some(DeckType::StarterDecks);
-                                track_url("Official starter decks");
+                                track_internal_url("Official starter decks");
                             },
                             "official starter decks"
                         }
@@ -193,7 +193,7 @@ fn App() -> Element {
                         a {
                             href: "https://discord.com/invite/GJ9RhA22nP",
                             target: "_blank",
-                            onclick: |_| { track_url("Discord - Hololive OCG Fan Server") },
+                            onclick: |_| { track_external_url("Discord - Hololive OCG Fan Server") },
                             span { class: "icon",
                                 i { class: "fa-brands fa-discord" }
                             }
@@ -230,7 +230,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert",
                         target: "_blank",
-                        onclick: |_| { track_url("GitHub - hocg-deck-convert") },
+                        onclick: |_| { track_external_url("GitHub - hocg-deck-convert") },
                         span { class: "icon",
                             i { class: "fa-brands fa-github" }
                         }
@@ -240,7 +240,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert/blob/main/LICENSE",
                         target: "_blank",
-                        onclick: |_| { track_url("GitHub - hocg-deck-convert - license") },
+                        onclick: |_| { track_external_url("GitHub - hocg-deck-convert - license") },
                         "MIT"
                     }
                     "."
@@ -250,7 +250,7 @@ fn App() -> Element {
                     a {
                         href: "https://discord.com/channels/1251891737530601583/1289739439517470730",
                         target: "_blank",
-                        onclick: |_| { track_url("Discord - hololive OCG Deck Converter post") },
+                        onclick: |_| { track_external_url("Discord - hololive OCG Deck Converter post") },
                         span { class: "icon",
                             i { class: "fa-brands fa-discord" }
                         }
@@ -264,7 +264,7 @@ fn App() -> Element {
                     a {
                         href: "https://en.hololive.tv/terms",
                         target: "_blank",
-                        onclick: |_| { track_url("hololive Derivative Works guidelines") },
+                        onclick: |_| { track_external_url("hololive Derivative Works guidelines") },
                         "hololive Derivative Works guidelines"
                     }
                     ". © 2016 COVER Corp."
@@ -274,7 +274,7 @@ fn App() -> Element {
                     a {
                         href: "https://discord.com/invite/GJ9RhA22nP",
                         target: "_blank",
-                        onclick: |_| { track_url("Discord - Hololive OCG Fan Server") },
+                        onclick: |_| { track_external_url("Discord - Hololive OCG Fan Server") },
                         span { class: "icon",
                             i { class: "fa-brands fa-discord" }
                         }

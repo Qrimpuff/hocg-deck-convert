@@ -8,7 +8,7 @@ use super::{
     MergeCommonCards,
     json::{JsonExport, JsonImport},
 };
-use crate::{DeckType, EXPORT_FORMAT, IMPORT_FORMAT, sources::DeckOrPile, tracker::track_url};
+use crate::{DeckType, EXPORT_FORMAT, IMPORT_FORMAT, sources::DeckOrPile, tracker::track_internal_url};
 
 use super::{CardsDatabase, CommonCard, CommonDeck};
 
@@ -128,7 +128,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         onclick: move |evt| {
                             evt.prevent_default();
                             *IMPORT_FORMAT.write() = Some(DeckType::HoloDelta);
-                            track_url("Import - HoloDelta");
+                            track_internal_url("Import - HoloDelta");
                         },
                         "holoDelta"
                     }
@@ -158,7 +158,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         onclick: move |evt| {
                             evt.prevent_default();
                             *EXPORT_FORMAT.write() = Some(DeckType::HoloDelta);
-                            track_url("Export - HoloDelta");
+                            track_internal_url("Export - HoloDelta");
                         },
                         "holoDelta"
                     }

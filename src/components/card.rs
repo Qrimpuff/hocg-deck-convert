@@ -9,7 +9,7 @@ use crate::{
     sources::{
         CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
     },
-    tracker::{EventType, TrackEvent, track_event, track_url},
+    tracker::{EventType, TrackEvent, track_event, track_external_url},
 };
 
 #[component]
@@ -239,7 +239,7 @@ pub fn Card(
                                 title: "Go to {price_name} for {card.card_number}",
                                 href: "{price_url}",
                                 target: "_blank",
-                                onclick: |_| { track_url(price_name) },
+                                onclick: |_| { track_external_url(price_name) },
                                 i { class: "fa-solid fa-arrow-up-right-from-square" }
                             }
                         }

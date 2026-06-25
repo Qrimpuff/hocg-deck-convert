@@ -7,7 +7,7 @@ use super::json::{JsonExport, JsonImport};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
 use crate::sources::DeckOrPile;
-use crate::tracker::track_url;
+use crate::tracker::track_internal_url;
 use crate::{DeckType, EXPORT_FORMAT};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,7 +130,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         onclick: move |evt| {
                             evt.prevent_default();
                             *EXPORT_FORMAT.write() = Some(DeckType::DeckLog);
-                            track_url("Export - Deck Log");
+                            track_internal_url("Export - Deck Log");
                         },
                         "Deck Log"
                     }

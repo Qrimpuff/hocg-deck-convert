@@ -32,7 +32,8 @@ pub enum EventType {
     Export(String),
     SaveLoad,
     EditDeck,
-    Url(String),
+    ExternalUrl(String),
+    InternalUrl(String),
     Error,
 }
 
@@ -58,7 +59,8 @@ where
         EventType::Export(_fmt) => Some("export"),
         EventType::SaveLoad => Some("save_load"),
         EventType::EditDeck => Some("edit_deck"),
-        EventType::Url(_url) => Some("external_url"),
+        EventType::ExternalUrl(_url) => Some("external_url"),
+        EventType::InternalUrl(_url) => Some("internal_url"),
         EventType::Error => Some("error"),
     };
 
@@ -141,14 +143,24 @@ where
     });
 }
 
-pub fn track_url(title: &str) {
+pub fn track_external_url(title: &str) {
     #[derive(Serialize)]
     struct EventData<'a> {
         title: &'a str,
     }
     impl TrackEvent for EventData<'_> {}
 
-    track_event(EventType::Url(title.into()), EventData { title });
+    track_event(EventType::ExternalUrl(title.into()), EventData { title });
+}
+
+pub fn track_internal_url(title: &str) {
+    #[derive(Serialize)]
+    struct EventData<'a> {
+        title: &'a str,
+    }
+    impl TrackEvent for EventData<'_> {}
+
+    track_event(EventType::InternalUrl(title.into()), EventData { title });
 }
 
 pub fn track_error(message: &str) {

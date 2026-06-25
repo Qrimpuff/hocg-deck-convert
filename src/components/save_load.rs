@@ -16,7 +16,7 @@ use crate::{
     AUTO_SAVE_DECK, CURRENT_PAGE, CardLanguage, EDIT_DECK, IMPORT_FORMAT, PREVIEW_IMAGE_OPTIONS,
     Page, SHOW_PRICE, VERSION, download_file,
     sources::{CommonCard, CommonDeck, DeckLike, DeckOrPile, DeckType, ImageOptions, PileOfCards},
-    tracker::{EventType, TrackEvent, track_event, track_url},
+    tracker::{EventType, TrackEvent, track_event, track_internal_url},
 };
 
 const SAVE_DB_NAME: &str = "hocg-deck-convert";
@@ -85,7 +85,13 @@ impl SaveData {
                 .and_then(|save_card| save_card.to_common_card(db))
                 .and_then(|card| card.image_path(db, card_lang, image_options))
                 .unwrap_or("/hocg-deck-convert/assets/cheer-back.webp".to_string()),
-            SaveDeckOrPile::Pile(_) => "/hocg-deck-convert/assets/card-back.webp".to_string(),
+            SaveDeckOrPile::Pile(save_pile) => save_pile
+                .cards
+                .first()
+                .as_ref()
+                .and_then(|save_card| save_card.to_common_card(db))
+                .and_then(|card| card.image_path(db, card_lang, image_options))
+                .unwrap_or("/hocg-deck-convert/assets/card-back.webp".to_string()),
         }
     }
 }
@@ -638,7 +644,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                         *EDIT_DECK.write() = false;
                         *SHOW_PRICE.write() = false;
                         *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
-                        track_url("Import - I don't know...");
+                        track_internal_url("Import - I don't know...");
                     },
                     "\"I don't know...\""
                 }

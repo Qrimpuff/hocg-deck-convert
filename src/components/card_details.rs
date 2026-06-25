@@ -20,7 +20,7 @@ use crate::{
     sources::{
         CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
     },
-    tracker::{EventType, TrackEvent, track_event, track_url},
+    tracker::{EventType, TrackEvent, track_event, track_external_url},
 };
 
 static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
@@ -626,7 +626,7 @@ pub fn CardDetailsContent(
                     title: "Go to the official hOCG site (JP) for {card.card_number}",
                     href: "{url}",
                     target: "_blank",
-                    onclick: |_| { track_url("Official hOCG site (JP)") },
+                    onclick: |_| { track_external_url("Official hOCG site (JP)") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
@@ -661,7 +661,7 @@ pub fn CardDetailsContent(
                     title: "Go to the official hOCG site (EN) for {card.card_number}",
                     href: "{url}",
                     target: "_blank",
-                    onclick: |_| { track_url("Official hOCG site (EN)") },
+                    onclick: |_| { track_external_url("Official hOCG site (EN)") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
@@ -695,7 +695,7 @@ pub fn CardDetailsContent(
                     title: "Go to ogbajoj's sheet for {card.card_number}",
                     href: "{ogbajoj_sheet_url}",
                     target: "_blank",
-                    onclick: |_| { track_url("ogbajoj's sheet") },
+                    onclick: |_| { track_external_url("ogbajoj's sheet") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
@@ -728,7 +728,7 @@ pub fn CardDetailsContent(
                     title: "Go to Yuyutei for {card.card_number}",
                     href: "{yuyutei_sell_url}",
                     target: "_blank",
-                    onclick: |_| { track_url("Yuyutei") },
+                    onclick: |_| { track_external_url("Yuyutei") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
@@ -761,7 +761,7 @@ pub fn CardDetailsContent(
                     title: "Go to TCGplayer for {card.card_number}",
                     href: "{tcgplayer_url}",
                     target: "_blank",
-                    onclick: |_| { track_url("TCGplayer") },
+                    onclick: |_| { track_external_url("TCGplayer") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
                     }
