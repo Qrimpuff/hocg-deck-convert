@@ -306,6 +306,12 @@ fn auto_save_deck(save: &SaveData) -> Option<()> {
     Some(())
 }
 
+fn delete_auto_saved_deck() -> Option<()> {
+    let ls = window().local_storage().unwrap().unwrap();
+    ls.remove_item(AUTO_SAVE_KEY).unwrap();
+    Some(())
+}
+
 fn load_auto_saved_deck() -> Option<SaveData> {
     let ls = window().local_storage().ok()??;
     let json = ls.get_item(AUTO_SAVE_KEY).ok()??;
@@ -443,12 +449,11 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
         });
     use_effect(move || {
         if let Some(deck) = AUTO_SAVE_DECK.read().as_ref()
-            && !deck.is_empty()
+            && let save = SaveData::from_deck_or_pile(deck.clone(), &db.read())
+            && !save.to_deck_or_pile(&db.read()).is_empty()
         {
-            *auto_save.write() = Some(SaveData::from_deck_or_pile(deck.clone(), &db.read()));
+            *auto_save.write() = Some(save);
             debounced_save.action(());
-        } else {
-            auto_save.set(None);
         }
     });
     // first auto-save load
@@ -587,6 +592,57 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
         }
     };
 
+    let keep_auto_save = move |_| {
+        let mut deck_error = deck_error;
+        let mut deck_success = deck_success;
+        let mut pending_overwrite = pending_overwrite;
+        let mut pending_delete = pending_delete;
+        let mut saved_decks = saved_decks;
+        let mut container_ref = container_ref;
+
+        spawn(async move {
+            *deck_error.write() = String::new();
+            is_error_from_file.set(false);
+            *deck_success.write() = String::new();
+            pending_overwrite.set(None);
+            pending_delete.set(None);
+
+            let save = auto_save.write().take();
+            if let Some(save) = save {
+                match save_deck(&save).await {
+                    Ok(_) => {
+                        saved_decks.insert(0, SavedResult::Ok(save.clone()));
+                        if let Some(container) = container_ref.write().as_mut() {
+                            scroll_to_top(container);
+                        }
+                        *deck_success.write() = format!("Kept '{}' from auto-save.", save.name);
+                        track_event(
+                            EventType::SaveLoad,
+                            SaveLoadEventData {
+                                action: "Keep auto-save",
+                                item_kind: save.deck.kind(),
+                                error: None,
+                            },
+                        );
+                        delete_auto_saved_deck();
+                    }
+                    Err(err) => {
+                        track_event(
+                            EventType::SaveLoad,
+                            SaveLoadEventData {
+                                action: "Keep auto-save",
+                                item_kind: save.deck.kind(),
+                                error: Some(err.clone()),
+                            },
+                        );
+                        *deck_error.write() = err;
+                        *auto_save.write() = Some(save);
+                    }
+                }
+            }
+        });
+    };
+
     rsx! {
         div { class: "content",
             p { "Save the current deck or pile in this browser, then load it later on the same device." }
@@ -675,7 +731,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                         style: "height: 42px; width: 30px; min-width: 30px;",
                                         width: "400",
                                         height: "560",
-                                        border_radius: "3.7%",
+                                        border_radius: "4.9% / 3.5%",
                                         src: "{save.image_path(&db.read())}",
                                         "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
                                     }
@@ -727,6 +783,18 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                         i { class: "fa-solid fa-arrow-right-from-bracket" }
                                     }
                                     span { "Load" }
+                                }
+                                button {
+                                    class: "button",
+                                    r#type: "button",
+                                    title: "Keep this deck",
+                                    aria_label: format!("Keep this deck '{}'", save.name),
+                                    onclick: keep_auto_save,
+                                    disabled: *is_loading.read(),
+                                    span { class: "icon",
+                                        i { class: "fa-solid fa-floppy-disk" }
+                                    }
+                                    span { "Keep" }
                                 }
                             }
                         }
@@ -849,7 +917,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                         style: "height: 42px; width: 30px; min-width: 30px;",
                                                         width: "400",
                                                         height: "560",
-                                                        border_radius: "3.7%",
+                                                        border_radius: "4.9% / 3.5%",
                                                         src: "{save.image_path(&db.read())}",
                                                         "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
                                                     }

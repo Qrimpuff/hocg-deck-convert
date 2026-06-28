@@ -10,7 +10,7 @@ use futures::future::try_join_all;
 use futures::lock::Mutex;
 use imageproc::drawing::draw_line_segment_mut;
 use printpdf::*;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use super::{CardsDatabase, ImageOptions};
 use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
@@ -63,11 +63,24 @@ impl CardSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum CropMarksSize {
     None,
     Mm(f32),
     FullLength,
+}
+
+impl Serialize for CropMarksSize {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            CropMarksSize::None => serializer.serialize_str("None"),
+            CropMarksSize::Mm(size_mm) => serializer.serialize_str(&format!("{size_mm}mm")),
+            CropMarksSize::FullLength => serializer.serialize_str("Full length"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -645,6 +658,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         missing_proxies: bool,
         paper_size: PaperSize,
         include_cheers: bool,
+        default_settings: bool,
         crop_marks_size: CropMarksSize,
         crop_marks_position: CropMarksPosition,
         card_size: CardSize,
@@ -660,6 +674,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                 &self.missing_proxies,
                 &self.paper_size,
                 &self.include_cheers,
+                &self.default_settings,
                 &self.error,
             ))
             .unwrap_or_default();
@@ -741,6 +756,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
+                        default_settings: *settings_count.read() == 0,
                         crop_marks_size: *crop_marks_size.read(),
                         crop_marks_position: *crop_marks_position.read(),
                         card_size: *card_size.read(),
@@ -759,6 +775,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         missing_proxies,
                         paper_size: *paper_size.read(),
                         include_cheers: *include_cheers.read(),
+                        default_settings: *settings_count.read() == 0,
                         crop_marks_size: *crop_marks_size.read(),
                         crop_marks_position: *crop_marks_position.read(),
                         card_size: *card_size.read(),

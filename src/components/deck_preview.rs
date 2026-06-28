@@ -70,6 +70,7 @@ pub fn DeckPreview(
             );
         }
         common_deck.write().sort(&db.read());
+        AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
         *is_pile.write() ^= true;
     };
 

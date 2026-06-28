@@ -9,7 +9,7 @@ use gloo::utils::window;
 use serde::Serialize;
 
 use crate::{
-    CardLanguage, EventType,
+    AUTO_SAVE_DECK, CardLanguage, EventType,
     components::deck_validation::DeckValidation,
     download_file,
     sources::{DeckLike, DeckOrPile},
@@ -131,6 +131,7 @@ pub fn JsonImport(
                         error: None,
                     },
                 );
+                AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
@@ -177,6 +178,7 @@ pub fn JsonImport(
                                         error: None,
                                     },
                                 );
+                                AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
                             }
                             Err(e) => {
                                 *deck_error.write() = e.to_string();

@@ -712,6 +712,7 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                             error: None,
                         },
                     );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
                     return;
                 }
 
@@ -731,6 +732,7 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                             error: None,
                         },
                     );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
                     return;
                 }
 
@@ -751,6 +753,7 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                             error: None,
                         },
                     );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
                     return;
                 }
 
@@ -770,6 +773,7 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                             error: None,
                         },
                     );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
                     return;
                 }
 

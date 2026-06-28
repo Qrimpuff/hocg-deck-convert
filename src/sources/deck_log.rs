@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::components::deck_validation::DeckValidation;
 use crate::sources::{DeckLike, DeckOrPile};
 use crate::tracker::TrackEvent;
-use crate::{CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
+use crate::{AUTO_SAVE_DECK, CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
 
@@ -296,6 +296,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                     },
                 );
                 *common_deck.write() = DeckOrPile::Deck(Deck::to_common_deck(deck, &db.read()));
+                AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
             }
             Err(e) => {
                 *deck_error.write() = e.to_string();
