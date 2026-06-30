@@ -182,10 +182,21 @@ impl CommonCard {
                 return delta_art_index;
             }
 
+            let card = self.card_info(db).expect("card already found");
+
+            // fallback to a similar card
+            if let Some(delta_art_index) = card
+                .illustrations
+                .iter()
+                .find(|i| i.similarity_index == c.similarity_index)
+                .and_then(|c| c.delta_art_index)
+            {
+                return delta_art_index;
+            }
+
             // fallback to a possible future art index
-            db.values()
-                .flat_map(|c| &c.illustrations)
-                .filter(|c| c.card_number.eq_ignore_ascii_case(&self.card_number))
+            card.illustrations
+                .iter()
                 .filter_map(|c| Some(c.delta_art_index? + 1))
                 .max()
                 .unwrap_or(0)

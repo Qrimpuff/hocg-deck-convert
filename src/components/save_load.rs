@@ -930,7 +930,7 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                     }
                                                     if pending_overwrite.read().as_ref() == Some(&save.id) {
                                                         p { class: "is-size-7 has-text-warning",
-                                                            "Click save again to confirm."
+                                                            "Click save again to overwrite."
                                                         }
                                                     } else if pending_delete.read().as_ref() == Some(&save.id) {
                                                         p { class: "is-size-7 has-text-danger",

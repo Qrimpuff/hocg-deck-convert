@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::components::deck_validation::DeckValidation;
 use crate::sources::{DeckLike, DeckOrPile};
 use crate::tracker::TrackEvent;
-use crate::{AUTO_SAVE_DECK, CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event};
+use crate::{
+    AUTO_SAVE_DECK, CardLanguage, EventType, HOCG_DECK_CONVERT_API, PREVIEW_CARD_LANG, track_event,
+};
 
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
 
