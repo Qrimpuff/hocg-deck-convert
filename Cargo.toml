@@ -1,6 +1,6 @@
 [package]
 name = "hocg-deck-convert"
-version = "1.4.2"
+version = "1.4.3"
 authors = ["Qrimpuff <qrimpuff@gmail.com>"]
 publish = false
 license = "MIT"

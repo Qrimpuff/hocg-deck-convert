@@ -13,9 +13,12 @@ use serde::Serialize;
 use super::CardsDatabase;
 use crate::{
     CardLanguage, EventType, FREE_BASIC_CHEERS, PREVIEW_CARD_LANG,
-    sources::{DeckLike, DeckOrPile},
+    sources::{
+        DeckLike, DeckOrPile,
+        price_check::PriceCheckService::{TcgPlayer, Yuyutei},
+    },
     track_event,
-    tracker::TrackEvent,
+    tracker::{TrackEvent, track_external_url},
 };
 
 const HOCG_FAN_SIM_PRICES_URL: &str =
@@ -28,7 +31,7 @@ pub enum PriceCacheKey {
     TcgPlayer(u32),
 }
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug)]
 pub enum PriceCheckService {
     Yuyutei,
     TcgPlayer,
@@ -55,33 +58,33 @@ async fn price_check(
     debug!("price check");
 
     // read price from cache
-    let keys: Vec<_> = deck
+    let need_prices = deck
         .all_cards()
         // check price for all versions
         .flat_map(|c| c.alt_cards(db).into_iter())
         .filter(|c| {
+            if let Some(i) = c.card_illustration(db) {
+                match service {
+                    Yuyutei => i.yuyutei_sell_url.is_some(),
+                    TcgPlayer => i.tcgplayer_product_id.is_some(),
+                }
+            } else {
+                false
+            }
+        })
+        .any(|c| {
             c.price_cache(db, prices, service)
                 .map(|(cache_time, _)| {
                     // more than an hour
                     Timestamp::now().duration_since(*cache_time) > SignedDuration::from_hours(1)
                 })
                 .unwrap_or(true)
-        })
-        .filter_map(|c| c.card_illustration(db))
-        .filter_map(|c| {
-            Some(match service {
-                PriceCheckService::Yuyutei => {
-                    PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string())
-                }
-                PriceCheckService::TcgPlayer => PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?),
-            })
-        })
-        .unique()
-        .collect();
-    if keys.is_empty() {
+        });
+    if !need_prices {
         return Ok(PriceCache::new());
     }
 
+    // otherwise, fetch the prices
     let resp = http_client()
         .get(HOCG_FAN_SIM_PRICES_URL)
         .send()
@@ -96,40 +99,48 @@ async fn price_check(
 
     let shared_prices: PricesDatabase = serde_json::from_str(&content).map_err(|_| content)?;
 
-    let lookup_prices: HashMap<_, _> = keys
-        .into_iter()
+    // it contains all the prices
+    let prices: PriceCache = db
+        .values()
+        .flat_map(|c| &c.illustrations)
+        .cartesian_product([Yuyutei, TcgPlayer])
+        .filter_map(|(c, service)| {
+            Some(match service {
+                Yuyutei => PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string()),
+                TcgPlayer => PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?),
+            })
+        })
         .filter_map(|key| {
             let (_timestamp, price) = shared_prices.get(&price_lookup_key(&key))?;
             Some((key, *price))
         })
+        .map(|(key, price)| (key, (Timestamp::now(), price)))
         .collect();
-    debug!("{:?}", lookup_prices);
-
-    // update the price
-    let mut prices = PriceCache::new();
-    for card in deck.all_cards() {
-        for key in card
-            .alt_cards(db)
-            .into_iter()
-            .filter_map(|c| c.card_illustration(db))
-            .filter_map(|c| {
-                Some(match service {
-                    PriceCheckService::Yuyutei => {
-                        PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string())
-                    }
-                    PriceCheckService::TcgPlayer => {
-                        PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?)
-                    }
-                })
-            })
-        {
-            lookup_prices
-                .get(&key)
-                .map(|p| prices.insert(key, (Timestamp::now(), *p)));
-        }
-    }
+    debug!("{:?}", prices);
 
     Ok(prices)
+}
+
+fn tcgplayer_mass_entry_url(
+    deck: &DeckOrPile,
+    free_basic_cheers: bool,
+    db: &CardsDatabase,
+) -> String {
+    let product_ids = deck
+        .all_cards()
+        .filter(|c| !c.is_basic_cheer() || !free_basic_cheers)
+        .filter_map(|c| {
+            Some(format!(
+                "{}-{}",
+                c.amount,
+                c.card_illustration(db)?.tcgplayer_product_id?
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join("||");
+    format!(
+        "https://www.tcgplayer.com/massentry?c={product_ids}&productline=hololive%20OFFICIAL%20CARD%20GAME"
+    )
 }
 
 #[component]
@@ -154,6 +165,21 @@ pub fn Export(
 
     let mut deck_error = use_signal(String::new);
     let mut loading = use_signal(|| false);
+
+    let has_prices = use_memo(move || {
+        prices.read().keys().any(|key| match *price_service.read() {
+            Yuyutei => matches!(key, PriceCacheKey::Yuyutei(_)),
+            TcgPlayer => matches!(key, PriceCacheKey::TcgPlayer(_)),
+        })
+    });
+
+    let has_missing_tcgplayer_ids = use_memo(move || {
+        common_deck.read().all_cards().any(|c| {
+            c.card_illustration(&db.read())
+                .and_then(|c| c.tcgplayer_product_id)
+                .is_none()
+        })
+    });
 
     let price_check = move |_| async move {
         let common_deck = common_deck.read();
@@ -303,6 +329,14 @@ pub fn Export(
         *loading.write() = false;
     };
 
+    let tcgplayer_mass_entry = move |_| {
+        let url =
+            tcgplayer_mass_entry_url(&common_deck.read(), *FREE_BASIC_CHEERS.read(), &db.read());
+        web_sys::window().unwrap().open_with_url(&url).unwrap();
+
+        track_external_url("TCGplayer - Mass Entry");
+    };
+
     rsx! {
 
         div { class: "field",
@@ -314,8 +348,8 @@ pub fn Export(
                         oninput: move |ev| {
                             *show_price.write() = true;
                             *price_service.write() = match ev.value().as_str() {
-                                "yuyutei" => PriceCheckService::Yuyutei,
-                                "tcgplayer" => PriceCheckService::TcgPlayer,
+                                "yuyutei" => Yuyutei,
+                                "tcgplayer" => TcgPlayer,
                                 _ => unreachable!(),
                             };
                             *PREVIEW_CARD_LANG.write() = match ev.value().as_str() {
@@ -370,7 +404,7 @@ pub fn Export(
                 button {
                     r#type: "button",
                     class: "button",
-                    disabled: common_deck.read().is_empty() || *loading.read() || !*show_price.read(),
+                    disabled: common_deck.read().is_empty() || *loading.read() || !*has_prices.read(),
                     onclick: increase_price,
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up" }
@@ -385,12 +419,38 @@ pub fn Export(
                 button {
                     r#type: "button",
                     class: "button",
-                    disabled: common_deck.read().is_empty() || *loading.read() || !*show_price.read(),
+                    disabled: common_deck.read().is_empty() || *loading.read() || !*has_prices.read(),
                     onclick: decrease_price,
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-down" }
                     }
                     span { "Convert to lowest price" }
+                }
+            }
+        }
+
+        if *price_service.read() == TcgPlayer {
+            br {}
+
+            if *has_missing_tcgplayer_ids.read() {
+                div { class: "field",
+                    p { class: "notification is-warning",
+                        "Some cards are missing from TCGplayer, so they will not be included in the mass entry."
+                    }
+                }
+            }
+
+            div { class: "field",
+                div { class: "control",
+                    button {
+                        class: "button",
+                        disabled: common_deck.read().is_empty() || *loading.read(),
+                        onclick: tcgplayer_mass_entry,
+                        span { class: "icon",
+                            i { class: "fa-solid fa-external-link" }
+                        }
+                        span { "TCGplayer Mass Entry" }
+                    }
                 }
             }
         }
