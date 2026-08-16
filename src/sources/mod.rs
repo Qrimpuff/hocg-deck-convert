@@ -269,14 +269,18 @@ impl CommonCard {
         prices: &PriceCache,
         service: PriceCheckService,
         free_basic_cheers: bool,
-    ) -> Option<Price> {
+    ) -> Option<(Option<PriceCacheKey>, Price)> {
         if free_basic_cheers && self.is_basic_cheer() {
-            Some(match service {
-                PriceCheckService::Yuyutei => Price::from_yen(0),
-                PriceCheckService::TcgPlayer => Price::from_dollar(0.0),
-            })
+            Some((
+                None,
+                match service {
+                    PriceCheckService::Yuyutei => Price::from_yen(0),
+                    PriceCheckService::TcgPlayer => Price::from_dollar(0.0),
+                },
+            ))
         } else {
-            self.price_cache(db, prices, service).map(|p| p.1)
+            self.price_cache(db, prices, service)
+                .map(|p| (Some(p.0), p.1.1))
         }
     }
     pub fn price_display(
@@ -285,29 +289,36 @@ impl CommonCard {
         prices: &PriceCache,
         service: PriceCheckService,
         free_basic_cheers: bool,
-    ) -> Option<String> {
+    ) -> Option<(Option<PriceCacheKey>, String)> {
         self.price(db, prices, service, free_basic_cheers)
-            .map(|p| p.to_string())
-    }
-    pub fn price_url(&self, db: &CardsDatabase, service: PriceCheckService) -> Option<String> {
-        self.card_illustration(db).and_then(|c| match service {
-            PriceCheckService::Yuyutei => c.yuyutei_sell_url.clone(),
-            PriceCheckService::TcgPlayer => c.tcgplayer_url(),
-        })
+            .map(|p| (p.0, p.1.to_string()))
     }
     pub fn price_cache<'a>(
         &self,
         db: &CardsDatabase,
         prices: &'a PriceCache,
         service: PriceCheckService,
-    ) -> Option<&'a (Timestamp, Price)> {
+    ) -> Option<(PriceCacheKey, &'a (Timestamp, Price))> {
         self.card_illustration(db).and_then(|c| {
-            prices.get(&match service {
-                PriceCheckService::Yuyutei => {
-                    PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string())
-                }
-                PriceCheckService::TcgPlayer => PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?),
-            })
+            let keys = match service {
+                PriceCheckService::Yuyutei => c
+                    .yuyutei_sell_paths
+                    .iter()
+                    .flatten()
+                    .map(|path| PriceCacheKey::Yuyutei(path.clone()))
+                    .collect_vec(),
+                PriceCheckService::TcgPlayer => c
+                    .tcgplayer_product_ids
+                    .iter()
+                    .flatten()
+                    .map(|id| PriceCacheKey::TcgPlayer(*id))
+                    .collect_vec(),
+            };
+
+            // find best price
+            keys.into_iter()
+                .filter_map(|key| prices.get(&key).map(|p| (key, p)))
+                .min_by_key(|(_, p)| p.1)
         })
     }
 
@@ -786,7 +797,7 @@ pub trait DeckLike: Clone + Hash {
                 c.price(db, prices, service, free_basic_cheers)
                     .map(|p| (c, p))
             })
-            .map(|(c, p)| p * c.amount)
+            .map(|(c, (_, p))| p * c.amount)
             .sum()
     }
     fn is_price_approximate(

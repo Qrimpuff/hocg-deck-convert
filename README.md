@@ -8,7 +8,7 @@ https://qrimpuff.github.io/hocg-deck-convert/
 Formats supported:
 
 - [Deck Log (Bushiroad)](https://decklog-en.bushiroad.com/)
-- [holoDelta](https://holodelta.net/)
+- [holoDelta](https://holodelta.azurewebsites.net/)
 - [HoloDuel](https://daktagames.itch.io/holoduel)
 - [Tabletop Simulator (by Noodlebrain)](https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285)
 - Proxy sheets (PDF)

@@ -130,14 +130,16 @@ fn App() -> Element {
                         a {
                             href: "https://decklog-en.bushiroad.com/ja/create?c=108",
                             target: "_blank",
+                            rel: "noopener",
                             onclick: |_| { track_external_url("Deck Log") },
                             "Deck Log"
                         }
                         ", "
                         a {
-                            href: "https://holodelta.net/",
+                            href: "https://holodelta.azurewebsites.net/",
                             onclick: |_| { track_external_url("holoDelta") },
                             target: "_blank",
+                            rel: "noopener",
                             "holoDelta"
                         }
                         ", "
@@ -151,6 +153,7 @@ fn App() -> Element {
                             href: "https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285",
                             onclick: |_| { track_external_url("Tabletop Simulator") },
                             target: "_blank",
+                            rel: "noopener",
                             "Tabletop Simulator"
                         }
                         ", or even printable proxy sheets."
@@ -193,6 +196,7 @@ fn App() -> Element {
                         a {
                             href: "https://discord.com/invite/GJ9RhA22nP",
                             target: "_blank",
+                            rel: "noopener",
                             onclick: |_| { track_external_url("Discord - Hololive OCG Fan Server") },
                             span { class: "icon",
                                 i { class: "fa-brands fa-discord" }
@@ -230,6 +234,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert",
                         target: "_blank",
+                        rel: "noopener",
                         onclick: |_| { track_external_url("GitHub - hocg-deck-convert") },
                         span { class: "icon",
                             i { class: "fa-brands fa-github" }
@@ -240,6 +245,7 @@ fn App() -> Element {
                     a {
                         href: "https://github.com/Qrimpuff/hocg-deck-convert/blob/main/LICENSE",
                         target: "_blank",
+                        rel: "noopener",
                         onclick: |_| { track_external_url("GitHub - hocg-deck-convert - license") },
                         "MIT"
                     }
@@ -250,6 +256,7 @@ fn App() -> Element {
                     a {
                         href: "https://discord.com/channels/1251891737530601583/1289739439517470730",
                         target: "_blank",
+                        rel: "noopener",
                         onclick: |_| { track_external_url("Discord - hololive OCG Deck Converter post") },
                         span { class: "icon",
                             i { class: "fa-brands fa-discord" }
@@ -264,6 +271,7 @@ fn App() -> Element {
                     a {
                         href: "https://en.hololive.tv/terms",
                         target: "_blank",
+                        rel: "noopener",
                         onclick: |_| { track_external_url("hololive Derivative Works guidelines") },
                         "hololive Derivative Works guidelines"
                     }
@@ -274,6 +282,7 @@ fn App() -> Element {
                     a {
                         href: "https://discord.com/invite/GJ9RhA22nP",
                         target: "_blank",
+                        rel: "noopener",
                         onclick: |_| { track_external_url("Discord - Hololive OCG Fan Server") },
                         span { class: "icon",
                             i { class: "fa-brands fa-discord" }

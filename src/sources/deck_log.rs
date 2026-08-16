@@ -343,7 +343,12 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                 p { class: "help is-danger", "{deck_error}" }
                 if !deck_log_url.read().is_empty() {
                     p { class: "help",
-                        a { href: "{deck_log_url}", target: "_blank", "{deck_log_url}" }
+                        a {
+                            href: "{deck_log_url}",
+                            target: "_blank",
+                            rel: "noopener",
+                            "{deck_log_url}"
+                        }
                     }
                 }
             }
@@ -508,7 +513,12 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             p { class: "help is-danger", "{deck_error}" }
             if !deck_log_url.read().is_empty() {
                 p { class: "help",
-                    a { href: "{deck_log_url}", target: "_blank", "{deck_log_url}" }
+                    a {
+                        href: "{deck_log_url}",
+                        target: "_blank",
+                        rel: "noopener",
+                        "{deck_log_url}"
+                    }
                 }
             }
         }

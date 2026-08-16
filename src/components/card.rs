@@ -57,15 +57,15 @@ pub fn Card(
     let price_service = *PRICE_SERVICE.read();
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
     let free_basic_cheers = *FREE_BASIC_CHEERS.read();
-    let price = card
+    let (price_key, price) = card
         .price_display(
             &db.read(),
             &CARDS_PRICES.read(),
             price_service,
             free_basic_cheers,
         )
-        .unwrap_or("?".into());
-    let price_url = card.price_url(&db.read(), price_service);
+        .unwrap_or((None, "?".into()));
+    let price_url = price_key.map(|key| key.service_id().url().clone());
     let price_name = match price_service {
         PriceCheckService::Yuyutei => "Yuyutei",
         PriceCheckService::TcgPlayer => "TCGplayer",
@@ -128,8 +128,8 @@ pub fn Card(
         Some(DeckType::PriceCheck) => {
             card.card_illustration(&db.read())
                 .is_none_or(|i| match *PRICE_SERVICE.read() {
-                    PriceCheckService::Yuyutei => i.yuyutei_sell_url.is_none(),
-                    PriceCheckService::TcgPlayer => i.tcgplayer_product_id.is_none(),
+                    PriceCheckService::Yuyutei => i.yuyutei_sell_paths.is_none(),
+                    PriceCheckService::TcgPlayer => i.tcgplayer_product_ids.is_none(),
                 })
         }
         _ => false,
@@ -239,6 +239,7 @@ pub fn Card(
                                 title: "Go to {price_name} for {card.card_number}",
                                 href: "{price_url}",
                                 target: "_blank",
+                                rel: "noopener",
                                 onclick: |_| { track_external_url(price_name) },
                                 i { class: "fa-solid fa-arrow-up-right-from-square" }
                             }

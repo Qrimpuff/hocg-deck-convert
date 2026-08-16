@@ -173,7 +173,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
         if format == DeckType::PriceCheck {
             match *PRICE_SERVICE.read() {
                 PriceCheckService::Yuyutei => {
-                    if illust.is_none_or(|i| i.yuyutei_sell_url.is_none()) {
+                    if illust.is_none_or(|i| i.yuyutei_sell_paths.is_none()) {
                         warnings.push("No price data on Yuyutei.");
                         if *is_unreleased.read() {
                             if illust.is_none_or(|i| !i.manage_id.has_value()) {
@@ -185,7 +185,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                     }
                 }
                 PriceCheckService::TcgPlayer => {
-                    if illust.is_none_or(|i| i.tcgplayer_product_id.is_none()) {
+                    if illust.is_none_or(|i| i.tcgplayer_product_ids.is_none()) {
                         warnings.push("No price data on TCGPlayer.");
                         if *is_unreleased.read() {
                             if illust.is_none_or(|i| !i.manage_id.has_value()) {
@@ -626,6 +626,7 @@ pub fn CardDetailsContent(
                     title: "Go to the official hOCG site (JP) for {card.card_number}",
                     href: "{url}",
                     target: "_blank",
+                    rel: "noopener",
                     onclick: |_| { track_external_url("Official hOCG site (JP)") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
@@ -661,6 +662,7 @@ pub fn CardDetailsContent(
                     title: "Go to the official hOCG site (EN) for {card.card_number}",
                     href: "{url}",
                     target: "_blank",
+                    rel: "noopener",
                     onclick: |_| { track_external_url("Official hOCG site (EN)") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
@@ -695,6 +697,7 @@ pub fn CardDetailsContent(
                     title: "Go to ogbajoj's sheet for {card.card_number}",
                     href: "{ogbajoj_sheet_url}",
                     target: "_blank",
+                    rel: "noopener",
                     onclick: |_| { track_external_url("ogbajoj's sheet") },
                     span { class: "icon",
                         i { class: "fa-solid fa-arrow-up-right-from-square" }
@@ -722,23 +725,28 @@ pub fn CardDetailsContent(
         }
 
         // Yuyutei
-        if let Some(yuyutei_sell_url) = card.yuyutei_sell_url.as_ref() {
-            urls.push(rsx! {
-                a {
-                    title: "Go to Yuyutei for {card.card_number}",
-                    href: "{yuyutei_sell_url}",
-                    target: "_blank",
-                    onclick: |_| { track_external_url("Yuyutei") },
-                    span { class: "icon",
-                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+        if let yuyutei_urls = card.yuyutei_urls()
+            && !yuyutei_urls.is_empty()
+        {
+            for yuyutei_url in yuyutei_urls {
+                urls.push(rsx! {
+                    a {
+                        title: "Go to Yuyutei for {card.card_number}",
+                        href: "{yuyutei_url}",
+                        target: "_blank",
+                        rel: "noopener",
+                        onclick: |_| { track_external_url("Yuyutei") },
+                        span { class: "icon",
+                            i { class: "fa-solid fa-arrow-up-right-from-square" }
+                        }
+                        if *lang.read() == CardLanguage::Japanese {
+                            "遊々亭"
+                        } else {
+                            "Yuyutei"
+                        }
                     }
-                    if *lang.read() == CardLanguage::Japanese {
-                        "遊々亭"
-                    } else {
-                        "Yuyutei"
-                    }
-                }
-            });
+                });
+            }
         } else {
             urls.push(rsx! {
                 span { class: "is-disabled-link",
@@ -755,23 +763,28 @@ pub fn CardDetailsContent(
         }
 
         // TCGplayer
-        if let Some(tcgplayer_url) = card.tcgplayer_url() {
-            urls.push(rsx! {
-                a {
-                    title: "Go to TCGplayer for {card.card_number}",
-                    href: "{tcgplayer_url}",
-                    target: "_blank",
-                    onclick: |_| { track_external_url("TCGplayer") },
-                    span { class: "icon",
-                        i { class: "fa-solid fa-arrow-up-right-from-square" }
+        if let tcgplayer_urls = card.tcgplayer_urls()
+            && !tcgplayer_urls.is_empty()
+        {
+            for tcgplayer_url in tcgplayer_urls {
+                urls.push(rsx! {
+                    a {
+                        title: "Go to TCGplayer for {card.card_number}",
+                        href: "{tcgplayer_url}",
+                        target: "_blank",
+                        rel: "noopener",
+                        onclick: |_| { track_external_url("TCGplayer") },
+                        span { class: "icon",
+                            i { class: "fa-solid fa-arrow-up-right-from-square" }
+                        }
+                        if *lang.read() == CardLanguage::Japanese {
+                            "TCGplayer"
+                        } else {
+                            "TCGplayer"
+                        }
                     }
-                    if *lang.read() == CardLanguage::Japanese {
-                        "TCGplayer"
-                    } else {
-                        "TCGplayer"
-                    }
-                }
-            });
+                });
+            }
         } else {
             urls.push(rsx! {
                 span { class: "is-disabled-link",

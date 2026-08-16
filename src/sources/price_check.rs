@@ -25,23 +25,26 @@ const HOCG_FAN_SIM_PRICES_URL: &str =
     "https://qrimpuff.github.io/hocg-fan-sim-prices/hocg_prices.json";
 
 pub type PriceCache = HashMap<PriceCacheKey, (Timestamp, Price)>;
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum PriceCacheKey {
     Yuyutei(String),
     TcgPlayer(u32),
 }
 
+impl PriceCacheKey {
+    pub fn service_id(&self) -> ServiceId {
+        match self {
+            PriceCacheKey::Yuyutei(sell_path) => ServiceId::from_yuyutei(sell_path.clone()),
+            PriceCacheKey::TcgPlayer(product_id) => ServiceId::from_tcgplayer(*product_id),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug)]
 pub enum PriceCheckService {
     Yuyutei,
     TcgPlayer,
-}
-
-fn price_lookup_key(key: &PriceCacheKey) -> ServiceId {
-    match key {
-        PriceCacheKey::Yuyutei(url) => ServiceId::from_yuyutei(url.clone()),
-        PriceCacheKey::TcgPlayer(product_id) => ServiceId::from_tcgplayer(*product_id),
-    }
 }
 
 fn http_client() -> &'static Client {
@@ -65,8 +68,8 @@ async fn price_check(
         .filter(|c| {
             if let Some(i) = c.card_illustration(db) {
                 match service {
-                    Yuyutei => i.yuyutei_sell_url.is_some(),
-                    TcgPlayer => i.tcgplayer_product_id.is_some(),
+                    Yuyutei => i.yuyutei_sell_paths.is_some(),
+                    TcgPlayer => i.tcgplayer_product_ids.is_some(),
                 }
             } else {
                 false
@@ -74,7 +77,7 @@ async fn price_check(
         })
         .any(|c| {
             c.price_cache(db, prices, service)
-                .map(|(cache_time, _)| {
+                .map(|(_, (cache_time, _))| {
                     // more than an hour
                     Timestamp::now().duration_since(*cache_time) > SignedDuration::from_hours(1)
                 })
@@ -104,14 +107,22 @@ async fn price_check(
         .values()
         .flat_map(|c| &c.illustrations)
         .cartesian_product([Yuyutei, TcgPlayer])
-        .filter_map(|(c, service)| {
-            Some(match service {
-                Yuyutei => PriceCacheKey::Yuyutei(c.yuyutei_sell_url.as_ref()?.to_string()),
-                TcgPlayer => PriceCacheKey::TcgPlayer(c.tcgplayer_product_id?),
-            })
+        .flat_map(|(c, service)| match service {
+            Yuyutei => c
+                .yuyutei_sell_paths
+                .iter()
+                .flatten()
+                .map(|path| PriceCacheKey::Yuyutei(path.clone()))
+                .collect_vec(),
+            TcgPlayer => c
+                .tcgplayer_product_ids
+                .iter()
+                .flatten()
+                .map(|id| PriceCacheKey::TcgPlayer(*id))
+                .collect_vec(),
         })
         .filter_map(|key| {
-            let (_timestamp, price) = shared_prices.get(&price_lookup_key(&key))?;
+            let (_timestamp, price) = shared_prices.get(&key.service_id())?;
             Some((key, *price))
         })
         .map(|(key, price)| (key, (Timestamp::now(), price)))
@@ -125,6 +136,7 @@ fn tcgplayer_mass_entry_url(
     deck: &DeckOrPile,
     free_basic_cheers: bool,
     db: &CardsDatabase,
+    prices: &PriceCache,
 ) -> String {
     let product_ids = deck
         .all_cards()
@@ -133,7 +145,14 @@ fn tcgplayer_mass_entry_url(
             Some(format!(
                 "{}-{}",
                 c.amount,
-                c.card_illustration(db)?.tcgplayer_product_id?
+                // find the product id with the best price
+                match c
+                    .price(db, prices, PriceCheckService::TcgPlayer, free_basic_cheers)?
+                    .0?
+                {
+                    PriceCacheKey::TcgPlayer(product_id) => product_id,
+                    _ => return None,
+                }
             ))
         })
         .collect::<Vec<_>>()
@@ -176,7 +195,7 @@ pub fn Export(
     let has_missing_tcgplayer_ids = use_memo(move || {
         common_deck.read().all_cards().any(|c| {
             c.card_illustration(&db.read())
-                .and_then(|c| c.tcgplayer_product_id)
+                .and_then(|c| c.tcgplayer_product_ids.as_ref())
                 .is_none()
         })
     });
@@ -233,29 +252,22 @@ pub fn Export(
 
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut() {
-            if let Some(alt_card) = card
+            if let Some((_, alt_card)) = card
                 .alt_cards(&db.read())
                 .into_iter()
-                .filter(|c| {
-                    c.price(
-                        &db.read(),
-                        &prices.read(),
-                        *price_service.read(),
-                        *FREE_BASIC_CHEERS.read(),
-                    )
-                    .is_some()
-                })
-                .sorted_by_key(|c| {
-                    std::cmp::Reverse(
+                .filter_map(|c| {
+                    Some((
                         c.price(
                             &db.read(),
                             &prices.read(),
                             *price_service.read(),
                             *FREE_BASIC_CHEERS.read(),
-                        )
-                        .expect("it's some"),
-                    )
-                }) // this is the highest price
+                        )?
+                        .1,
+                        c,
+                    ))
+                })
+                .sorted_by_key(|(price, _)| std::cmp::Reverse(*price)) // this is the highest price
                 .next()
             {
                 card.card_number = alt_card.card_number; // it could be a cheer card
@@ -286,27 +298,22 @@ pub fn Export(
 
         let mut deck = common_deck.clone();
         for card in deck.all_cards_mut() {
-            if let Some(alt_card) = card
+            if let Some((_, alt_card)) = card
                 .alt_cards(&db.read())
                 .into_iter()
-                .filter(|c| {
-                    c.price(
-                        &db.read(),
-                        &prices.read(),
-                        *price_service.read(),
-                        *FREE_BASIC_CHEERS.read(),
-                    )
-                    .is_some()
+                .filter_map(|c| {
+                    Some((
+                        c.price(
+                            &db.read(),
+                            &prices.read(),
+                            *price_service.read(),
+                            *FREE_BASIC_CHEERS.read(),
+                        )?
+                        .1,
+                        c,
+                    ))
                 })
-                .sorted_by_key(|c| {
-                    c.price(
-                        &db.read(),
-                        &prices.read(),
-                        *price_service.read(),
-                        *FREE_BASIC_CHEERS.read(),
-                    )
-                    .expect("it's some")
-                }) // this is the lowest price
+                .sorted_by_key(|(price, _)| *price) // this is the lowest price
                 .next()
             {
                 card.card_number = alt_card.card_number; // it could be a cheer card
@@ -330,8 +337,12 @@ pub fn Export(
     };
 
     let tcgplayer_mass_entry = move |_| {
-        let url =
-            tcgplayer_mass_entry_url(&common_deck.read(), *FREE_BASIC_CHEERS.read(), &db.read());
+        let url = tcgplayer_mass_entry_url(
+            &common_deck.read(),
+            *FREE_BASIC_CHEERS.read(),
+            &db.read(),
+            &prices.read(),
+        );
         web_sys::window().unwrap().open_with_url(&url).unwrap();
 
         track_external_url("TCGplayer - Mass Entry");
