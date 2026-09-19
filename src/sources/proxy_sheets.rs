@@ -36,6 +36,7 @@ enum PaperSize {
     A4,
     Letter,
     Legal,
+    A3,
 }
 
 impl PaperSize {
@@ -44,6 +45,7 @@ impl PaperSize {
             PaperSize::A4 => (Mm(210.0), Mm(297.0)),
             PaperSize::Letter => (Mm(215.9), Mm(279.4)),
             PaperSize::Legal => (Mm(215.9), Mm(355.6)),
+            PaperSize::A3 => (Mm(297.0), Mm(420.0)),
         }
     }
 }
@@ -724,6 +726,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             PaperSize::A4 => "a4",
             PaperSize::Letter => "letter",
             PaperSize::Legal => "legal",
+            PaperSize::A3 => "a3",
         };
 
         let file_name = common_deck.file_name(&db.read());
@@ -872,6 +875,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                                         "a4" => PaperSize::A4,
                                         "letter" => PaperSize::Letter,
                                         "legal" => PaperSize::Legal,
+                                        "a3" => PaperSize::A3,
                                         _ => unreachable!(),
                                     };
                                 },
@@ -889,6 +893,11 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                                     selected: *paper_size.read() == PaperSize::Legal,
                                     value: "legal",
                                     "Legal (8.5x14 in)"
+                                }
+                                option {
+                                    selected: *paper_size.read() == PaperSize::A3,
+                                    value: "a3",
+                                    "A3 (297x420 mm)"
                                 }
                             }
                         }
