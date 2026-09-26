@@ -142,18 +142,20 @@ fn tcgplayer_mass_entry_url(
         .all_cards()
         .filter(|c| !c.is_basic_cheer() || !free_basic_cheers)
         .filter_map(|c| {
-            Some(format!(
-                "{}-{}",
-                c.amount,
-                // find the product id with the best price
-                match c
-                    .price(db, prices, PriceCheckService::TcgPlayer, free_basic_cheers)?
-                    .0?
-                {
-                    PriceCacheKey::TcgPlayer(product_id) => product_id,
-                    _ => return None,
-                }
-            ))
+            // find the product id with the best price
+            let product_id = c
+                .price(db, prices, PriceCheckService::TcgPlayer, free_basic_cheers)
+                .and_then(|key| match key.0? {
+                    PriceCacheKey::TcgPlayer(id) => Some(id),
+                    _ => None,
+                })
+                .or_else(|| {
+                    c.card_illustration(db)
+                        .and_then(|illustration| illustration.tcgplayer_product_ids.as_ref())
+                        .and_then(|ids| ids.first())
+                        .copied()
+                })?;
+            Some(format!("{}-{}", c.amount, product_id))
         })
         .collect::<Vec<_>>()
         .join("||");

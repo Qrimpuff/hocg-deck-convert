@@ -41,6 +41,7 @@ pub enum FilterColor {
     Purple,
     Yellow,
     Colorless,
+    Multiple,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
@@ -477,6 +478,7 @@ fn filter_cards(
             FilterColor::Purple => card.colors.contains(&hocg::Color::Purple),
             FilterColor::Yellow => card.colors.contains(&hocg::Color::Yellow),
             FilterColor::Colorless => card.colors.contains(&hocg::Color::Colorless),
+            FilterColor::Multiple => card.colors.len() > 1,
         })
         // filter by bloom level
         .filter(|(card, _)| match (filters.bloom_level, card.bloom_level) {
@@ -948,6 +950,7 @@ pub fn CardSearch(
                                                 "purple" => FilterColor::Purple,
                                                 "yellow" => FilterColor::Yellow,
                                                 "colorless" => FilterColor::Colorless,
+                                                "multiple" => FilterColor::Multiple,
                                                 _ => FilterColor::All,
                                             };
                                             if let Some(container) = container_ref.write().as_mut() {
@@ -1002,6 +1005,11 @@ pub fn CardSearch(
                                             value: "colorless",
                                             selected: *filter_color.read() == FilterColor::Colorless,
                                             "Colorless"
+                                        }
+                                        option {
+                                            value: "multiple",
+                                            selected: *filter_color.read() == FilterColor::Multiple,
+                                            "Multiple"
                                         }
                                     }
                                 }
