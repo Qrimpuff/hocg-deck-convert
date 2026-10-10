@@ -66,10 +66,7 @@ pub fn Card(
         )
         .unwrap_or((None, "?".into()));
     let price_url = price_key.map(|key| key.service_id().url().clone());
-    let price_name = match price_service {
-        PriceCheckService::Yuyutei => "Yuyutei",
-        PriceCheckService::TcgPlayer => "TCGplayer",
-    };
+    let price_name = price_service.name();
 
     // verify card amount
     let total_amount = if let Some(common_deck) = common_deck {

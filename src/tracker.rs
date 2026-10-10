@@ -34,6 +34,7 @@ pub enum EventType {
     EditDeck,
     ExternalUrl(String),
     InternalUrl(String),
+    PriceHistory,
     Error,
 }
 
@@ -61,6 +62,7 @@ where
         EventType::EditDeck => Some("edit_deck"),
         EventType::ExternalUrl(_url) => Some("external_url"),
         EventType::InternalUrl(_url) => Some("internal_url"),
+        EventType::PriceHistory => Some("price_history"),
         EventType::Error => Some("error"),
     };
 

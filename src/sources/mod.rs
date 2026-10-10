@@ -293,14 +293,9 @@ impl CommonCard {
         self.price(db, prices, service, free_basic_cheers)
             .map(|p| (p.0, p.1.to_string()))
     }
-    pub fn price_cache<'a>(
-        &self,
-        db: &CardsDatabase,
-        prices: &'a PriceCache,
-        service: PriceCheckService,
-    ) -> Option<(PriceCacheKey, &'a (Timestamp, Price))> {
-        self.card_illustration(db).and_then(|c| {
-            let keys = match service {
+    pub fn price_keys(&self, db: &CardsDatabase, service: PriceCheckService) -> Vec<PriceCacheKey> {
+        self.card_illustration(db)
+            .map(|c| match service {
                 PriceCheckService::Yuyutei => c
                     .yuyutei_sell_paths
                     .iter()
@@ -313,13 +308,21 @@ impl CommonCard {
                     .flatten()
                     .map(|id| PriceCacheKey::TcgPlayer(*id))
                     .collect_vec(),
-            };
+            })
+            .unwrap_or_default()
+    }
 
-            // find best price
-            keys.into_iter()
-                .filter_map(|key| prices.get(&key).map(|p| (key, p)))
-                .min_by_key(|(_, p)| p.1)
-        })
+    pub fn price_cache<'a>(
+        &self,
+        db: &CardsDatabase,
+        prices: &'a PriceCache,
+        service: PriceCheckService,
+    ) -> Option<(PriceCacheKey, &'a (Timestamp, Price))> {
+        // find best price
+        self.price_keys(db, service)
+            .into_iter()
+            .filter_map(|key| prices.get(&key).map(|p| (key, p)))
+            .min_by_key(|(_, p)| p.1)
     }
 
     pub fn alt_cards(&self, db: &CardsDatabase) -> Vec<Self> {

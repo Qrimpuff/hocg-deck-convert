@@ -15,6 +15,7 @@ use crate::{
         card::Card,
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
         modal_popup::{ModelPopup, Popup, show_popup},
+        price_history::PriceHistory,
         tooltip::{Tooltip, TooltipPlacement},
     },
     sources::{
@@ -174,7 +175,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
             match *PRICE_SERVICE.read() {
                 PriceCheckService::Yuyutei => {
                     if illust.is_none_or(|i| i.yuyutei_sell_paths.is_none()) {
-                        warnings.push("No price data on Yuyutei.");
+                        warnings.push("No price data on Yuyu-tei.");
                         if *is_unreleased.read() {
                             if illust.is_none_or(|i| !i.manage_id.has_value()) {
                                 warnings.push("This card is unreleased.");
@@ -724,25 +725,30 @@ pub fn CardDetailsContent(
             });
         }
 
-        // Yuyutei
+        // Yuyu-tei
         if let yuyutei_urls = card.yuyutei_urls()
             && !yuyutei_urls.is_empty()
         {
-            for yuyutei_url in yuyutei_urls {
+            let multiple = yuyutei_urls.len() > 1;
+            for (i, yuyutei_url) in yuyutei_urls.iter().enumerate() {
+                let number = i + 1;
                 urls.push(rsx! {
                     a {
-                        title: "Go to Yuyutei for {card.card_number}",
+                        title: "Go to Yuyu-tei for {card.card_number}",
                         href: "{yuyutei_url}",
                         target: "_blank",
                         rel: "noopener",
-                        onclick: |_| { track_external_url("Yuyutei") },
+                        onclick: |_| { track_external_url("Yuyu-tei") },
                         span { class: "icon",
                             i { class: "fa-solid fa-arrow-up-right-from-square" }
                         }
                         if *lang.read() == CardLanguage::Japanese {
                             "遊々亭"
                         } else {
-                            "Yuyutei"
+                            "Yuyu-tei"
+                        }
+                        if multiple {
+                            " {number}"
                         }
                     }
                 });
@@ -756,7 +762,7 @@ pub fn CardDetailsContent(
                     if *lang.read() == CardLanguage::Japanese {
                         "遊々亭"
                     } else {
-                        "Yuyutei"
+                        "Yuyu-tei"
                     }
                 }
             });
@@ -766,7 +772,9 @@ pub fn CardDetailsContent(
         if let tcgplayer_urls = card.tcgplayer_urls()
             && !tcgplayer_urls.is_empty()
         {
-            for tcgplayer_url in tcgplayer_urls {
+            let multiple = tcgplayer_urls.len() > 1;
+            for (i, tcgplayer_url) in tcgplayer_urls.iter().enumerate() {
+                let number = i + 1;
                 urls.push(rsx! {
                     a {
                         title: "Go to TCGplayer for {card.card_number}",
@@ -781,6 +789,9 @@ pub fn CardDetailsContent(
                             "TCGplayer"
                         } else {
                             "TCGplayer"
+                        }
+                        if multiple {
+                            " {number}"
                         }
                     }
                 });
@@ -979,6 +990,14 @@ pub fn CardDetailsContent(
                         for url in urls {
                             li { {url} }
                         }
+                    }
+                }
+
+                if *show_price.read() {
+                    PriceHistory {
+                        chart_id: format!("price-history-{popup_id}"),
+                        card,
+                        db,
                     }
                 }
             }
