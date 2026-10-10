@@ -38,6 +38,24 @@ const ASSETS = [
 
 const INDEX_URL = BASE_PATH + '/index.html';
 
+const NETWORK_TIMEOUT_MS = 5000;
+
+function fetchWithTimeout(request, timeoutMs = NETWORK_TIMEOUT_MS) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Network timeout')), timeoutMs);
+    fetch(request).then(
+      (response) => {
+        clearTimeout(timer);
+        resolve(response);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 function buildPrefetchRequest(url) {
   try {
     const resolved = new URL(url, self.location.origin);
@@ -120,6 +138,22 @@ function extractExternalStylesheetLinks(htmlText) {
   return Array.from(urls);
 }
 
+function extractExternalScriptLinks(htmlText) {
+  if (!htmlText) return [];
+  const urls = new Set();
+
+  const re = /<script\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
+  let match;
+  while ((match = re.exec(htmlText))) {
+    const src = (match[1] || '').trim();
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      urls.add(src);
+    }
+  }
+
+  return Array.from(urls);
+}
+
 async function cacheAddAllBestEffort(cache, urls) {
   for (const url of urls) {
     try {
@@ -193,7 +227,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[SW] Pre-caching assets');
-      await cache.addAll(ASSETS);
+      await cacheAddAllBestEffort(cache, ASSETS);
 
       // Parse index.html to capture hashed build outputs (js/wasm/css).
       try {
@@ -201,7 +235,7 @@ self.addEventListener('install', (event) => {
         const htmlText = await response.text();
         const hashedAssets = extractHashedAssets(htmlText);
 
-        await cache.addAll(hashedAssets);
+        await cacheAddAllBestEffort(cache, hashedAssets);
 
         // Dioxus' entry JS often references the real hashed WASM dynamically.
         // Scan the cached JS bundles for `.wasm` URLs and pre-cache them too.
@@ -223,6 +257,8 @@ self.addEventListener('install', (event) => {
         if (wasmAssets.size > 0) {
           await cacheAddAllBestEffort(cache, Array.from(wasmAssets));
         }
+
+        await cacheAddAllBestEffort(cache, extractExternalScriptLinks(htmlText));
 
         // Best-effort cache of cross-origin cards DB (avoid failing SW install if offline/CORS).
         await cacheAddAllBestEffort(cache, [CARDS_DB_URL]);
@@ -282,10 +318,19 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Navigation requests
+  // Keeps the offline shell current without relying on a CACHE_NAME bump.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(BASE_PATH + '/index.html') || caches.match(BASE_PATH + '/');
+      fetchWithTimeout(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.ok) {
+          const responseToCache = networkResponse.clone();
+          event.waitUntil(
+            caches.open(CACHE_NAME).then((cache) => cache.put(INDEX_URL, responseToCache))
+          );
+        }
+        return networkResponse;
+      }).catch(() => {
+        return caches.match(INDEX_URL).then((cached) => cached || caches.match(BASE_PATH + '/'));
       })
     );
     return;
@@ -295,17 +340,17 @@ self.addEventListener('fetch', (event) => {
   // 1. Fetch from Network
   // 2. If successful, update cache and return
   // 3. If network fails, return from Cache
+  const url = event.request.url || '';
+  const isCardImage = url.startsWith(IMAGE_BASE_JP) || url.startsWith(IMAGE_BASE_EN);
+  const networkFetch = isCardImage ? fetch(event.request) : fetchWithTimeout(event.request);
+
   event.respondWith(
-    fetch(event.request).then((networkResponse) => {
-      // Check for valid response
-      if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+    networkFetch.then((networkResponse) => {
+      // Card images are cached only by PREFETCH_CARDS, which prunes stale entries.
+      if (!isCardImage && networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
         const responseToCache = networkResponse.clone();
 
-        const url = event.request.url || '';
-        const isCardImage = url.startsWith(IMAGE_BASE_JP) || url.startsWith(IMAGE_BASE_EN);
-        const targetCache = isCardImage ? CARD_CACHE_NAME : CACHE_NAME;
-
-        caches.open(targetCache).then((cache) => {
+        caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
         });
       }
