@@ -24,7 +24,7 @@ use crate::{
     tracker::{EventType, TrackEvent, track_event, track_external_url},
 };
 
-static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
+pub static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
 
 #[derive(Serialize)]
 struct EventData {

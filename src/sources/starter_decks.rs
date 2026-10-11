@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use dioxus::{logger::tracing::debug, prelude::*};
 use serde::Serialize;
 
-use crate::{CardLanguage::*, EventType, track_event, *};
+use crate::{CardLanguage::*, EventType, app_state::use_persisted, track_event, *};
 
 use super::{CardsDatabase, CommonCard, CommonDeck};
 
@@ -672,8 +672,10 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
     }
     impl TrackEvent for EventData {}
 
-    let mut starter_deck_idx: Signal<Option<usize>> = use_signal(|| None);
-    let mut oshi_option_idx: Signal<Option<usize>> = use_signal(|| Some(0));
+    let mut starter_deck_idx: Signal<Option<usize>> =
+        use_persisted(Some("starter_decks.deck_idx".into()), || None);
+    let mut oshi_option_idx: Signal<Option<usize>> =
+        use_persisted(Some("starter_decks.oshi_idx".into()), || Some(0));
     let mut loading = use_signal(|| false);
 
     let oshi_options = use_memo(move || {

@@ -7,6 +7,7 @@ use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::components::deck_validation::DeckValidation;
+use crate::app_state::use_persisted;
 use crate::sources::{DeckLike, DeckOrPile};
 use crate::tracker::TrackEvent;
 use crate::{
@@ -238,9 +239,9 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
     impl TrackEvent for EventData {}
 
     let mut deck_error = use_signal(String::new);
-    let mut import_url_code = use_signal(String::new);
-    let mut is_url = use_signal(|| false);
-    let mut deck_log_url = use_signal(String::new);
+    let mut import_url_code = use_persisted(Some("deck_log.url_code".into()), String::new);
+    let mut is_url = use_persisted(Some("deck_log.is_url".into()), || false);
+    let mut deck_log_url = use_persisted(Some("deck_log.view_url".into()), String::new);
     let mut loading = use_signal(|| false);
 
     // https://decklog.bushiroad.com/view/6ADJR

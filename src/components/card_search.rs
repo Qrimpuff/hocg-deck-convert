@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
 use wana_kana::utils::katakana_to_hiragana;
 
+use crate::app_state::use_persisted;
+
 use crate::{
     ALL_CARDS_SORTED, CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, GLOBAL_RARITY,
     GLOBAL_RELEASE,
@@ -75,7 +77,7 @@ impl FilterTag {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
 pub enum FilterRarity {
     #[default]
     All,
@@ -83,7 +85,7 @@ pub enum FilterRarity {
     Rarity(String),
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum FilterRelease {
     #[default]
     All,
@@ -622,7 +624,9 @@ pub fn CardSearch(
     impl TrackEvent for EventData {}
 
     let mut cards = use_signal(Vec::new);
-    let mut cards_filter = use_signal(|| default_filters.to_filter_text());
+    // only the main search keeps its inputs; popups always start from their default filters
+    let persist = |name: &str| show_inputs.then(|| format!("card_search.{name}"));
+    let mut cards_filter = use_persisted(persist("cards_filter"), || default_filters.to_filter_text());
     const CARD_INCREMENT: usize = 120; // split even for 6, 5, 4, etc. columns
     let mut card_amount = use_signal(|| CARD_INCREMENT);
     let mut max_card_amount = use_signal(|| 0);
@@ -650,7 +654,7 @@ pub fn CardSearch(
         rarities.sort();
         rarities
     });
-    let mut card_lang = use_signal(|| match default_filters.release {
+    let mut card_lang = use_persisted(persist("card_lang"), || match default_filters.release {
         FilterRelease::Japanese => CardLanguage::Japanese,
         FilterRelease::English => CardLanguage::English,
         FilterRelease::Unreleased => CardLanguage::Japanese,
@@ -659,19 +663,19 @@ pub fn CardSearch(
     let mut loading = use_signal(|| false);
 
     let mut container_ref = use_signal(|| None);
-    let mut show_filters = use_signal(|| false);
-    let mut filter_card_type = use_signal(|| default_filters.card_type);
-    let mut disable_filter_card_type = use_signal(|| false);
-    let mut filter_color = use_signal(|| default_filters.color);
-    let mut disable_filter_color = use_signal(|| false);
-    let mut filter_bloom_level = use_signal(|| default_filters.bloom_level);
-    let mut disable_filter_bloom_level = use_signal(|| false);
-    let mut filter_tag = use_signal(|| default_filters.to_filter_tag());
-    let mut disable_filter_tag = use_signal(|| false);
-    let mut filter_rarity = use_signal(|| default_filters.rarity.clone());
-    let mut disable_filter_rarity = use_signal(|| false);
-    let mut filter_release = use_signal(|| default_filters.release);
-    let mut disable_filter_release = use_signal(|| false);
+    let mut show_filters = use_persisted(persist("show_filters"), || false);
+    let mut filter_card_type = use_persisted(persist("filter_card_type"), || default_filters.card_type);
+    let mut disable_filter_card_type = use_persisted(persist("disable_filter_card_type"), || false);
+    let mut filter_color = use_persisted(persist("filter_color"), || default_filters.color);
+    let mut disable_filter_color = use_persisted(persist("disable_filter_color"), || false);
+    let mut filter_bloom_level = use_persisted(persist("filter_bloom_level"), || default_filters.bloom_level);
+    let mut disable_filter_bloom_level = use_persisted(persist("disable_filter_bloom_level"), || false);
+    let mut filter_tag = use_persisted(persist("filter_tag"), || default_filters.to_filter_tag());
+    let mut disable_filter_tag = use_persisted(persist("disable_filter_tag"), || false);
+    let mut filter_rarity = use_persisted(persist("filter_rarity"), || default_filters.rarity.clone());
+    let mut disable_filter_rarity = use_persisted(persist("disable_filter_rarity"), || false);
+    let mut filter_release = use_persisted(persist("filter_release"), || default_filters.release);
+    let mut disable_filter_release = use_persisted(persist("disable_filter_release"), || false);
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();

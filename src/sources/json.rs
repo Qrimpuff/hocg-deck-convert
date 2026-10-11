@@ -6,6 +6,8 @@ use dioxus::{
     prelude::*,
 };
 use gloo::utils::window;
+
+use crate::app_state::use_persisted;
 use serde::Serialize;
 
 use crate::{
@@ -102,7 +104,7 @@ pub fn JsonImport(
 
     let import_name = use_signal(|| import_name);
     let mut deck_error = use_signal(String::new);
-    let mut json = use_signal(String::new);
+    let mut json = use_persisted(Some(format!("import.{import_id}.json")), String::new);
     let mut file_name = use_signal(String::new);
 
     let from_text = move |event: Event<FormData>| {

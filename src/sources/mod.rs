@@ -28,7 +28,7 @@ pub mod proxy_sheets;
 pub mod starter_decks;
 pub mod tabletop_sim;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeckType {
     StarterDecks,
     DeckLog,
@@ -465,7 +465,7 @@ impl CommonCard {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageOptions {
     pub fallback_similar: bool,
     pub fallback_rarity: bool,

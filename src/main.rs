@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+mod app_state;
 mod components;
 mod settings;
 mod sources;
@@ -69,7 +70,7 @@ static FREE_BASIC_CHEERS: GlobalSignal<bool> = Signal::global(|| false);
 
 const PAGE_LABELS_MIN_WIDTH: i32 = 360;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Page {
     Import,
     Edit,
@@ -85,6 +86,8 @@ fn main() {
 #[component]
 fn App() -> Element {
     done_loading();
+    use_hook(app_state::restore);
+    use_effect(app_state::save);
 
     let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
         let Ok(card_db) =
@@ -345,7 +348,9 @@ fn Form() -> Element {
     let mut export_format = EXPORT_FORMAT.signal();
     let mut show_page_labels = use_signal(|| true);
     use_effect(move || {
-        import_format.set(Some(DeckType::DeckLog));
+        if import_format.peek().is_none() {
+            import_format.set(Some(DeckType::DeckLog));
+        }
         show_page_labels.set(should_show_page_labels());
     });
 
@@ -527,7 +532,7 @@ pub fn ImportPage() -> Element {
                         },
                         option {
                             value: "starter_decks",
-                            selected: *import_format.read() == Some(DeckType::DeckLog),
+                            selected: *import_format.read() == Some(DeckType::StarterDecks),
                             "Starter decks"
                         }
                         option {
@@ -861,7 +866,7 @@ pub enum CardType {
     Main,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
 pub enum CardLanguage {
     Japanese,
     English,

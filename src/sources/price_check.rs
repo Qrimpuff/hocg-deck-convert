@@ -8,7 +8,7 @@ use hocg_fan_sim_prices_model::{Price, PricesDatabase, PricesHistoryDatabase, Se
 use itertools::Itertools;
 use jiff::{SignedDuration, Timestamp};
 use reqwest::{Client, ClientBuilder};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::CardsDatabase;
 use crate::{
@@ -48,7 +48,7 @@ impl PriceCacheKey {
     }
 }
 
-#[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub enum PriceCheckService {
     Yuyutei,
     TcgPlayer,
@@ -500,7 +500,8 @@ pub fn Export(
 
     use_effect(move || {
         let _ = price_service.read();
-        if !common_deck.peek().is_empty() {
+        // the database loads asynchronously, so a restored page can mount before it
+        if !db.read().is_empty() && !common_deck.peek().is_empty() {
             spawn(price_check());
         }
     });

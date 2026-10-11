@@ -10,9 +10,10 @@ use futures::future::try_join_all;
 use futures::lock::Mutex;
 use imageproc::drawing::draw_line_segment_mut;
 use printpdf::*;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::{CardsDatabase, ImageOptions};
+use crate::app_state::use_persisted;
 use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
 use crate::sources::{DeckLike, DeckOrPile};
 use crate::tracker::TrackEvent;
@@ -31,7 +32,7 @@ const DEFAULT_CROP_MARK_POSITION: CropMarksPosition = CropMarksPosition::Centere
 const DEFAULT_CARD_SIZE: CardSize = CardSize::Metric;
 const DEFAULT_GAP: Mm = Mm(0.5);
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 enum PaperSize {
     A4,
     Letter,
@@ -50,7 +51,7 @@ impl PaperSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 enum CardSize {
     Metric,
     Imperial,
@@ -85,7 +86,27 @@ impl Serialize for CropMarksSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+impl<'de> Deserialize<'de> for CropMarksSize {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let text = String::deserialize(deserializer)?;
+        match text.as_str() {
+            "None" => Ok(CropMarksSize::None),
+            "Full length" => Ok(CropMarksSize::FullLength),
+            _ => text
+                .strip_suffix("mm")
+                .and_then(|size| size.parse::<f32>().ok())
+                .map(CropMarksSize::Mm)
+                .ok_or_else(|| {
+                    <D::Error as serde::de::Error>::custom(format!("invalid crop marks size: {text}"))
+                }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 enum CropMarksPosition {
     Centered,
     CardCorners,
@@ -686,26 +707,27 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
 
     let mut deck_error = use_signal(String::new);
     let card_lang = PREVIEW_CARD_LANG.signal();
-    let mut paper_size = use_signal(|| match get_local_country().as_deref() {
+    let mut paper_size = use_persisted(Some("proxy_sheets.paper_size".into()), || match get_local_country().as_deref() {
         Some("US" | "CA" | "MX" | "CR" | "PA" | "DO" | "GT" | "CL" | "CO" | "VE" | "PE") => {
             PaperSize::Letter
         }
         _ => PaperSize::A4,
     });
-    let mut include_cheers = use_signal(|| DEFAULT_INCLUDE_CHEERS);
-    let mut crop_marks_size = use_signal(|| DEFAULT_CROP_MARK_SIZE);
-    let mut crop_marks_position = use_signal(|| DEFAULT_CROP_MARK_POSITION);
-    let mut card_size = use_signal(|| DEFAULT_CARD_SIZE);
-    let mut gap = use_signal(|| DEFAULT_GAP);
+    let mut include_cheers = use_persisted(Some("proxy_sheets.include_cheers".into()), || DEFAULT_INCLUDE_CHEERS);
+    let mut crop_marks_size = use_persisted(Some("proxy_sheets.crop_marks_size".into()), || DEFAULT_CROP_MARK_SIZE);
+    let mut crop_marks_position = use_persisted(Some("proxy_sheets.crop_marks_position".into()), || DEFAULT_CROP_MARK_POSITION);
+    let mut card_size = use_persisted(Some("proxy_sheets.card_size".into()), || DEFAULT_CARD_SIZE);
+    // stored as f32 because `Mm` is not serializable
+    let mut gap = use_persisted(Some("proxy_sheets.gap".into()), || DEFAULT_GAP.0);
     let mut loading = use_signal(|| false);
-    let mut show_advanced = use_signal(|| false);
+    let mut show_advanced = use_persisted(Some("proxy_sheets.show_advanced".into()), || false);
 
     let settings_count = use_memo(move || {
         [
             *crop_marks_size.read() != DEFAULT_CROP_MARK_SIZE,
             *crop_marks_position.read() != DEFAULT_CROP_MARK_POSITION,
             *card_size.read() != DEFAULT_CARD_SIZE,
-            *gap.read() != DEFAULT_GAP,
+            *gap.read() != DEFAULT_GAP.0,
         ]
         .iter()
         .filter(|&&x| x)
@@ -744,7 +766,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                 crop_marks_size: *crop_marks_size.read(),
                 crop_marks_position: *crop_marks_position.read(),
                 card_size: *card_size.read(),
-                gap: *gap.read(),
+                gap: Mm(*gap.read()),
             },
         )
         .await
@@ -763,7 +785,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         crop_marks_size: *crop_marks_size.read(),
                         crop_marks_position: *crop_marks_position.read(),
                         card_size: *card_size.read(),
-                        gap: *gap.read(),
+                        gap: Mm(*gap.read()),
                         error: None,
                     },
                 );
@@ -782,7 +804,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                         crop_marks_size: *crop_marks_size.read(),
                         crop_marks_position: *crop_marks_position.read(),
                         card_size: *card_size.read(),
-                        gap: *gap.read(),
+                        gap: Mm(*gap.read()),
                         error: Some(e.to_string()),
                     },
                 );
@@ -1063,10 +1085,10 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                                 max: "10",
                                 step: "0.5",
                                 maxlength: "4",
-                                value: gap.read().0.to_string(),
+                                value: gap.read().to_string(),
                                 oninput: move |ev| {
                                     if let Ok(val) = ev.value().parse::<f32>() {
-                                        *gap.write() = Mm(val.max(0.0));
+                                        *gap.write() = val.max(0.0);
                                     }
                                 },
                             }

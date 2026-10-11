@@ -14,6 +14,7 @@ pub static SETTINGS: GlobalSignal<Settings> = Signal::global(Settings::load);
 pub struct Settings {
     pub card_img_width: u32,
     pub standalone_mode: Option<bool>,
+    pub keep_app_state: bool,
 }
 
 impl Default for Settings {
@@ -21,6 +22,7 @@ impl Default for Settings {
         Self {
             card_img_width: 80,
             standalone_mode: None,
+            keep_app_state: true,
         }
     }
 }
@@ -53,6 +55,16 @@ pub fn set_card_img_width(width: u32) {
     settings.save();
 }
 
+pub fn keep_app_state() -> bool {
+    SETTINGS.read().keep_app_state
+}
+
+pub fn set_keep_app_state(enabled: bool) {
+    let mut settings = SETTINGS.write();
+    settings.keep_app_state = enabled;
+    settings.save();
+}
+
 pub fn set_standalone_mode(enabled: bool) {
     {
         let mut settings = SETTINGS.write();
@@ -75,6 +87,7 @@ fn is_installed_app() -> bool {
 pub fn SettingsPage() -> Element {
     let width = SETTINGS.read().card_img_width;
     let standalone_mode = SETTINGS.read().standalone_mode.unwrap_or_else(is_installed_app);
+    let keep_app_state = SETTINGS.read().keep_app_state;
 
     rsx! {
         div { class: "field",
@@ -120,6 +133,19 @@ pub fn SettingsPage() -> Element {
                 }
             }
             p { class: "help", "Downloads card images so the app works offline on mobile and desktop. Uncheck to opt out." }
+        }
+        div { class: "field mt-5",
+            div { class: "control",
+                label { class: "checkbox",
+                    input {
+                        r#type: "checkbox",
+                        checked: keep_app_state,
+                        onchange: move |ev| set_keep_app_state(ev.checked()),
+                    }
+                    " Keep app state"
+                }
+            }
+            p { class: "help", "Remembers the current page, formats, filters and deck, so you can continue after closing the app." }
         }
     }
 }
