@@ -2276,6 +2276,7 @@ dependencies = [
  "uuid",
  "wana_kana",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

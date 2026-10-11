@@ -39,11 +39,14 @@ unicode-normalization = "0.1.25"
 uuid = { version = "1.28.0", features = ["js", "v4", "v7"] }
 wana_kana = "5.0.0"
 wasm-bindgen = { version = "0.2.129", features = ["serde"] }
+wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3.106", features = [
     "Navigator",
     "Screen",
     "Window",
     "MediaQueryList",
+    "Cache",
+    "CacheStorage",
 ] }
 
 [profile]

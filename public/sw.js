@@ -4,11 +4,14 @@ let offlineHint = false;
 
 // Keep prefetched card images across app updates.
 const CARD_CACHE_NAME = 'hocg-deck-convert-cards';
-
-const CARDS_DB_URL = 'https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json';
-
 const IMAGE_BASE_JP = 'https://qrimpuff.github.io/hocg-fan-sim-assets/img/';
 const IMAGE_BASE_EN = 'https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/';
+
+// Keep price data across app updates.
+const PRICE_CACHE_NAME = 'hocg-deck-convert-prices';
+const PRICE_BASE_URL = 'https://qrimpuff.github.io/hocg-fan-sim-prices/';
+
+const CARDS_DB_URL = 'https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json';
 
 // Static assets that should always be available offline.
 const ASSETS = [
@@ -67,6 +70,23 @@ function buildPrefetchRequest(url) {
   } catch (error) {
     console.warn('[SW] Invalid prefetch URL', url, error);
     return null;
+  }
+}
+
+const PREFETCH_MAX_ATTEMPTS = 5;
+
+async function fetchPrefetchWithRetry(url) {
+  for (let attempt = 1; ; attempt++) {
+    const request = buildPrefetchRequest(url);
+    if (!request) return null;
+
+    const response = await fetch(request);
+    const throttled = response.status === 429 || response.status === 503;
+    if (!throttled || attempt >= PREFETCH_MAX_ATTEMPTS) return response;
+
+    const retryAfter = parseInt(response.headers.get('Retry-After'), 10);
+    const delayMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : 1000 * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
 }
 
@@ -216,7 +236,15 @@ async function matchFromKnownCaches(request) {
 
   try {
     const cardCache = await caches.open(CARD_CACHE_NAME);
-    return await cardCache.match(request, { ignoreVary: true });
+    const cached = await cardCache.match(request, { ignoreVary: true });
+    if (cached) return cached;
+  } catch (_) {
+    // ignore
+  }
+
+  try {
+    const priceCache = await caches.open(PRICE_CACHE_NAME);
+    return await priceCache.match(request, { ignoreVary: true });
   } catch (_) {
     return undefined;
   }
@@ -291,7 +319,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && cacheName !== CARD_CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName !== CARD_CACHE_NAME && cacheName !== PRICE_CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
@@ -342,12 +370,18 @@ self.addEventListener('fetch', (event) => {
   // 3. If network fails, return from Cache
   const url = event.request.url || '';
   const isCardImage = url.startsWith(IMAGE_BASE_JP) || url.startsWith(IMAGE_BASE_EN);
+  const isPrice = url.startsWith(PRICE_BASE_URL);
   const networkFetch = isCardImage ? fetch(event.request) : fetchWithTimeout(event.request);
 
   event.respondWith(
     networkFetch.then((networkResponse) => {
       // Card images are cached only by PREFETCH_CARDS, which prunes stale entries.
-      if (!isCardImage && networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+      if (isPrice && networkResponse && networkResponse.ok) {
+        const responseToCache = networkResponse.clone();
+        caches.open(PRICE_CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache);
+        });
+      } else if (!isPrice && !isCardImage && networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
         const responseToCache = networkResponse.clone();
 
         caches.open(CACHE_NAME).then((cache) => {
@@ -416,7 +450,7 @@ self.addEventListener('message', (event) => {
         let totalBytes = 0;
 
         // Rolling worker pool.
-        const CONCURRENCY = (self.navigator.hardwareConcurrency || 4) * 4;
+        const CONCURRENCY = 4;
         const PROGRESS_THROTTLE_MS = 16; // 60 fps
         let lastProgressAt = 0;
 
@@ -447,6 +481,8 @@ self.addEventListener('message', (event) => {
         // Notify start
         sendProgress(0, true);
 
+        console.log('[SW] ' + urlsToFetch.length + ' cards to download, ' + (urls.length - urlsToFetch.length) + ' already cached');
+
         const workerCount = Math.max(1, Math.min(CONCURRENCY, urlsToFetch.length));
 
         const worker = async (workerId) => {
@@ -458,12 +494,7 @@ self.addEventListener('message', (event) => {
                 continue;
               }
 
-              const request = buildPrefetchRequest(url);
-              if (!request) {
-                continue;
-              }
-
-              const response = await fetch(request);
+              const response = await fetchPrefetchWithRetry(url);
               if (response && (response.ok || response.type === 'opaque')) {
                 const len = response.headers.get('content-length');
                 if (len) totalBytes += parseInt(len, 10);

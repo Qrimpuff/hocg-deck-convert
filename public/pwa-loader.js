@@ -96,13 +96,20 @@ function prefetchCards(registration) {
 
             // Deduped list keeps the SW message size small.
             const urlList = Array.from(urls);
-            if (urlList.length === 0) return;
+            if (urlList.length === 0) {
+                console.warn('[prefetch] No card image URLs found in card DB');
+                return;
+            }
 
             const serviceWorker = registration.installing
                 || registration.waiting
-                || registration.active;
+                || registration.active
+                || (await navigator.serviceWorker.ready).active;
 
-            if (!serviceWorker) return;
+            if (!serviceWorker) {
+                console.warn('[prefetch] No service worker available for card download');
+                return;
+            }
 
             const sendPrefetch = () => {
                 serviceWorker.postMessage({

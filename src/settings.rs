@@ -1,11 +1,16 @@
 use dioxus::{document::document, prelude::*};
 use gloo::utils::window;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::Cache;
 
 const SETTINGS_KEY: &str = "hocg_settings";
 const CARD_IMG_PRESETS: [(&str, u32); 4] = [("S", 80), ("M", 110), ("L", 140), ("XL", 180)];
 const CARD_IMG_MIN_WIDTH: u32 = 60;
 const CARD_IMG_MAX_WIDTH: u32 = 200;
+const CARD_CACHE_PREFIX: &str = "hocg-deck-convert-cards";
+const PRICE_CACHE_PREFIX: &str = "hocg-deck-convert-prices";
 
 pub static SETTINGS: GlobalSignal<Settings> = Signal::global(Settings::load);
 
@@ -76,6 +81,88 @@ pub fn set_standalone_mode(enabled: bool) {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct CacheStats {
+    card_images: u64,
+    price_files: u64,
+    app_files: u64,
+    usage: Option<u64>,
+    quota: Option<u64>,
+}
+
+fn js_strings(value: JsValue) -> Vec<String> {
+    let array: js_sys::Array = value.unchecked_into();
+    array.iter().filter_map(|v| v.as_string()).collect()
+}
+
+async fn clear_card_cache() {
+    let Ok(storage) = window().caches() else {
+        return;
+    };
+    let Ok(names) = JsFuture::from(storage.keys()).await else {
+        return;
+    };
+    for name in js_strings(names) {
+        if name.starts_with(CARD_CACHE_PREFIX) {
+            let _ = JsFuture::from(storage.delete(&name)).await;
+        }
+    }
+}
+
+async fn load_cache_stats() -> Option<CacheStats> {
+    let storage = window().caches().ok()?;
+    let names = js_strings(JsFuture::from(storage.keys()).await.ok()?);
+    let mut card_images = 0;
+    let mut price_files = 0;
+    let mut app_files = 0;
+    for name in names {
+        let cache: Cache = JsFuture::from(storage.open(&name)).await.ok()?.unchecked_into();
+        let count = JsFuture::from(cache.keys()).await.ok()?.unchecked_into::<js_sys::Array>().length() as u64;
+        if name.starts_with(CARD_CACHE_PREFIX) {
+            card_images += count;
+        } else if name.starts_with(PRICE_CACHE_PREFIX) {
+            price_files += count;
+        } else {
+            app_files += count;
+        }
+    }
+    let (usage, quota) = storage_estimate().await;
+    Some(CacheStats {
+        card_images,
+        price_files,
+        app_files,
+        usage,
+        quota,
+    })
+}
+
+async fn storage_estimate() -> (Option<u64>, Option<u64>) {
+    let nav: JsValue = window().navigator().into();
+    let Ok(manager) = js_sys::Reflect::get(&nav, &"storage".into()) else {
+        return (None, None);
+    };
+    let Ok(estimate_fn) = js_sys::Reflect::get(&manager, &"estimate".into()) else {
+        return (None, None);
+    };
+    let Ok(promise) = estimate_fn.unchecked_into::<js_sys::Function>().call0(&manager) else {
+        return (None, None);
+    };
+    let Ok(estimate) = JsFuture::from(js_sys::Promise::from(promise)).await else {
+        return (None, None);
+    };
+    let read = |key: &str| {
+        js_sys::Reflect::get(&estimate, &key.into())
+            .ok()
+            .and_then(|v| v.as_f64())
+            .map(|v| v as u64)
+    };
+    (read("usage"), read("quota"))
+}
+
+fn format_bytes(bytes: u64) -> String {
+    format!("{:.1} MB", bytes as f64 / 1_048_576.0)
+}
+
 fn is_installed_app() -> bool {
     js_sys::eval("window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone")
         .ok()
@@ -88,6 +175,23 @@ pub fn SettingsPage() -> Element {
     let width = SETTINGS.read().card_img_width;
     let standalone_mode = SETTINGS.read().standalone_mode.unwrap_or_else(is_installed_app);
     let keep_app_state = SETTINGS.read().keep_app_state;
+    let mut stats = use_resource(load_cache_stats);
+    let cache_text = match &*stats.read() {
+        None => "Loading...".to_string(),
+        Some(None) => "Cache stats are not available.".to_string(),
+        Some(Some(s)) => {
+            let storage = match (s.usage, s.quota) {
+                (Some(usage), Some(quota)) => {
+                    format!(" Site storage: {} of {}.", format_bytes(usage), format_bytes(quota))
+                }
+                _ => String::new(),
+            };
+            format!(
+                "App files: {}. Card images: {}. Price data: {}.{storage}",
+                s.app_files, s.card_images, s.price_files
+            )
+        }
+    };
 
     rsx! {
         div { class: "field",
@@ -146,6 +250,29 @@ pub fn SettingsPage() -> Element {
                 }
             }
             p { class: "help", "Remembers the current page, formats, filters and deck, so you can continue after closing the app." }
+        }
+        div { class: "field mt-5",
+            label { class: "label", "Cache" }
+            p { class: "help", "{cache_text}" }
+            div { class: "buttons mt-2",
+                button {
+                    class: "button is-small",
+                    r#type: "button",
+                    onclick: move |_| stats.restart(),
+                    "Refresh"
+                }
+                button {
+                    class: "button is-small has-text-danger",
+                    r#type: "button",
+                    onclick: move |_| {
+                        spawn(async move {
+                            clear_card_cache().await;
+                            stats.restart();
+                        });
+                    },
+                    "Clear card images"
+                }
+            }
         }
     }
 }
