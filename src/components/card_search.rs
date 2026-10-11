@@ -8,7 +8,10 @@ use wana_kana::utils::katakana_to_hiragana;
 use crate::{
     ALL_CARDS_SORTED, CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, GLOBAL_RARITY,
     GLOBAL_RELEASE,
-    components::{card::Card, modal_popup::ModelPopup},
+    components::{
+        card::{Card, CardNavList},
+        modal_popup::ModelPopup,
+    },
     sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, TrackEvent, track_event},
 };
@@ -732,18 +735,41 @@ pub fn CardSearch(
         filter_cards(&all_cards, filters)
     });
 
+    // full filtered list (not limited by card_amount) for popup navigation
+    let mut nav_cards: CardNavList = use_signal(Vec::new);
+    use_context_provider(|| nav_cards);
+    use_effect(move || {
+        let db = db.read();
+        *nav_cards.write() = filtered_cards
+            .read()
+            .iter()
+            .map(|(card, _)| {
+                (
+                    CommonCard::from_card_illustration(card, 0, &db),
+                    CardType::Main,
+                )
+            })
+            .collect();
+    });
+
     let _ = use_effect(move || {
         debug!("update_cards called");
         let _common_deck = common_deck.read();
         let _filtered_cards = filtered_cards.read();
         *max_card_amount.write() = _filtered_cards.len();
-        *cards.write() = _filtered_cards
+        let visible_cards = _filtered_cards
             .iter()
             // limit the number of cards shown
             .take(*card_amount.read())
-            .map(move |(card, idx)| {
+            .map(|(card, idx)| {
                 let mut card = CommonCard::from_card_illustration(card, 0, &db.read());
                 card.amount = _common_deck.card_amount(&card.card_number, Some(*idx));
+                card
+            })
+            .collect::<Vec<_>>();
+        *cards.write() = visible_cards
+            .into_iter()
+            .map(move |card| {
                 rsx! {
                     Card {
                         card,

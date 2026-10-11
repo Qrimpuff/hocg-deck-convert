@@ -12,6 +12,9 @@ use crate::{
     tracker::{EventType, TrackEvent, track_event, track_external_url},
 };
 
+/// Full list of cards the popup can step through, provided by the list owner.
+pub type CardNavList = Signal<Vec<(CommonCard, CardType)>>;
+
 #[component]
 pub fn Card(
     card: CommonCard,
@@ -174,6 +177,8 @@ pub fn Card(
         }
     };
 
+    let nav_cards = try_consume_context::<CardNavList>();
+
     let _card = card.clone();
     let is_selected = use_memo(move || {
         if let Some(card_details) = card_details {
@@ -209,6 +214,9 @@ pub fn Card(
                                 card_type,
                                 is_edit: *is_details_edit.read(),
                                 show_price,
+                                nav_cards: nav_cards
+                                    .map(|nav| nav.read().to_vec())
+                                    .unwrap_or_default(),
                             });
                             track_event(
                                 EventType::EditDeck,

@@ -70,6 +70,43 @@
     max-width: 40rem;
 }
 
+/* card details header: nav gets its own row on mobile */
+.card-details-controls {
+    display: flex;
+    align-items: center;
+    margin-right: 0.75rem;
+}
+
+.card-details-nav {
+    margin-right: 0.75rem;
+}
+
+@media screen and (max-width: 769px) {
+    .card-details-header {
+        flex-wrap: wrap;
+    }
+
+    .card-details-header > h4 {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .card-details-header .buttons {
+        flex: 0 0 auto;
+    }
+
+    .card-details-controls {
+        display: contents;
+    }
+
+    .card-details-nav {
+        order: 1;
+        width: 100%;
+        justify-content: center;
+        margin: 0.5rem 0 0;
+    }
+}
+
 /* fix badge text clipping */
 .badge.card-amount {
     line-height: 0.8 !important;

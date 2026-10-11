@@ -5,7 +5,10 @@ use serde::Serialize;
 use crate::{
     AUTO_SAVE_DECK, CARDS_PRICES, CURRENT_PAGE, CardLanguage, CardType, FREE_BASIC_CHEERS,
     PRICE_SERVICE, Page,
-    components::{card::Card, tooltip::Tooltip},
+    components::{
+        card::{Card, CardNavList},
+        tooltip::Tooltip,
+    },
     sources::{DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, TrackEvent, track_event},
 };
@@ -79,6 +82,35 @@ pub fn DeckPreview(
         is_details_edit.set(*is_edit.read() || *CURRENT_PAGE.read() == Page::Export);
     });
 
+    // display order, used for popup navigation
+    let mut nav_cards: CardNavList = use_signal(Vec::new);
+    use_context_provider(|| nav_cards);
+    use_effect(move || {
+        let nav = match &*common_deck.read() {
+            DeckOrPile::Deck(deck) => deck
+                .oshi
+                .iter()
+                .map(|card| (card.clone(), CardType::Oshi))
+                .chain(
+                    deck.cheer_deck
+                        .iter()
+                        .map(|card| (card.clone(), CardType::Cheer)),
+                )
+                .chain(
+                    deck.main_deck
+                        .iter()
+                        .map(|card| (card.clone(), CardType::Main)),
+                )
+                .collect::<Vec<_>>(),
+            DeckOrPile::Pile(pile) => pile
+                .cards
+                .iter()
+                .map(|card| (card.clone(), CardType::Main))
+                .collect::<Vec<_>>(),
+        };
+        *nav_cards.write() = nav;
+    });
+
     let deck = common_deck.read();
 
     // Don't render anything if the deck is empty
@@ -89,7 +121,7 @@ pub fn DeckPreview(
     let preview = match &*deck {
         DeckOrPile::Deck(deck) => {
             let show_oshi = deck.oshi.is_some();
-            let oshi = deck.oshi.iter().map(move |card| {
+            let oshi = deck.oshi.iter().map(|card| {
                 rsx! {
                     Card {
                         card: card.clone(),
@@ -107,7 +139,7 @@ pub fn DeckPreview(
             });
 
             let show_main_deck = !deck.main_deck.is_empty();
-            let main_deck = deck.main_deck.iter().map(move |card| {
+            let main_deck = deck.main_deck.iter().map(|card| {
                 rsx! {
                     Card {
                         card: card.clone(),
@@ -125,7 +157,7 @@ pub fn DeckPreview(
             });
 
             let show_cheer_deck = !deck.cheer_deck.is_empty();
-            let cheer_deck = deck.cheer_deck.iter().map(move |card| {
+            let cheer_deck = deck.cheer_deck.iter().map(|card| {
                 rsx! {
                     Card {
                         card: card.clone(),

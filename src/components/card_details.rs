@@ -14,7 +14,7 @@ use crate::{
     components::{
         card::Card,
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
-        modal_popup::{ModelPopup, Popup, show_popup},
+        modal_popup::{ModelPopup, Popup, show_popup, update_card_details_popup},
         price_history::PriceHistory,
         tooltip::{Tooltip, TooltipPlacement},
     },
@@ -39,22 +39,78 @@ pub fn CardDetailsPopup(
     popup_id: usize,
     card: CommonCard,
     card_type: CardType,
+    nav_cards: Vec<(CommonCard, CardType)>,
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
 ) -> Element {
-    let popup_card = use_signal(|| card.clone());
+    let mut popup_card = use_signal(|| card.clone());
+    let mut popup_type = use_signal(|| card_type);
+    let nav_cards = use_signal(|| nav_cards);
+    let nav_index = use_memo(move || {
+        let popup_card = popup_card.read();
+        nav_cards.read().iter().position(|(c, _)| {
+            c.card_number == popup_card.card_number
+                && c.illustration_idx == popup_card.illustration_idx
+        })
+    });
+    let nav_len = nav_cards.read().len();
+
+    let mut step = move |delta: isize| {
+        let Some(index) = *nav_index.read() else {
+            return;
+        };
+        let Some(target) = index.checked_add_signed(delta) else {
+            return;
+        };
+        if let Some((next_card, next_type)) = nav_cards.read().get(target) {
+            popup_card.set(next_card.clone());
+            popup_type.set(*next_type);
+            update_card_details_popup(popup_id, next_card.clone(), *next_type);
+        }
+    };
+    let nav_pos = *nav_index.read();
+
+    let nav_controls = rsx! {
+        if let Some(pos) = nav_pos && nav_len > 1 {
+            div { class: "card-details-nav is-flex is-align-items-center is-flex-shrink-0",
+                button {
+                    r#type: "button",
+                    class: "button is-small",
+                    title: "Previous card",
+                    "aria-label": "Previous card",
+                    disabled: pos == 0,
+                    onclick: move |_| step(-1),
+                    span { class: "icon",
+                        i { class: "fa-solid fa-chevron-left" }
+                    }
+                }
+                span { class: "has-text-grey mx-2", "{pos + 1} / {nav_len}" }
+                button {
+                    r#type: "button",
+                    class: "button is-small",
+                    title: "Next card",
+                    "aria-label": "Next card",
+                    disabled: pos + 1 >= nav_len,
+                    onclick: move |_| step(1),
+                    span { class: "icon",
+                        i { class: "fa-solid fa-chevron-right" }
+                    }
+                }
+            }
+        }
+    };
 
     rsx! {
         ModelPopup {
             popup_id,
             title: rsx! {
-                CardDetailsTitle { card: popup_card, db: CARDS_DB.signal() }
+                CardDetailsTitle { card: popup_card, db: CARDS_DB.signal(), nav: nav_controls }
             },
             content: rsx! {
                 CardDetailsContent {
                     popup_id,
                     card: popup_card,
-                    card_type,
+                    card_type: popup_type,
                     db: CARDS_DB.signal(),
                     common_deck: COMMON_DECK.signal(),
                     is_edit,
@@ -67,7 +123,11 @@ pub fn CardDetailsPopup(
 }
 
 #[component]
-pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> Element {
+pub fn CardDetailsTitle(
+    card: Signal<CommonCard>,
+    db: Signal<CardsDatabase>,
+    nav: Option<Element>,
+) -> Element {
     let mut lang = CARD_DETAILS_LANG.signal();
 
     let title = use_memo(move || {
@@ -204,7 +264,7 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
     });
 
     rsx! {
-        div { class: "is-flex is-justify-content-space-between",
+        div { class: "is-flex is-justify-content-space-between card-details-header",
             h4 {
                 div { class: "subtitle",
                     "{subtitle}"
@@ -230,7 +290,10 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
                 }
                 div { class: "title", "{title}" }
             }
-            div { class: "is-flex is-align-items-center mr-3",
+            div { class: "card-details-controls",
+                if let Some(nav) = nav {
+                    {nav}
+                }
                 div { class: "buttons has-addons is-flex-shrink-0",
                     button {
                         r#type: "button",
@@ -274,27 +337,28 @@ pub fn CardDetailsTitle(card: Signal<CommonCard>, db: Signal<CardsDatabase>) -> 
 pub fn CardDetailsContent(
     #[props(default)] popup_id: usize,
     card: Signal<CommonCard>,
-    card_type: CardType,
+    card_type: Signal<CardType>,
     db: Signal<CardsDatabase>,
     common_deck: Option<Signal<DeckOrPile>>,
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
 ) -> Element {
-    let error_img_path: &str = match card_type {
-        CardType::Oshi | CardType::Cheer => "cheer-back.webp",
-        CardType::Main => "card-back.webp",
-    };
-    let error_img_path = format!("/hocg-deck-convert/assets/{error_img_path}");
+    let error_img_path = use_memo(move || {
+        let error_img_path = match *card_type.read() {
+            CardType::Oshi | CardType::Cheer => "cheer-back.webp",
+            CardType::Main => "card-back.webp",
+        };
+        format!("/hocg-deck-convert/assets/{error_img_path}")
+    });
 
     let lang = CARD_DETAILS_LANG.signal();
     let mut big_card = use_signal(|| false);
 
-    let _error_img_path = error_img_path.clone();
     let img_path = use_memo({
         move || {
             card.read()
                 .image_path(&db.read(), *lang.read(), ImageOptions::card_details())
-                .unwrap_or_else(|| _error_img_path.clone())
+                .unwrap_or_else(|| (*error_img_path.read()).clone())
         }
     });
 

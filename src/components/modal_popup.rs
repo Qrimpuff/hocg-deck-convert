@@ -25,6 +25,7 @@ pub enum Popup {
         card_type: CardType,
         is_edit: bool,
         show_price: bool,
+        nav_cards: Vec<(CommonCard, CardType)>,
     },
     CardSearch(Filters),
 }
@@ -42,6 +43,29 @@ pub fn show_popup(popup: Popup) {
     history
         .push_state_with_url(&state, "", None)
         .expect("push history");
+}
+
+pub fn update_card_details_popup(popup_id: usize, card: CommonCard, card_type: CardType) {
+    let mut popups = MODAL_POPUP_LIST.write();
+    let Some((
+        _,
+        Popup::CardDetails {
+            card: stored_card,
+            card_type: stored_type,
+            ..
+        },
+    )) = popups.iter_mut().find(|(id, _)| *id == popup_id)
+    else {
+        return;
+    };
+    *stored_card = card;
+    *stored_type = card_type;
+
+    let history = window().history().expect("no history");
+    let state = JsValue::from_serde(&*popups).expect("failed to serialize popup list");
+    history
+        .replace_state_with_url(&state, "", None)
+        .expect("replace history");
 }
 
 #[component]
@@ -65,12 +89,14 @@ pub fn ModalPopupStack() -> Element {
             card_type,
             is_edit,
             show_price,
+            nav_cards,
         } => rsx! {
             CardDetailsPopup {
                 key: "{id}",
                 popup_id: *id,
                 card: card.clone(),
                 card_type: *card_type,
+                nav_cards: nav_cards.clone(),
                 is_edit: Signal::new(*is_edit),
                 show_price: Signal::new(*show_price),
             }
