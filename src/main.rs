@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 mod components;
+mod settings;
 mod sources;
 mod tracker;
 
@@ -22,6 +23,7 @@ use icu_timezone::TimeZoneIdMapper;
 use itertools::Itertools;
 use price_check::PriceCache;
 use serde::{Deserialize, Serialize};
+use settings::SettingsPage;
 use sources::*;
 use tracker::{EventType, track_event, track_external_url};
 use wasm_bindgen::prelude::*;
@@ -73,6 +75,7 @@ pub enum Page {
     Edit,
     Export,
     SaveLoad,
+    Settings,
 }
 
 fn main() {
@@ -120,7 +123,8 @@ fn App() -> Element {
     });
 
     rsx! {
-        section { class: "section",
+        section {
+            class: "section",
             div { class: "container",
                 h1 { class: "title", "hololive OCG Deck Converter" }
 
@@ -361,6 +365,25 @@ fn Form() -> Element {
                 div { class: "buttons has-addons is-flex-wrap-nowrap",
                     button {
                         class: "button",
+                        class: if *CURRENT_PAGE.read() == Page::Settings { "is-link is-selected" },
+                        r#type: "button",
+                        title: "Settings",
+                        "aria-label": "Settings",
+                        onclick: |_| {
+                            *CURRENT_PAGE.write() = Page::Settings;
+                            *EDIT_DECK.write() = false;
+                            *SHOW_PRICE.write() = false;
+                        },
+                        span { class: "icon is-small",
+                            i { class: "fa-solid fa-gear" }
+                        }
+                        // only show label on mobile
+                        if !show_page_labels && *CURRENT_PAGE.read() == Page::Settings {
+                            span { "Settings" }
+                        }
+                    }
+                    button {
+                        class: "button",
                         class: if *CURRENT_PAGE.read() == Page::SaveLoad { "is-link is-selected" },
                         r#type: "button",
                         title: "Save or load deck",
@@ -464,6 +487,7 @@ fn Form() -> Element {
             span { class: if *CURRENT_PAGE.read() != Page::Import { "is-hidden" }, ImportPage {} }
             span { class: if *CURRENT_PAGE.read() != Page::Edit { "is-hidden" }, EditPage {} }
             span { class: if *CURRENT_PAGE.read() != Page::Export { "is-hidden" }, ExportPage {} }
+            span { class: if *CURRENT_PAGE.read() != Page::Settings { "is-hidden" }, SettingsPage {} }
             span { class: if *CURRENT_PAGE.read() != Page::SaveLoad { "is-hidden" },
                 SaveLoadPage { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }

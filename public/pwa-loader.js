@@ -34,12 +34,9 @@ if ('serviceWorker' in navigator) {
             window.addEventListener('online', sendOfflineHint);
             window.addEventListener('offline', sendOfflineHint);
 
-            // Only prefetch in installed/standalone mode.
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-                || window.navigator.standalone;
-
-            if (isStandalone) {
-                console.log('PWA is installed/standalone. Initiating card prefetch...');
+            // Defaults to the installed state until the setting is changed.
+            if (isStandaloneModeEnabled()) {
+                console.log('Initiating card prefetch (standalone mode on)...');
                 prefetchCards(registration);
             }
         }).catch((err) => {
@@ -56,6 +53,25 @@ if ('serviceWorker' in navigator) {
         window.addEventListener('DOMContentLoaded', initServiceWorker);
     }
 }
+
+function isStandaloneApp() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
+
+function isStandaloneModeEnabled() {
+    try {
+        const settings = JSON.parse(localStorage.getItem('hocg_settings') || '{}');
+        if (typeof settings.standalone_mode === 'boolean') return settings.standalone_mode;
+    } catch (_) {
+        // Fall through to the install state.
+    }
+    return isStandaloneApp();
+}
+
+window.hocgStartStandaloneDownload = () => {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(prefetchCards).catch(console.error);
+};
 
 function prefetchCards(registration) {
     fetch(CARDS_DB_URL)

@@ -1,11 +1,13 @@
 .card-img {
-    width: 80px;
-    min-height: 110px;
+    width: var(--card-img-width, 80px);
+    min-height: calc(var(--card-img-width, 80px) * 1.375);
+    max-width: 100%;
 }
 
 .card-img-oshi {
-    width: 128px;
-    min-height: 176px;
+    width: calc(var(--card-img-width, 80px) * 1.6);
+    min-height: calc(var(--card-img-width, 80px) * 2.2);
+    max-width: 100%;
 }
 
 .card-img-oshi.selected a,

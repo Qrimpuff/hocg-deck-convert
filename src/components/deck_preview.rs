@@ -9,6 +9,7 @@ use crate::{
         card::{Card, CardNavList},
         tooltip::Tooltip,
     },
+    settings::SETTINGS,
     sources::{DeckLike, DeckOrPile, ImageOptions},
     tracker::{EventType, TrackEvent, track_event},
 };
@@ -297,6 +298,9 @@ pub fn DeckPreview(
                 }
             }
         }
-        {preview}
+        div {
+            style: "--card-img-width: {SETTINGS.read().card_img_width}px",
+            {preview}
+        }
     }
 }
