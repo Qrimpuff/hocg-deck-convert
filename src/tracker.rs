@@ -36,6 +36,7 @@ pub enum EventType {
     InternalUrl(String),
     PriceHistory,
     Error,
+    Settings(String),
 }
 
 pub trait TrackEvent: Serialize {
@@ -64,6 +65,7 @@ where
         EventType::InternalUrl(_url) => Some("internal_url"),
         EventType::PriceHistory => Some("price_history"),
         EventType::Error => Some("error"),
+        EventType::Settings(_section) => Some("settings"),
     };
 
     // Check throttling for events that have a name

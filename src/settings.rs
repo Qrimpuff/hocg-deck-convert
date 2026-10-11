@@ -1,3 +1,4 @@
+use crate::tracker::{EventType, TrackEvent, track_event};
 use dioxus::{document::document, prelude::*};
 use gloo::utils::window;
 use serde::{Deserialize, Serialize};
@@ -53,6 +54,31 @@ impl Settings {
     }
 }
 
+#[derive(Serialize)]
+struct SettingsEventData {
+    setting: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cache_action: Option<&'static str>,
+}
+impl TrackEvent for SettingsEventData {}
+
+fn track_setting(
+    setting: &'static str,
+    enabled: Option<bool>,
+    cache_action: Option<&'static str>,
+) {
+    track_event(
+        EventType::Settings(setting.into()),
+        SettingsEventData {
+            setting,
+            enabled,
+            cache_action,
+        },
+    );
+}
+
 pub fn set_card_img_width(width: u32) {
     let width = width.clamp(CARD_IMG_MIN_WIDTH, CARD_IMG_MAX_WIDTH);
     let mut settings = SETTINGS.write();
@@ -65,12 +91,14 @@ pub fn keep_app_state() -> bool {
 }
 
 pub fn set_keep_app_state(enabled: bool) {
+    track_setting("Keep app state", Some(enabled), None);
     let mut settings = SETTINGS.write();
     settings.keep_app_state = enabled;
     settings.save();
 }
 
 pub fn set_standalone_mode(enabled: bool) {
+    track_setting("Standalone mode", Some(enabled), None);
     {
         let mut settings = SETTINGS.write();
         settings.standalone_mode = Some(enabled);
@@ -203,7 +231,10 @@ pub fn SettingsPage() -> Element {
                             class: "button is-small",
                             class: if width == preset { "is-link is-selected" },
                             r#type: "button",
-                            onclick: move |_| set_card_img_width(preset),
+                            onclick: move |_| {
+                                track_setting("Preview size", None, None);
+                                set_card_img_width(preset);
+                            },
                             "{label}"
                         }
                     }
@@ -221,6 +252,7 @@ pub fn SettingsPage() -> Element {
                             set_card_img_width(w);
                         }
                     },
+                    onchange: move |_| track_setting("Preview size", None, None),
                 }
                 span { class: "is-flex-shrink-0", style: "min-width: 4em; text-align: right", "{width}px" }
             }
@@ -258,13 +290,17 @@ pub fn SettingsPage() -> Element {
                 button {
                     class: "button is-small",
                     r#type: "button",
-                    onclick: move |_| stats.restart(),
+                    onclick: move |_| {
+                        track_setting("Cache", None, Some("refresh"));
+                        stats.restart();
+                    },
                     "Refresh"
                 }
                 button {
                     class: "button is-small has-text-danger",
                     r#type: "button",
                     onclick: move |_| {
+                        track_setting("Cache", None, Some("clear"));
                         spawn(async move {
                             clear_card_cache().await;
                             stats.restart();

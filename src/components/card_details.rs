@@ -63,6 +63,13 @@ pub fn CardDetailsPopup(
             return;
         };
         if let Some((next_card, next_type)) = nav_cards.read().get(target) {
+            track_event(
+                EventType::EditDeck,
+                EventData {
+                    action: (if delta < 0 { "Previous card" } else { "Next card" }).into(),
+                    filter_type: None,
+                },
+            );
             popup_card.set(next_card.clone());
             popup_type.set(*next_type);
             update_card_details_popup(popup_id, next_card.clone(), *next_type);
