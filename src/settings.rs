@@ -1,4 +1,7 @@
-use crate::tracker::{EventType, TrackEvent, track_event};
+use crate::{
+    app_state,
+    tracker::{EventType, TrackEvent, track_event},
+};
 use dioxus::{document::document, prelude::*};
 use gloo::utils::window;
 use serde::{Deserialize, Serialize};
@@ -89,9 +92,16 @@ pub fn keep_app_state() -> bool {
 
 pub fn set_keep_app_state(enabled: bool) {
     track_setting("Keep app state", Some(enabled), None);
-    let mut settings = SETTINGS.write();
-    settings.keep_app_state = enabled;
-    settings.save();
+    {
+        let mut settings = SETTINGS.write();
+        settings.keep_app_state = enabled;
+        settings.save();
+    }
+    if enabled {
+        app_state::save();
+    } else {
+        app_state::clear();
+    }
 }
 
 pub fn set_standalone_mode(enabled: bool) {

@@ -3,7 +3,12 @@ use std::sync::OnceLock;
 use dioxus::{logger::tracing::debug, prelude::*};
 use serde::Serialize;
 
-use crate::{CardLanguage::*, EventType, app_state::use_persisted, track_event, *};
+use crate::{
+    CardLanguage::*,
+    EventType,
+    app_state::{has_pending_deck, use_persisted},
+    track_event, *,
+};
 
 use super::{CardsDatabase, CommonCard, CommonDeck};
 
@@ -26,6 +31,10 @@ fn card(
 
 fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
     static DECKS: OnceLock<Vec<DeckEntry>> = OnceLock::new();
+    static EMPTY: Vec<DeckEntry> = Vec::new();
+    if db.is_empty() {
+        return &EMPTY;
+    }
     DECKS.get_or_init(|| {
         vec![
             // hSD01 - スタートデッキ「ときのそら&AZKi」
@@ -735,6 +744,9 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
 
     // display once
     use_effect(move || {
+        if db.read().is_empty() || has_pending_deck() {
+            return;
+        }
         if *common_deck.peek() == Default::default() {
             load_deck();
         }

@@ -13,8 +13,8 @@ pub fn Import(
     db: Signal<CardsDatabase>,
     is_edit: Signal<bool>,
 ) -> Element {
-    // sort the deck when entering the edit page
-    use_effect(move || common_deck.write().sort(&db.read()));
+    // peek so a database load does not re-sort a restored deck
+    use_effect(move || common_deck.write().sort(&db.peek()));
 
     rsx! {
         CardSearch { db, common_deck, is_edit }

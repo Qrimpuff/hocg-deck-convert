@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.5.0';
+const CACHE_NAME = 'hocg-deck-convert-v1.5.1';
 // Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
 const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';

@@ -1,21 +1,26 @@
 use dioxus::prelude::*;
 use gloo::utils::window;
+use hocg_fan_sim_assets_model::CardsDatabase;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    COMMON_DECK, CURRENT_PAGE, CardLanguage, EDIT_DECK, EXPORT_FORMAT, FREE_BASIC_CHEERS,
+    CARDS_DB, COMMON_DECK, CURRENT_PAGE, CardLanguage, EDIT_DECK, EXPORT_FORMAT, FREE_BASIC_CHEERS,
     GLOBAL_RARITY, GLOBAL_RELEASE, IMPORT_FORMAT, PREVIEW_CARD_LANG, PREVIEW_IMAGE_OPTIONS,
     PRICE_SERVICE, Page, SHOW_PRICE,
     components::{
         card_details::CARD_DETAILS_LANG,
         card_search::{FilterRarity, FilterRelease},
+        save_load::SaveDeckOrPile,
     },
     settings::{SETTINGS, keep_app_state},
-    sources::{DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService},
+    sources::{DeckType, ImageOptions, price_check::PriceCheckService},
 };
 
 const APP_STATE_KEY: &str = "hocg-deck-convert.app_state";
 const STATE_PREFIX: &str = "hocg-deck-convert.state.";
+
+// Restored deck, resolved to cards once the card database is loaded.
+static PENDING_DECK: GlobalSignal<Option<SaveDeckOrPile>> = Signal::global(|| None);
 
 fn local_storage() -> Option<web_sys::Storage> {
     window().local_storage().ok().flatten()
@@ -30,7 +35,7 @@ fn keep_app_state_untracked() -> bool {
 #[serde(default)]
 struct AppState {
     page: Page,
-    common_deck: DeckOrPile,
+    deck: Option<SaveDeckOrPile>,
     import_format: Option<DeckType>,
     export_format: Option<DeckType>,
     edit_deck: bool,
@@ -48,7 +53,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             page: Page::Import,
-            common_deck: DeckOrPile::default(),
+            deck: None,
             import_format: None,
             export_format: None,
             edit_deck: false,
@@ -65,10 +70,10 @@ impl Default for AppState {
 }
 
 impl AppState {
-    fn current() -> Self {
+    fn current(db: &CardsDatabase) -> Self {
         Self {
             page: *CURRENT_PAGE.read(),
-            common_deck: COMMON_DECK.read().clone(),
+            deck: Some(SaveDeckOrPile::from_deck_or_pile(&COMMON_DECK.read(), db)),
             import_format: *IMPORT_FORMAT.read(),
             export_format: *EXPORT_FORMAT.read(),
             edit_deck: *EDIT_DECK.read(),
@@ -85,7 +90,6 @@ impl AppState {
 
     fn apply(self) {
         *CURRENT_PAGE.write() = self.page;
-        *COMMON_DECK.write() = self.common_deck;
         *IMPORT_FORMAT.write() = self.import_format;
         *EXPORT_FORMAT.write() = self.export_format;
         *EDIT_DECK.write() = self.edit_deck;
@@ -105,11 +109,33 @@ pub fn save() {
     if !keep_app_state() {
         return;
     }
-    let (Some(ls), Ok(json)) = (local_storage(), serde_json::to_string(&AppState::current()))
-    else {
+    let db = CARDS_DB.read();
+    // the deck cannot be encoded until the database is loaded or while it is still pending
+    if db.is_empty() || PENDING_DECK.read().is_some() {
+        return;
+    }
+    let (Some(ls), Ok(json)) = (
+        local_storage(),
+        serde_json::to_string(&AppState::current(&db)),
+    ) else {
         return;
     };
     let _ = ls.set_item(APP_STATE_KEY, &json);
+}
+
+/// Removes all saved app state from localStorage.
+pub fn clear() {
+    let Some(ls) = local_storage() else {
+        return;
+    };
+    let len = ls.length().unwrap_or(0);
+    let keys = (0..len)
+        .filter_map(|i| ls.key(i).ok().flatten())
+        .filter(|key| key == APP_STATE_KEY || key.starts_with(STATE_PREFIX))
+        .collect::<Vec<_>>();
+    for key in keys {
+        let _ = ls.remove_item(&key);
+    }
 }
 
 /// Restores the page-level state before any component renders.
@@ -121,7 +147,25 @@ pub fn restore() {
         .and_then(|ls| ls.get_item(APP_STATE_KEY).ok().flatten())
         .and_then(|json| serde_json::from_str::<AppState>(&json).ok())
         .unwrap_or_default();
+    *PENDING_DECK.write() = state.deck.clone();
     state.apply();
+}
+
+/// Resolves the restored deck against the loaded card database.
+pub fn apply_pending_deck(db: &CardsDatabase) {
+    if db.is_empty() {
+        return;
+    }
+    let Some(deck) = PENDING_DECK.peek().clone() else {
+        return;
+    };
+    *PENDING_DECK.write() = None;
+    *COMMON_DECK.write() = deck.to_deck_or_pile(db);
+}
+
+/// Reads without subscribing. Use in effects that must not overwrite the restored deck.
+pub fn has_pending_deck() -> bool {
+    PENDING_DECK.peek().is_some()
 }
 
 fn load_value<T: DeserializeOwned>(key: &str) -> Option<T> {

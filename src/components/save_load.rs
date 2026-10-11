@@ -118,7 +118,7 @@ impl SaveDeckOrPile {
         }
     }
 
-    fn from_deck_or_pile(deck_or_pile: &DeckOrPile, db: &CardsDatabase) -> Self {
+    pub fn from_deck_or_pile(deck_or_pile: &DeckOrPile, db: &CardsDatabase) -> Self {
         match deck_or_pile {
             DeckOrPile::Deck(deck) => SaveDeckOrPile::Deck(SaveDeck::from_deck(deck, db)),
             DeckOrPile::Pile(pile) => SaveDeckOrPile::Pile(SavePileOfCards::from_pile(pile, db)),

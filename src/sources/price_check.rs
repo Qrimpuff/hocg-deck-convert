@@ -329,7 +329,7 @@ pub async fn fetch_deck_price_history(
 /// One card's price series per service, with the card amount.
 type CardSeries = (f64, Vec<Vec<(i64, f64)>>);
 
-/// Sums each card's best-price step series; a time is approximate when some card has no price yet.
+/// Sums each card's best-price step series, starting where the most cards have a price.
 fn combine_price_histories(cards: Vec<CardSeries>) -> Vec<(i64, f64, bool)> {
     let card_totals: Vec<(f64, Vec<(i64, f64)>)> = cards
         .into_iter()
@@ -362,8 +362,21 @@ fn combine_price_histories(cards: Vec<CardSeries>) -> Vec<(i64, f64, bool)> {
         .sorted()
         .dedup()
         .collect_vec();
+    let covered = |ts: i64| {
+        card_totals
+            .iter()
+            .filter(|(_, s)| step_value(s, ts).is_some())
+            .count()
+    };
+    let max_covered = times.iter().map(|&ts| covered(ts)).max().unwrap_or(0);
+    let start = times
+        .iter()
+        .copied()
+        .find(|&ts| covered(ts) == max_covered)
+        .unwrap_or(i64::MIN);
     times
         .into_iter()
+        .filter(|&ts| ts >= start)
         .map(|ts| {
             let mut total = 0.0;
             let mut approximate = false;
@@ -631,8 +644,16 @@ pub fn Export(
                                 _ => unreachable!(),
                             };
                         },
-                        option { value: "yuyutei", "Yuyu-tei (JPY)" }
-                        option { value: "tcgplayer", "TCGplayer (USD)" }
+                        option {
+                            value: "yuyutei",
+                            selected: *price_service.read() == Yuyutei,
+                            "Yuyu-tei (JPY)"
+                        }
+                        option {
+                            value: "tcgplayer",
+                            selected: *price_service.read() == TcgPlayer,
+                            "TCGplayer (USD)"
+                        }
                     }
                 }
             }
@@ -728,7 +749,6 @@ pub fn Export(
             }
         }
         if !common_deck.read().is_empty() {
-            br {}
             crate::components::price_history::DeckPriceHistory {
                 chart_id: "deck-price-history".to_string(),
                 common_deck,

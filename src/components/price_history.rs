@@ -161,10 +161,11 @@ fn price_chart(
         document().eval(format!("window.disposePriceHistory('{chart_id_drop}');"));
     });
     let has_data = history.read().as_ref().is_some_and(|s| !s.is_empty());
+    let service = PRICE_SERVICE.read().name();
 
     rsx! {
         div { class: "block", style: "margin-top: 1.5rem;",
-            p { class: "has-text-weight-semibold", "{title}" }
+            p { class: "has-text-weight-semibold", "{title} ({service})" }
             if loading {
                 p { class: "is-size-7", "Loading..." }
             }

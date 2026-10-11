@@ -88,6 +88,7 @@ fn App() -> Element {
     done_loading();
     use_hook(app_state::restore);
     use_effect(app_state::save);
+    use_effect(|| app_state::apply_pending_deck(&CARDS_DB.read()));
 
     let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
         let Ok(card_db) =
