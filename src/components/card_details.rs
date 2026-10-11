@@ -66,7 +66,12 @@ pub fn CardDetailsPopup(
             track_event(
                 EventType::EditDeck,
                 EventData {
-                    action: (if delta < 0 { "Previous card" } else { "Next card" }).into(),
+                    action: (if delta < 0 {
+                        "Previous card"
+                    } else {
+                        "Next card"
+                    })
+                    .into(),
                     filter_type: None,
                 },
             );

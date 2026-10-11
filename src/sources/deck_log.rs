@@ -6,8 +6,8 @@ use dioxus::prelude::*;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 
-use crate::components::deck_validation::DeckValidation;
 use crate::app_state::use_persisted;
+use crate::components::deck_validation::DeckValidation;
 use crate::sources::{DeckLike, DeckOrPile};
 use crate::tracker::TrackEvent;
 use crate::{

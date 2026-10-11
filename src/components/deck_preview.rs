@@ -298,9 +298,6 @@ pub fn DeckPreview(
                 }
             }
         }
-        div {
-            style: "--card-img-width: {SETTINGS.read().card_img_width}px",
-            {preview}
-        }
+        div { style: "--card-img-width: {SETTINGS.read().card_img_width}px", {preview} }
     }
 }

@@ -64,11 +64,7 @@ struct SettingsEventData {
 }
 impl TrackEvent for SettingsEventData {}
 
-fn track_setting(
-    setting: &'static str,
-    enabled: Option<bool>,
-    cache_action: Option<&'static str>,
-) {
+fn track_setting(setting: &'static str, enabled: Option<bool>, cache_action: Option<&'static str>) {
     track_event(
         EventType::Settings(setting.into()),
         SettingsEventData {
@@ -144,8 +140,15 @@ async fn load_cache_stats() -> Option<CacheStats> {
     let mut price_files = 0;
     let mut app_files = 0;
     for name in names {
-        let cache: Cache = JsFuture::from(storage.open(&name)).await.ok()?.unchecked_into();
-        let count = JsFuture::from(cache.keys()).await.ok()?.unchecked_into::<js_sys::Array>().length() as u64;
+        let cache: Cache = JsFuture::from(storage.open(&name))
+            .await
+            .ok()?
+            .unchecked_into();
+        let count = JsFuture::from(cache.keys())
+            .await
+            .ok()?
+            .unchecked_into::<js_sys::Array>()
+            .length() as u64;
         if name.starts_with(CARD_CACHE_PREFIX) {
             card_images += count;
         } else if name.starts_with(PRICE_CACHE_PREFIX) {
@@ -172,7 +175,10 @@ async fn storage_estimate() -> (Option<u64>, Option<u64>) {
     let Ok(estimate_fn) = js_sys::Reflect::get(&manager, &"estimate".into()) else {
         return (None, None);
     };
-    let Ok(promise) = estimate_fn.unchecked_into::<js_sys::Function>().call0(&manager) else {
+    let Ok(promise) = estimate_fn
+        .unchecked_into::<js_sys::Function>()
+        .call0(&manager)
+    else {
         return (None, None);
     };
     let Ok(estimate) = JsFuture::from(js_sys::Promise::from(promise)).await else {
@@ -192,16 +198,21 @@ fn format_bytes(bytes: u64) -> String {
 }
 
 fn is_installed_app() -> bool {
-    js_sys::eval("window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone")
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
+    js_sys::eval(
+        "window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone",
+    )
+    .ok()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false)
 }
 
 #[component]
 pub fn SettingsPage() -> Element {
     let width = SETTINGS.read().card_img_width;
-    let standalone_mode = SETTINGS.read().standalone_mode.unwrap_or_else(is_installed_app);
+    let standalone_mode = SETTINGS
+        .read()
+        .standalone_mode
+        .unwrap_or_else(is_installed_app);
     let keep_app_state = SETTINGS.read().keep_app_state;
     let mut stats = use_resource(load_cache_stats);
     let cache_text = match &*stats.read() {
@@ -210,7 +221,11 @@ pub fn SettingsPage() -> Element {
         Some(Some(s)) => {
             let storage = match (s.usage, s.quota) {
                 (Some(usage), Some(quota)) => {
-                    format!(" Site storage: {} of {}.", format_bytes(usage), format_bytes(quota))
+                    format!(
+                        " Site storage: {} of {}.",
+                        format_bytes(usage),
+                        format_bytes(quota)
+                    )
                 }
                 _ => String::new(),
             };
@@ -254,7 +269,11 @@ pub fn SettingsPage() -> Element {
                     },
                     onchange: move |_| track_setting("Preview size", None, None),
                 }
-                span { class: "is-flex-shrink-0", style: "min-width: 4em; text-align: right", "{width}px" }
+                span {
+                    class: "is-flex-shrink-0",
+                    style: "min-width: 4em; text-align: right",
+                    "{width}px"
+                }
             }
         }
         div { class: "field mt-5",
@@ -268,7 +287,9 @@ pub fn SettingsPage() -> Element {
                     " Standalone mode"
                 }
             }
-            p { class: "help", "Downloads card images so the app works offline on mobile and desktop. Uncheck to opt out." }
+            p { class: "help",
+                "Downloads card images so the app works offline on mobile and desktop. Uncheck to opt out."
+            }
         }
         div { class: "field mt-5",
             div { class: "control",
@@ -281,7 +302,9 @@ pub fn SettingsPage() -> Element {
                     " Keep app state"
                 }
             }
-            p { class: "help", "Remembers the current page, formats, filters and deck, so you can continue after closing the app." }
+            p { class: "help",
+                "Remembers the current page, formats, filters and deck, so you can continue after closing the app."
+            }
         }
         div { class: "field mt-5",
             label { class: "label", "Cache" }

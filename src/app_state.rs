@@ -105,10 +105,8 @@ pub fn save() {
     if !keep_app_state() {
         return;
     }
-    let (Some(ls), Ok(json)) = (
-        local_storage(),
-        serde_json::to_string(&AppState::current()),
-    ) else {
+    let (Some(ls), Ok(json)) = (local_storage(), serde_json::to_string(&AppState::current()))
+    else {
         return;
     };
     let _ = ls.set_item(APP_STATE_KEY, &json);

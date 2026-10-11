@@ -100,7 +100,9 @@ impl<'de> Deserialize<'de> for CropMarksSize {
                 .and_then(|size| size.parse::<f32>().ok())
                 .map(CropMarksSize::Mm)
                 .ok_or_else(|| {
-                    <D::Error as serde::de::Error>::custom(format!("invalid crop marks size: {text}"))
+                    <D::Error as serde::de::Error>::custom(format!(
+                        "invalid crop marks size: {text}"
+                    ))
                 }),
         }
     }
@@ -707,15 +709,26 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
 
     let mut deck_error = use_signal(String::new);
     let card_lang = PREVIEW_CARD_LANG.signal();
-    let mut paper_size = use_persisted(Some("proxy_sheets.paper_size".into()), || match get_local_country().as_deref() {
-        Some("US" | "CA" | "MX" | "CR" | "PA" | "DO" | "GT" | "CL" | "CO" | "VE" | "PE") => {
-            PaperSize::Letter
-        }
-        _ => PaperSize::A4,
+    let mut paper_size =
+        use_persisted(
+            Some("proxy_sheets.paper_size".into()),
+            || match get_local_country().as_deref() {
+                Some(
+                    "US" | "CA" | "MX" | "CR" | "PA" | "DO" | "GT" | "CL" | "CO" | "VE" | "PE",
+                ) => PaperSize::Letter,
+                _ => PaperSize::A4,
+            },
+        );
+    let mut include_cheers = use_persisted(Some("proxy_sheets.include_cheers".into()), || {
+        DEFAULT_INCLUDE_CHEERS
     });
-    let mut include_cheers = use_persisted(Some("proxy_sheets.include_cheers".into()), || DEFAULT_INCLUDE_CHEERS);
-    let mut crop_marks_size = use_persisted(Some("proxy_sheets.crop_marks_size".into()), || DEFAULT_CROP_MARK_SIZE);
-    let mut crop_marks_position = use_persisted(Some("proxy_sheets.crop_marks_position".into()), || DEFAULT_CROP_MARK_POSITION);
+    let mut crop_marks_size = use_persisted(Some("proxy_sheets.crop_marks_size".into()), || {
+        DEFAULT_CROP_MARK_SIZE
+    });
+    let mut crop_marks_position =
+        use_persisted(Some("proxy_sheets.crop_marks_position".into()), || {
+            DEFAULT_CROP_MARK_POSITION
+        });
     let mut card_size = use_persisted(Some("proxy_sheets.card_size".into()), || DEFAULT_CARD_SIZE);
     // stored as f32 because `Mm` is not serializable
     let mut gap = use_persisted(Some("proxy_sheets.gap".into()), || DEFAULT_GAP.0);
