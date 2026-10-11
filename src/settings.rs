@@ -12,6 +12,7 @@ const CARD_IMG_MIN_WIDTH: u32 = 60;
 const CARD_IMG_MAX_WIDTH: u32 = 200;
 const CARD_CACHE_PREFIX: &str = "hocg-deck-convert-cards";
 const PRICE_CACHE_PREFIX: &str = "hocg-deck-convert-prices";
+const APP_CACHE_PREFIX: &str = "hocg-deck-convert-";
 
 pub static SETTINGS: GlobalSignal<Settings> = Signal::global(Settings::load);
 
@@ -153,7 +154,7 @@ async fn load_cache_stats() -> Option<CacheStats> {
             card_images += count;
         } else if name.starts_with(PRICE_CACHE_PREFIX) {
             price_files += count;
-        } else {
+        } else if name.starts_with(APP_CACHE_PREFIX) {
             app_files += count;
         }
     }

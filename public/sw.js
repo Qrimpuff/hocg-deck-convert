@@ -1,4 +1,6 @@
 const CACHE_NAME = 'hocg-deck-convert-v1.5.0';
+// Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
+const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';
 let offlineHint = false;
 
@@ -250,6 +252,29 @@ async function matchFromKnownCaches(request) {
   }
 }
 
+// Serve a cached card image once the network exceeds the timeout; otherwise keep waiting on the network.
+function fetchImageWithCacheFallback(request) {
+  return new Promise((resolve, reject) => {
+    const networkFetch = fetch(request);
+    const timer = setTimeout(() => {
+      matchFromKnownCaches(request).then((cached) => {
+        if (cached) resolve(cached);
+      });
+    }, NETWORK_TIMEOUT_MS);
+
+    networkFetch.then(
+      (response) => {
+        clearTimeout(timer);
+        resolve(response);
+      },
+      (error) => {
+        clearTimeout(timer);
+        matchFromKnownCaches(request).then((cached) => (cached ? resolve(cached) : reject(error)));
+      }
+    );
+  });
+}
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -319,7 +344,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && cacheName !== CARD_CACHE_NAME && cacheName !== PRICE_CACHE_NAME) {
+          if (cacheName.startsWith(APP_CACHE_PREFIX) && cacheName !== CACHE_NAME && cacheName !== CARD_CACHE_NAME && cacheName !== PRICE_CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
@@ -371,22 +396,27 @@ self.addEventListener('fetch', (event) => {
   const url = event.request.url || '';
   const isCardImage = url.startsWith(IMAGE_BASE_JP) || url.startsWith(IMAGE_BASE_EN);
   const isPrice = url.startsWith(PRICE_BASE_URL);
-  const networkFetch = isCardImage ? fetch(event.request) : fetchWithTimeout(event.request);
+
+  if (isCardImage) {
+    event.respondWith(fetchImageWithCacheFallback(event.request));
+    return;
+  }
+
+  const networkFetch = fetchWithTimeout(event.request);
 
   event.respondWith(
     networkFetch.then((networkResponse) => {
       // Card images are cached only by PREFETCH_CARDS, which prunes stale entries.
       if (isPrice && networkResponse && networkResponse.ok) {
         const responseToCache = networkResponse.clone();
-        caches.open(PRICE_CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        event.waitUntil(
+          caches.open(PRICE_CACHE_NAME).then((cache) => cache.put(event.request, responseToCache))
+        );
       } else if (!isPrice && !isCardImage && networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
         const responseToCache = networkResponse.clone();
-
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        event.waitUntil(
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache))
+        );
       }
       return networkResponse;
     }).catch(() => {
