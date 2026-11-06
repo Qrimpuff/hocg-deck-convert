@@ -121,6 +121,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::HoloDuel,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "HoloDuel",
+            import_format: "json",
             message: Some(rsx! {
                 div { class: "notification is-warning",
                     "HoloDuel is deprecated and no longer receives updates. You may want to use "
@@ -151,6 +152,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             export_name: "HoloDuel",
             export_id: "holoduel",
             allow_unreleased: false,
+            export_format: "json",
             message: Some(rsx! {
                 div { class: "notification is-warning",
                     "HoloDuel is deprecated and no longer receives updates. You may want to use "

@@ -426,6 +426,7 @@ fn Form() -> Element {
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
                                 Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
                                 Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
+                                Some(DeckType::HoloBuri) => ImageOptions::holodelta(),
                                 _ => ImageOptions::holodelta(),
                             };
                         },
@@ -473,6 +474,7 @@ fn Form() -> Element {
                                 Some(DeckType::DeckLog) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
                                 Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
+                                Some(DeckType::HoloBuri) => ImageOptions::holodelta(),
                                 Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
                                 Some(DeckType::ProxySheets) => ImageOptions::proxy_print(),
                                 Some(DeckType::PriceCheck) => ImageOptions::price_check(),
@@ -517,6 +519,7 @@ pub fn ImportPage() -> Element {
                                 "deck_log" => ImageOptions::deck_log(),
                                 "holo_delta" => ImageOptions::holodelta(),
                                 "holo_duel" => ImageOptions::holodelta(),
+                                "holoburi" => ImageOptions::holodelta(),
                                 "hocg_tts" => ImageOptions::deck_log(),
                                 _ => ImageOptions::holodelta(),
                             };
@@ -525,6 +528,7 @@ pub fn ImportPage() -> Element {
                                 "deck_log" => Some(DeckType::DeckLog),
                                 "holo_delta" => Some(DeckType::HoloDelta),
                                 "holo_duel" => Some(DeckType::HoloDuel),
+                                "holoburi" => Some(DeckType::HoloBuri),
                                 "hocg_tts" => Some(DeckType::TabletopSim),
                                 "unknown" => Some(DeckType::Unknown),
                                 _ => None,
@@ -556,6 +560,11 @@ pub fn ImportPage() -> Element {
                             "HoloDuel (unmaintained)"
                         }
                         option {
+                            value: "holoburi",
+                            selected: *import_format.read() == Some(DeckType::HoloBuri),
+                            "holoburi"
+                        }
+                        option {
                             value: "unknown",
                             selected: *import_format.read() == Some(DeckType::Unknown),
                             "I don't know..."
@@ -577,6 +586,9 @@ pub fn ImportPage() -> Element {
             }
             if *import_format.read() == Some(DeckType::HoloDuel) {
                 holoduel::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *import_format.read() == Some(DeckType::HoloBuri) {
+                holoburi::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::TabletopSim) {
                 tabletop_sim::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
@@ -621,6 +633,7 @@ pub fn ExportPage() -> Element {
                                 "holo_delta" => ImageOptions::holodelta(),
                                 "holo_duel" => ImageOptions::holodelta(),
                                 "hocg_tts" => ImageOptions::deck_log(),
+                                "holoburi" => ImageOptions::holodelta(),
                                 "proxy_sheets" => ImageOptions::proxy_print(),
                                 "price_check" => ImageOptions::price_check(),
                                 _ => ImageOptions::holodelta(),
@@ -632,6 +645,7 @@ pub fn ExportPage() -> Element {
                                 "holo_delta" => Some(DeckType::HoloDelta),
                                 "holo_duel" => Some(DeckType::HoloDuel),
                                 "hocg_tts" => Some(DeckType::TabletopSim),
+                                "holoburi" => Some(DeckType::HoloBuri),
                                 "proxy_sheets" => Some(DeckType::ProxySheets),
                                 "price_check" => Some(DeckType::PriceCheck),
                                 _ => None,
@@ -664,6 +678,11 @@ pub fn ExportPage() -> Element {
                             "HoloDuel (unmaintained)"
                         }
                         option {
+                            value: "holoburi",
+                            selected: *export_format.read() == Some(DeckType::HoloBuri),
+                            "holoburi"
+                        }
+                        option {
                             value: "proxy_sheets",
                             selected: *export_format.read() == Some(DeckType::ProxySheets),
                             "Proxy sheets (PDF)"
@@ -690,6 +709,9 @@ pub fn ExportPage() -> Element {
             }
             if *export_format.read() == Some(DeckType::TabletopSim) {
                 tabletop_sim::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *export_format.read() == Some(DeckType::HoloBuri) {
+                holoburi::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *export_format.read() == Some(DeckType::ProxySheets) {
                 proxy_sheets::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
@@ -788,6 +810,27 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                         EventData {
                             format: "Unknown",
                             file_format: Some("Tabletop Sim"),
+                            error: None,
+                        },
+                    );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
+                    return;
+                }
+
+                // holoburi
+                let deck = holoburi::Deck::from_file(&contents);
+                debug!("{:?}", deck);
+                if let Ok(deck) = deck {
+                    *common_deck.write() =
+                        DeckOrPile::Deck(holoburi::Deck::to_common_deck(deck, &db.read()));
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
+                    *deck_success.write() =
+                        "Deck file format: Holoburi".into();
+                    track_event(
+                        EventType::Import("Unknown".into()),
+                        EventData {
+                            format: "Unknown",
+                            file_format: Some("holoburi"),
                             error: None,
                         },
                     );
