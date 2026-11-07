@@ -19,13 +19,14 @@ use crate::{
     tracker::TrackEvent,
 };
 
-use super::{CardsDatabase, CommonDeck, DeckType, holodelta, holoduel, tabletop_sim};
+use super::{CardsDatabase, CommonDeck, DeckType, holodelta, holoduel, tabletop_sim, holoburi};
 
 #[derive(Debug, Clone)]
 enum Deck {
     HoloDelta(holodelta::Deck),
     HoloDuel(holoduel::Deck),
     TabletopSim(tabletop_sim::Deck),
+    HoloBuri(holoburi::Deck)
 }
 
 impl Deck {
@@ -34,6 +35,7 @@ impl Deck {
             DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_file(bytes)?),
             DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_file(bytes)?),
             DeckType::TabletopSim => Deck::TabletopSim(tabletop_sim::Deck::from_file(bytes)?),
+            DeckType::HoloBuri => Deck::HoloBuri(holoburi::Deck::from_file(bytes)?),
             _ => unreachable!("this is not a json deck"),
         })
     }
@@ -43,6 +45,7 @@ impl Deck {
             DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_text(text)?),
             DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_text(text)?),
             DeckType::TabletopSim => Deck::TabletopSim(tabletop_sim::Deck::from_text(text)?),
+            DeckType::HoloBuri => Deck::HoloBuri(holoburi::Deck::from_text(text)?),
             _ => unreachable!("this is not a json deck"),
         })
     }
@@ -52,6 +55,7 @@ impl Deck {
             Deck::HoloDelta(deck) => deck.to_file()?,
             Deck::HoloDuel(deck) => deck.to_file()?,
             Deck::TabletopSim(deck) => deck.to_file()?,
+            Deck::HoloBuri(deck) => deck.to_file()?,
         })
     }
 
@@ -60,6 +64,7 @@ impl Deck {
             Deck::HoloDelta(deck) => deck.to_text()?,
             Deck::HoloDuel(deck) => deck.to_text()?,
             Deck::TabletopSim(deck) => deck.to_text()?,
+            Deck::HoloBuri(deck) => deck.to_text()?,
         })
     }
 
@@ -70,6 +75,7 @@ impl Deck {
             DeckType::TabletopSim => {
                 Deck::TabletopSim(tabletop_sim::Deck::from_common_deck(deck, db)?)
             }
+            DeckType::HoloBuri => Deck::HoloBuri(holoburi::Deck::from_common_deck(deck, db)?),
             _ => unreachable!("this is not a json deck"),
         })
     }
@@ -79,6 +85,7 @@ impl Deck {
             Deck::HoloDelta(deck) => holodelta::Deck::to_common_deck(deck, db),
             Deck::HoloDuel(deck) => holoduel::Deck::to_common_deck(deck, db),
             Deck::TabletopSim(deck) => tabletop_sim::Deck::to_common_deck(deck, db),
+            Deck::HoloBuri(deck) => holoburi::Deck::to_common_deck(deck, db),
         }
     }
 }
@@ -88,6 +95,7 @@ pub fn JsonImport(
     deck_type: DeckType,
     fallback_deck_type: DeckType,
     import_name: String,
+    import_format: String,
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     message: Option<Element>,
@@ -104,7 +112,7 @@ pub fn JsonImport(
 
     let import_name = use_signal(|| import_name);
     let mut deck_error = use_signal(String::new);
-    let mut json = use_persisted(Some(format!("import.{import_id}.json")), String::new);
+    let mut json = use_persisted(Some(format!("import.{import_id}.{import_format}")), String::new);
     let mut file_name = use_signal(String::new);
 
     let from_text = move |event: Event<FormData>| {
@@ -220,7 +228,7 @@ pub fn JsonImport(
                             id: "{import_id}_import_file",
                             r#type: "file",
                             class: "file-input",
-                            accept: ".json",
+                            accept: ".{import_format}",
                             onchange: from_file,
                         }
                         span { class: "file-cta",
@@ -240,10 +248,10 @@ pub fn JsonImport(
         {{ message.clone() }}
 
         div { class: "field",
-            label { "for": "{import_id}_import_json", class: "label", "{import_name} json" }
+            label { "for": "{import_id}_import_{import_format}", class: "label", "{import_name} {import_format}" }
             div { class: "control",
                 textarea {
-                    id: "{import_id}_import_json",
+                    id: "{import_id}_import_{import_format}",
                     class: "textarea",
                     autocomplete: "off",
                     autocapitalize: "off",
@@ -262,6 +270,7 @@ pub fn JsonExport(
     deck_type: DeckType,
     export_name: String,
     export_id: String,
+    export_format: String,
     allow_unreleased: bool,
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
@@ -307,6 +316,7 @@ pub fn JsonExport(
         None => "".into(),
     };
 
+    let format_string = export_format.clone();
     let download_file = move |_| {
         let deck: Option<_> = Deck::from_common_deck(
             deck_type,
@@ -315,7 +325,7 @@ pub fn JsonExport(
         )
         .map(|d| (common_deck.read().file_name(&db.read()), d));
         if let Some((file_name, deck)) = deck {
-            let file_name = format!("{file_name}.{export_id}.json");
+            let file_name = format!("{file_name}.{export_id}.{format_string}");
             match deck.to_file() {
                 Ok(file) => {
                     download_file(&file_name, &file[..]);
@@ -427,10 +437,10 @@ pub fn JsonExport(
         {{ message.clone() }}
 
         div { class: "field",
-            label { "for": "{export_id}_export_json", class: "label", "{export_name} json" }
+            label { "for": "{export_id}_export_{export_format}", class: "label", "{export_name} {export_format}" }
             div { class: "control",
                 textarea {
-                    id: "{export_id}_export_json",
+                    id: "{export_id}_export_{export_format}",
                     class: "textarea",
                     readonly: true,
                     oncopy: move |_| {

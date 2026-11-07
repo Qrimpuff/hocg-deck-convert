@@ -107,6 +107,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::TabletopSim,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "Tabletop Sim",
+            import_format: "json",
             common_deck,
             db,
         }
@@ -120,6 +121,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::TabletopSim,
             export_name: "Tabletop Sim",
             export_id: "hocg_tts",
+            export_format: "json",
             allow_unreleased: false,
             message: Some(rsx! {
                 div { class: "notification is-warning",

@@ -110,6 +110,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::HoloDelta,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "holoDelta",
+            import_format: "json",
             common_deck,
             db,
         }
@@ -123,6 +124,7 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             deck_type: DeckType::HoloDelta,
             export_name: "holoDelta",
             export_id: "holodelta",
+            export_format: "json",
             allow_unreleased: true,
             common_deck,
             db,
