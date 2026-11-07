@@ -10,6 +10,7 @@ Formats supported:
 - [Deck Log (Bushiroad)](https://decklog-en.bushiroad.com/)
 - [holoDelta](https://holodelta.azurewebsites.net/)
 - [HoloDuel](https://daktagames.itch.io/holoduel)
+- [holoBuri](https://holoburi.com/)
 - [Tabletop Simulator (by Noodlebrain)](https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285)
 - Proxy sheets (PDF)
 - Price check (with [Yuyu-tei](https://yuyu-tei.jp/top/hocg) or [TGGPlayer](https://www.tcgplayer.com/categories/trading-and-collectible-card-games/hololive-official-card-game))

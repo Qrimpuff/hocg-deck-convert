@@ -138,6 +138,27 @@ pub fn clear() {
     }
 }
 
+/// Clears saved import inputs, so changing the import format starts with empty fields.
+pub fn clear_import_inputs() {
+    let Some(ls) = local_storage() else {
+        return;
+    };
+    let import_prefix = format!("{STATE_PREFIX}import.");
+    let other_keys = [
+        format!("{STATE_PREFIX}deck_log.url_code"),
+        format!("{STATE_PREFIX}starter_decks.deck_idx"),
+        format!("{STATE_PREFIX}starter_decks.oshi_idx"),
+    ];
+    let len = ls.length().unwrap_or(0);
+    let keys = (0..len)
+        .filter_map(|i| ls.key(i).ok().flatten())
+        .filter(|key| key.starts_with(&import_prefix) || other_keys.contains(key))
+        .collect::<Vec<_>>();
+    for key in keys {
+        let _ = ls.remove_item(&key);
+    }
+}
+
 /// Restores the page-level state before any component renders.
 pub fn restore() {
     if !keep_app_state_untracked() {

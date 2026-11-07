@@ -514,6 +514,7 @@ pub fn ImportPage() -> Element {
                         id: "import_format",
                         oninput: move |ev| {
                             *SHOW_PRICE.write() = false;
+                            crate::app_state::clear_import_inputs();
                             *PREVIEW_IMAGE_OPTIONS.write() = match ev.value().as_str() {
                                 "starter_decks" => ImageOptions::deck_log(),
                                 "deck_log" => ImageOptions::deck_log(),
@@ -555,14 +556,14 @@ pub fn ImportPage() -> Element {
                             "Tabletop Simulator (by Noodlebrain)"
                         }
                         option {
-                            value: "holo_duel",
-                            selected: *import_format.read() == Some(DeckType::HoloDuel),
-                            "HoloDuel (unmaintained)"
-                        }
-                        option {
                             value: "holoburi",
                             selected: *import_format.read() == Some(DeckType::HoloBuri),
                             "holoburi"
+                        }
+                        option {
+                            value: "holo_duel",
+                            selected: *import_format.read() == Some(DeckType::HoloDuel),
+                            "HoloDuel (unmaintained)"
                         }
                         option {
                             value: "unknown",
@@ -658,6 +659,16 @@ pub fn ExportPage() -> Element {
                             "None"
                         }
                         option {
+                            value: "proxy_sheets",
+                            selected: *export_format.read() == Some(DeckType::ProxySheets),
+                            "Proxy sheets (PDF)"
+                        }
+                        option {
+                            value: "price_check",
+                            selected: *export_format.read() == Some(DeckType::PriceCheck),
+                            "Price check"
+                        }
+                        option {
                             value: "deck_log",
                             selected: *export_format.read() == Some(DeckType::DeckLog),
                             "Deck Log (Bushiroad)"
@@ -673,24 +684,14 @@ pub fn ExportPage() -> Element {
                             "Tabletop Simulator (by Noodlebrain)"
                         }
                         option {
-                            value: "holo_duel",
-                            selected: *export_format.read() == Some(DeckType::HoloDuel),
-                            "HoloDuel (unmaintained)"
-                        }
-                        option {
                             value: "holoburi",
                             selected: *export_format.read() == Some(DeckType::HoloBuri),
                             "holoburi"
                         }
                         option {
-                            value: "proxy_sheets",
-                            selected: *export_format.read() == Some(DeckType::ProxySheets),
-                            "Proxy sheets (PDF)"
-                        }
-                        option {
-                            value: "price_check",
-                            selected: *export_format.read() == Some(DeckType::PriceCheck),
-                            "Price check"
+                            value: "holo_duel",
+                            selected: *export_format.read() == Some(DeckType::HoloDuel),
+                            "HoloDuel (unmaintained)"
                         }
                     }
                 }
@@ -824,8 +825,7 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                     *common_deck.write() =
                         DeckOrPile::Deck(holoburi::Deck::to_common_deck(deck, &db.read()));
                     *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
-                    *deck_success.write() =
-                        "Deck file format: Holoburi".into();
+                    *deck_success.write() = "Deck file format: Holoburi".into();
                     track_event(
                         EventType::Import("Unknown".into()),
                         EventData {

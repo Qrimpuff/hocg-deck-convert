@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::DeckType;
 use crate::sources::DeckOrPile;
 
-use super::json::{JsonExport, JsonImport};
+use super::deck_file::{DeckFileExport, DeckFileImport};
 use super::{CardsDatabase, CommonCard, CommonDeck, MergeCommonCards};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,11 +106,12 @@ impl Deck {
 #[component]
 pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
-        JsonImport {
+        DeckFileImport {
             deck_type: DeckType::HoloDelta,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "holoDelta",
-            import_format: "json",
+            file_extension: "json",
+            format_label: "json",
             common_deck,
             db,
         }
@@ -120,15 +121,16 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
 #[component]
 pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
-        JsonExport {
+        DeckFileExport {
             deck_type: DeckType::HoloDelta,
             export_name: "holoDelta",
             export_id: "holodelta",
-            export_format: "json",
+            file_extension: "json",
+            format_label: "json",
             allow_unreleased: true,
             common_deck,
             db,
-            base64_direct_import_url: Some(
+            direct_import_url: Some(
                 "https://holodelta.azurewebsites.net/game/index.html?imported_deck=".to_string(),
             ),
         }

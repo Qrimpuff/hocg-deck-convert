@@ -19,14 +19,14 @@ use crate::{
     tracker::TrackEvent,
 };
 
-use super::{CardsDatabase, CommonDeck, DeckType, holodelta, holoduel, tabletop_sim, holoburi};
+use super::{CardsDatabase, CommonDeck, DeckType, holoburi, holodelta, holoduel, tabletop_sim};
 
 #[derive(Debug, Clone)]
 enum Deck {
     HoloDelta(holodelta::Deck),
     HoloDuel(holoduel::Deck),
     TabletopSim(tabletop_sim::Deck),
-    HoloBuri(holoburi::Deck)
+    HoloBuri(holoburi::Deck),
 }
 
 impl Deck {
@@ -91,11 +91,12 @@ impl Deck {
 }
 
 #[component]
-pub fn JsonImport(
+pub fn DeckFileImport(
     deck_type: DeckType,
     fallback_deck_type: DeckType,
     import_name: String,
-    import_format: String,
+    file_extension: String,
+    format_label: String,
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
     message: Option<Element>,
@@ -112,8 +113,17 @@ pub fn JsonImport(
 
     let import_name = use_signal(|| import_name);
     let mut deck_error = use_signal(String::new);
-    let mut json = use_persisted(Some(format!("import.{import_id}.{import_format}")), String::new);
+    let mut json = use_persisted(
+        Some(format!("import.{import_id}.{file_extension}")),
+        String::new,
+    );
     let mut file_name = use_signal(String::new);
+
+    let clear_text = move |_| {
+        *json.write() = String::new();
+        *deck_error.write() = "".into();
+        *file_name.write() = "".into();
+    };
 
     let from_text = move |event: Event<FormData>| {
         *json.write() = event.value().clone();
@@ -228,7 +238,7 @@ pub fn JsonImport(
                             id: "{import_id}_import_file",
                             r#type: "file",
                             class: "file-input",
-                            accept: ".{import_format}",
+                            accept: ".{file_extension}",
                             onchange: from_file,
                         }
                         span { class: "file-cta",
@@ -248,10 +258,12 @@ pub fn JsonImport(
         {{ message.clone() }}
 
         div { class: "field",
-            label { "for": "{import_id}_import_{import_format}", class: "label", "{import_name} {import_format}" }
+            label { "for": "{import_id}_import_{file_extension}", class: "label",
+                "{import_name} {format_label}"
+            }
             div { class: "control",
                 textarea {
-                    id: "{import_id}_import_{import_format}",
+                    id: "{import_id}_import_{file_extension}",
                     class: "textarea",
                     autocomplete: "off",
                     autocapitalize: "off",
@@ -260,21 +272,34 @@ pub fn JsonImport(
                     value: "{json}",
                 }
             }
-            p { class: "help is-danger", "{deck_error}" }
+            div { class: "is-flex is-justify-content-space-between is-align-items-center",
+                p { class: "help is-danger", "{deck_error}" }
+                button {
+                    class: "button is-small",
+                    disabled: json.read().is_empty(),
+                    r#type: "button",
+                    onclick: clear_text,
+                    span { class: "icon",
+                        i { class: "fa-solid fa-xmark" }
+                    }
+                    span { "Clear" }
+                }
+            }
         }
     }
 }
 
 #[component]
-pub fn JsonExport(
+pub fn DeckFileExport(
     deck_type: DeckType,
     export_name: String,
     export_id: String,
-    export_format: String,
+    file_extension: String,
+    format_label: String,
     allow_unreleased: bool,
     mut common_deck: Signal<DeckOrPile>,
     db: Signal<CardsDatabase>,
-    base64_direct_import_url: Option<String>,
+    direct_import_url: Option<String>,
     message: Option<Element>,
 ) -> Element {
     #[derive(Serialize)]
@@ -296,8 +321,9 @@ pub fn JsonExport(
     let card_lang = use_signal(|| CardLanguage::Japanese);
     let export_name = use_signal(|| export_name);
     let export_id = use_signal(|| export_id);
-    let base64_direct_import_url = use_signal(|| base64_direct_import_url);
+    let direct_import_url = use_signal(|| direct_import_url);
     let mut deck_error = use_signal(String::new);
+    let mut copied = use_signal(|| false);
 
     let deck: Option<Deck> = Deck::from_common_deck(
         deck_type,
@@ -316,7 +342,7 @@ pub fn JsonExport(
         None => "".into(),
     };
 
-    let format_string = export_format.clone();
+    let download_extension = file_extension.clone();
     let download_file = move |_| {
         let deck: Option<_> = Deck::from_common_deck(
             deck_type,
@@ -325,7 +351,7 @@ pub fn JsonExport(
         )
         .map(|d| (common_deck.read().file_name(&db.read()), d));
         if let Some((file_name, deck)) = deck {
-            let file_name = format!("{file_name}.{export_id}.{format_string}");
+            let file_name = format!("{file_name}.{export_id}.{download_extension}");
             match deck.to_file() {
                 Ok(file) => {
                     download_file(&file_name, &file[..]);
@@ -354,7 +380,7 @@ pub fn JsonExport(
     };
 
     let direct_import = move |_| {
-        if let Some(base64_direct_import_url) = base64_direct_import_url.read().as_ref() {
+        if let Some(direct_import_url) = direct_import_url.read().as_ref() {
             let deck: Option<_> = Deck::from_common_deck(
                 deck_type,
                 common_deck.read().clone().into_deck(&db.read()),
@@ -363,9 +389,10 @@ pub fn JsonExport(
             if let Some(deck) = deck {
                 match deck.to_file() {
                     Ok(file) => {
-                        let base64_text = BASE64_URL_SAFE_NO_PAD.encode(file.as_slice());
+                        // The direct import URL takes the file bytes as URL-safe base64.
+                        let encoded = BASE64_URL_SAFE_NO_PAD.encode(file.as_slice());
                         let _ = window().open_with_url_and_target(
-                            &format!("{base64_direct_import_url}{base64_text}"),
+                            &format!("{direct_import_url}{encoded}"),
                             "_blank",
                         );
                         track_event(
@@ -393,6 +420,22 @@ pub fn JsonExport(
         }
     };
 
+    let copy_text = text.clone();
+    let copy_deck_code = move |_| {
+        let code = serde_json::to_string(&copy_text).unwrap_or_default();
+        let _ = js_sys::eval(&format!("navigator.clipboard.writeText({code})"));
+        *copied.write() = true;
+        gloo::timers::callback::Timeout::new(2000, move || *copied.write() = false).forget();
+        track_event(
+            EventType::Export(export_name.read().clone()),
+            EventData {
+                format: export_name.read().clone(),
+                export_kind: ExportKind::Copy,
+                error: None,
+            },
+        );
+    };
+
     rsx! {
         DeckValidation {
             deck_check: true,
@@ -403,7 +446,7 @@ pub fn JsonExport(
             db,
             common_deck,
         }
-        if base64_direct_import_url.read().is_some() {
+        if direct_import_url.read().is_some() {
             div { class: "field",
                 div { class: "control",
                     button {
@@ -419,8 +462,8 @@ pub fn JsonExport(
                 }
             }
         }
-        div { class: "field",
-            div { class: "control",
+        div { class: "field is-grouped",
+            p { class: "control",
                 button {
                     class: "button",
                     disabled: text.is_empty(),
@@ -432,15 +475,28 @@ pub fn JsonExport(
                     span { "Download deck file" }
                 }
             }
+            p { class: "control",
+                button {
+                    class: "button",
+                    disabled: text.is_empty(),
+                    r#type: "button",
+                    onclick: copy_deck_code,
+                    span { class: "icon",
+                        i { class: "fa-solid fa-copy" }
+                    }
+                    span { "Copy {format_label}" }
+                }
+            }
         }
-
         {{ message.clone() }}
 
         div { class: "field",
-            label { "for": "{export_id}_export_{export_format}", class: "label", "{export_name} {export_format}" }
+            label { "for": "{export_id}_export_{file_extension}", class: "label",
+                "{export_name} {format_label}"
+            }
             div { class: "control",
                 textarea {
-                    id: "{export_id}_export_{export_format}",
+                    id: "{export_id}_export_{file_extension}",
                     class: "textarea",
                     readonly: true,
                     oncopy: move |_| {
@@ -455,6 +511,9 @@ pub fn JsonExport(
                     },
                     value: "{text}",
                 }
+            }
+            if *copied.read() {
+                p { class: "help is-success", "Copied to clipboard" }
             }
             p { class: "help is-danger", "{deck_error}" }
         }

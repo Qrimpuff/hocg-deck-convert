@@ -18,12 +18,12 @@ use crate::{
     sources::price_check::{PriceCacheKey, PriceCheckService},
 };
 
+pub mod deck_file;
 pub mod deck_log;
 pub mod edit_deck;
+pub mod holoburi;
 pub mod holodelta;
 pub mod holoduel;
-pub mod holoburi;
-pub mod json;
 pub mod price_check;
 pub mod proxy_sheets;
 pub mod starter_decks;
@@ -164,6 +164,27 @@ impl CommonCard {
             CommonCard::from_card_number_and_illustration_idx(card.card_number.clone(), idx, amount)
         } else {
             // default to basic rarity if not found
+            CommonCard::from_card_number(card_number, amount, db)
+        }
+    }
+
+    pub fn from_card_number_and_holoburi_art_key(
+        card_number: String,
+        art_key: Option<&str>,
+        amount: u32,
+        db: &CardsDatabase,
+    ) -> Self {
+        let found: Option<_> = art_key.and_then(|art_key| {
+            db.values()
+                // this card number could be in any case
+                .filter(|c| c.card_number.eq_ignore_ascii_case(&card_number))
+                .flat_map(|c| c.illustrations.iter().enumerate())
+                .find(|(_, c)| c.holoburi_art_key.as_deref() == Some(art_key))
+        });
+        if let Some((idx, card)) = found {
+            CommonCard::from_card_number_and_illustration_idx(card.card_number.clone(), idx, amount)
+        } else {
+            // no art key, or an unknown one: default to basic rarity
             CommonCard::from_card_number(card_number, amount, db)
         }
     }

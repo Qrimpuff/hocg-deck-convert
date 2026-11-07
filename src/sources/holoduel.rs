@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     MergeCommonCards,
-    json::{JsonExport, JsonImport},
+    deck_file::{DeckFileExport, DeckFileImport},
 };
 use crate::{
     DeckType, EXPORT_FORMAT, IMPORT_FORMAT, sources::DeckOrPile, tracker::track_internal_url,
@@ -117,11 +117,12 @@ impl Deck {
 #[component]
 pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
-        JsonImport {
+        DeckFileImport {
             deck_type: DeckType::HoloDuel,
             fallback_deck_type: DeckType::HoloDelta,
             import_name: "HoloDuel",
-            import_format: "json",
+            file_extension: "json",
+            format_label: "json",
             message: Some(rsx! {
                 div { class: "notification is-warning",
                     "HoloDuel is deprecated and no longer receives updates. You may want to use "
@@ -147,12 +148,13 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
 #[component]
 pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) -> Element {
     rsx! {
-        JsonExport {
+        DeckFileExport {
             deck_type: DeckType::HoloDuel,
             export_name: "HoloDuel",
             export_id: "holoduel",
             allow_unreleased: false,
-            export_format: "json",
+            file_extension: "json",
+            format_label: "json",
             message: Some(rsx! {
                 div { class: "notification is-warning",
                     "HoloDuel is deprecated and no longer receives updates. You may want to use "
