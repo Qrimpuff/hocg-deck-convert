@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.7.2';
+const CACHE_NAME = 'hocg-deck-convert-v1.7.3';
 // Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
 const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';
@@ -405,6 +405,92 @@ async function serveCardImage(event) {
   return response;
 }
 
+async function matchCardsDb() {
+  try {
+    const appCache = await caches.open(CACHE_NAME);
+    return await appCache.match(CARDS_DB_URL, { ignoreVary: true });
+  } catch (_) {
+    return undefined;
+  }
+}
+
+async function sendCardsDbUpdated() {
+  const clients = await self.clients.matchAll({ type: 'window' });
+  for (const client of clients) {
+    client.postMessage({ type: 'CARDS_DB_UPDATED' });
+  }
+}
+
+// Checks for a newer card database and, if found, updates the cache and tells the pages to
+// load it again.
+//
+// GitHub Pages' Last-Modified is the deploy time of the whole site, so it changes on every
+// deploy of the assets site, even without card changes. When it differs, the content is
+// compared too, so the pages only reload the cards when they changed.
+async function revalidateCardsDb() {
+  // Lets the page finish loading its images before the check, and the cache write.
+  await new Promise((resolve) => setTimeout(resolve, REVALIDATE_DELAY_MS));
+
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(CARDS_DB_URL, { ignoreVary: true });
+  const response = await fetch(CARDS_DB_URL);
+  if (!response.ok) return;
+  if (cached && isSameVersion(cached, response)) return;
+
+  const text = await response.clone().text();
+  const changed = !cached || (await cached.text()) !== text;
+  // Also stored when unchanged, to keep the new Last-Modified for the next check.
+  await cache.put(CARDS_DB_URL, response);
+  if (changed) {
+    await sendCardsDbUpdated();
+  }
+}
+
+// One check at a time, shared by all the pages loading the card database.
+let cardsDbRevalidation = null;
+function revalidateCardsDbOnce() {
+  if (!cardsDbRevalidation) {
+    cardsDbRevalidation = revalidateCardsDb()
+      .catch((error) => console.warn('[SW] Failed to revalidate card database', error))
+      .finally(() => {
+        cardsDbRevalidation = null;
+      });
+  }
+  return cardsDbRevalidation;
+}
+
+// Stale-while-revalidate: the card database is large, so the cached copy is served right away
+// instead of waiting for the network, and a newer one is loaded by the pages when found.
+async function serveCardsDb(event) {
+  const cached = await matchCardsDb();
+  if (cached) {
+    event.waitUntil(revalidateCardsDbOnce());
+    return cached;
+  }
+
+  const response = await fetch(event.request);
+  if (response.ok) {
+    const responseToCache = response.clone();
+    event.waitUntil(putIfChanged(CACHE_NAME, CARDS_DB_URL, responseToCache));
+  }
+  return response;
+}
+
+// Image URLs of all the cards, for the offline download.
+async function cardImageUrls() {
+  const response = (await matchCardsDb()) || (await fetch(CARDS_DB_URL));
+  const data = await response.json();
+  const urls = new Set();
+  for (const card of Object.values(data)) {
+    for (const ill of card.illustrations || []) {
+      if (!ill.img_path || typeof ill.img_path !== 'object') continue;
+      if (ill.img_path.jp) urls.add(IMAGE_BASE_JP + ill.img_path.jp);
+      if (ill.img_path.en) urls.add(IMAGE_BASE_EN + ill.img_path.en);
+    }
+  }
+  return Array.from(urls);
+}
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -530,6 +616,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url === CARDS_DB_URL) {
+    event.respondWith(serveCardsDb(event));
+    return;
+  }
+
   const networkFetch = fetchWithTimeout(event.request);
 
   event.respondWith(
@@ -558,12 +649,19 @@ self.addEventListener('message', (event) => {
   }
 
   if (event.data && event.data.type === 'PREFETCH_CARDS') {
-    const urls = event.data.urls;
     const client = event.source;
-    console.log('[SW] Prefetching ' + urls.length + ' cards...');
 
     event.waitUntil(
       caches.open(CARD_CACHE_NAME).then(async (cache) => {
+        // Read here instead of in the page, to keep the large card database off the page's
+        // main thread. Older pages still send the list.
+        const urls = event.data.urls || await cardImageUrls();
+        if (urls.length === 0) {
+          console.warn('[SW] No card image URLs found in card DB');
+          return;
+        }
+        console.log('[SW] Prefetching ' + urls.length + ' cards...');
+
         // Keep card cache aligned with the latest card DB list.
         const expectedUrls = new Set(urls);
         // Images already cached, from a single listing of the cache: matching each URL instead
