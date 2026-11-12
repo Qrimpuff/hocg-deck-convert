@@ -1,7 +1,4 @@
 const SW_PATH = '/hocg-deck-convert/sw.js';
-const CARDS_DB_URL = 'https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json';
-const IMAGE_BASE_JP = 'https://qrimpuff.github.io/hocg-fan-sim-assets/img/';
-const IMAGE_BASE_EN = 'https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/';
 
 if ('serviceWorker' in navigator) {
     const initServiceWorker = () => {
@@ -28,6 +25,14 @@ if ('serviceWorker' in navigator) {
             if (event.data && event.data.type === 'CARD_IMAGE_UPDATED') {
                 showUpdatedCardImage(event.data.url, event.data.blob);
             }
+            if (event.data && event.data.type === 'CARDS_DB_UPDATED') {
+                // The app loads the cards again.
+                window.dispatchEvent(new Event('hocg-cards-db-updated'));
+                // Downloads the images of the new cards.
+                if (isStandaloneModeEnabled()) {
+                    navigator.serviceWorker.ready.then(prefetchCards).catch(console.error);
+                }
+            }
         });
 
         navigator.serviceWorker.register(SW_PATH).then((registration) => {
@@ -40,7 +45,7 @@ if ('serviceWorker' in navigator) {
             // Defaults to the installed state until the setting is changed.
             if (isStandaloneModeEnabled()) {
                 console.log('Initiating card prefetch (standalone mode on)...');
-                prefetchCards(registration);
+                prefetchCards(registration).catch(console.error);
             }
         }).catch((err) => {
             console.log('ServiceWorker registration failed: ', err);
@@ -123,62 +128,38 @@ window.hocgStartStandaloneDownload = () => {
     navigator.serviceWorker.ready.then(prefetchCards).catch(console.error);
 };
 
-function prefetchCards(registration) {
-    fetch(CARDS_DB_URL)
-        .then((res) => res.json())
-        .then(async (data) => {
-            // Update first to avoid writing into an old cache.
-            try {
-                await registration.update();
-            } catch (e) {
-                console.log('SW update check failed (offline?):', e);
-            }
+async function prefetchCards(registration) {
+    // Update first to avoid writing into an old cache.
+    try {
+        await registration.update();
+    } catch (e) {
+        console.log('SW update check failed (offline?):', e);
+    }
 
-            const urls = new Set();
-            Object.values(data).forEach((card) => {
-                if (!card.illustrations) return;
-                card.illustrations.forEach((ill) => {
-                    if (!ill.img_path || typeof ill.img_path !== 'object') return;
-                    if (ill.img_path.jp) urls.add(IMAGE_BASE_JP + ill.img_path.jp);
-                    if (ill.img_path.en) urls.add(IMAGE_BASE_EN + ill.img_path.en);
-                });
-            });
+    const serviceWorker = registration.installing
+        || registration.waiting
+        || registration.active
+        || (await navigator.serviceWorker.ready).active;
 
-            // Deduped list keeps the SW message size small.
-            const urlList = Array.from(urls);
-            if (urlList.length === 0) {
-                console.warn('[prefetch] No card image URLs found in card DB');
-                return;
-            }
+    if (!serviceWorker) {
+        console.warn('[prefetch] No service worker available for card download');
+        return;
+    }
 
-            const serviceWorker = registration.installing
-                || registration.waiting
-                || registration.active
-                || (await navigator.serviceWorker.ready).active;
+    // The service worker reads the image URLs from its copy of the card database.
+    const sendPrefetch = () => {
+        serviceWorker.postMessage({ type: 'PREFETCH_CARDS' });
+    };
 
-            if (!serviceWorker) {
-                console.warn('[prefetch] No service worker available for card download');
-                return;
-            }
-
-            const sendPrefetch = () => {
-                serviceWorker.postMessage({
-                    type: 'PREFETCH_CARDS',
-                    urls: urlList
-                });
-            };
-
-            if (serviceWorker.state === 'activated') {
+    if (serviceWorker.state === 'activated') {
+        sendPrefetch();
+    } else {
+        serviceWorker.addEventListener('statechange', (e) => {
+            if (e.target.state === 'activated') {
                 sendPrefetch();
-            } else {
-                serviceWorker.addEventListener('statechange', (e) => {
-                    if (e.target.state === 'activated') {
-                        sendPrefetch();
-                    }
-                });
             }
-        })
-        .catch(console.error);
+        });
+    }
 }
 
 function formatBytes(bytes) {

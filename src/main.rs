@@ -13,6 +13,7 @@ use dioxus::{
     logger::tracing::{debug, error},
     prelude::*,
 };
+use futures::StreamExt;
 use gloo::{
     events::EventListener,
     file::{Blob, BlobContents},
@@ -89,6 +90,38 @@ fn main() {
     launch(App);
 }
 
+/// Fetches and prepares the card database. Returns the message to show on failure.
+async fn load_cards_db() -> Result<(), &'static str> {
+    let Ok(card_db) = reqwest::get(format!("{HOCG_ASSETS_URL}/hocg_cards.json")).await else {
+        error!("Failed to fetch cards database from GitHub");
+        track_error("Failed to fetch cards database from GitHub");
+        return Err("There was an error while loading the card database. Please try again later.");
+    };
+    let Ok(card_db): Result<BTreeMap<String, hocg::Card>, _> = card_db.json().await else {
+        error!("Failed to parse card database");
+        track_error("Failed to parse card database");
+        return Err(
+            "There was an error while loading the card database. Please refresh the page or try again later.",
+        );
+    };
+
+    let mut all_cards = card_db.values().collect_vec();
+    // that sort is costly, so we do it once per load of the cards
+    let sort_opt = CardOrderingOptions::default();
+    all_cards.sort_by_key(|c| sort_opt.for_card(c));
+
+    *ALL_CARDS_SORTED.write() = all_cards
+        .into_iter()
+        .cloned()
+        .map(|card| {
+            let cache = prepare_text_cache(&card);
+            (card, cache)
+        })
+        .collect();
+    *CARDS_DB.write() = card_db;
+    Ok(())
+}
+
 #[component]
 fn App() -> Element {
     done_loading();
@@ -96,38 +129,21 @@ fn App() -> Element {
     use_effect(app_state::save);
     use_effect(|| app_state::apply_pending_deck(&CARDS_DB.read()));
 
-    let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
-        let Ok(card_db) = reqwest::get(format!("{HOCG_ASSETS_URL}/hocg_cards.json")).await else {
-            error!("Failed to fetch cards database from GitHub");
-            track_error("Failed to fetch cards database from GitHub");
-            *ERROR_MESSAGE.write() =
-                "There was an error while loading the card database. Please try again later."
-                    .into();
-            return;
-        };
-        let Ok(card_db): Result<BTreeMap<String, hocg::Card>, _> = card_db.json().await else {
-            error!("Failed to parse card database");
-            track_error("Failed to parse card database");
-            *ERROR_MESSAGE.write() =
-                "There was an error while loading the card database. Please refresh the page or try again later."
-                    .into();
-            return;
-        };
-
-        let mut all_cards = card_db.values().collect_vec();
-        // that sort is costly, so we do it only once
-        let sort_opt = CardOrderingOptions::default();
-        all_cards.sort_by_key(|c| sort_opt.for_card(c));
-
-        *ALL_CARDS_SORTED.write() = all_cards
-            .into_iter()
-            .cloned()
-            .map(|card| {
-                let cache = prepare_text_cache(&card);
-                (card, cache)
-            })
-            .collect();
-        *CARDS_DB.write() = card_db;
+    // Loads the cards, then again whenever the service worker finds a newer card database
+    // after serving its cached copy.
+    let cards_db = use_coroutine(|mut updates: UnboundedReceiver<()>| async move {
+        if let Err(message) = load_cards_db().await {
+            *ERROR_MESSAGE.write() = message.into();
+        }
+        while updates.next().await.is_some() {
+            // Keeps the current cards on failure.
+            let _ = load_cards_db().await;
+        }
+    });
+    let _cards_db_updates = use_signal(move || {
+        EventListener::new(&window(), "hocg-cards-db-updated", move |_| {
+            cards_db.send(());
+        })
     });
 
     rsx! {
