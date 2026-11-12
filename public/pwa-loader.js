@@ -59,17 +59,22 @@ if ('serviceWorker' in navigator) {
 
 // Newer versions of card images, found by the service worker after serving the cached ones.
 const updatedCardImages = new Map();
+// Older object URLs of an updated image, to the image URL they replaced.
+const replacedCardImages = new Map();
 let updatedCardImagesObserver = null;
 
 function swapUpdatedCardImage(img) {
-    const objectUrl = updatedCardImages.get(img.getAttribute('src'));
-    if (objectUrl) img.src = objectUrl;
+    const src = img.getAttribute('src');
+    const objectUrl = updatedCardImages.get(replacedCardImages.get(src) || src);
+    if (objectUrl && objectUrl !== src) img.src = objectUrl;
 }
 
 function showUpdatedCardImage(url, blob) {
     if (!url || !blob) return;
+    // Not revoked: a lazy image not loaded yet may still point to it, and is swapped to the
+    // new one below.
     const previous = updatedCardImages.get(url);
-    if (previous) URL.revokeObjectURL(previous);
+    if (previous) replacedCardImages.set(previous, url);
     updatedCardImages.set(url, URL.createObjectURL(blob));
 
     document.querySelectorAll('img').forEach(swapUpdatedCardImage);

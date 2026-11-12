@@ -931,7 +931,7 @@ pub fn CardDetailsContent(
                             );
                         },
                         figure { class: "image",
-                            CardImg { img: img.read().clone() }
+                            CardImg { img: img.read().clone(), eager: true }
                         }
                     }
                 }
