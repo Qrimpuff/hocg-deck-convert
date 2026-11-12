@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.7.1';
+const CACHE_NAME = 'hocg-deck-convert-v1.7.2';
 // Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
 const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';
@@ -225,6 +225,40 @@ async function fetchAndCacheTextAsset(cache, url) {
   }
 
   return await response.text();
+}
+
+// Headers that identify a version of a response. ETag is hidden from cross-origin (CORS)
+// responses, but Last-Modified and Content-Length are always readable.
+const VERSION_HEADERS = ['etag', 'last-modified', 'content-length'];
+
+function isSameVersion(cached, response) {
+  // Opaque responses (cross-origin without CORS, e.g. CDN styles and scripts) have no readable
+  // headers. Those URLs include their version, so a cached copy is kept until the app cache
+  // is replaced on the next app version.
+  if (cached.type === 'opaque' || response.type === 'opaque') {
+    return cached.type === response.type;
+  }
+  let compared = false;
+  for (const name of VERSION_HEADERS) {
+    const cachedValue = cached.headers.get(name);
+    const value = response.headers.get(name);
+    if (cachedValue === null && value === null) continue;
+    if (cachedValue !== value) return false;
+    // The length alone doesn't identify a version.
+    if (name !== 'content-length') compared = true;
+  }
+  return compared;
+}
+
+// Stores the response unless the cache already has the same version. Rewriting a cached
+// response on every page load is slow in Firefox: it has to compare the stored request
+// headers, which scans the cache database of the whole site, and it delays every other
+// cache read, such as the card images.
+async function putIfChanged(cacheName, request, response) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request, { ignoreVary: true });
+  if (cached && isSameVersion(cached, response)) return;
+  await cache.put(request, response);
 }
 
 async function matchFromKnownCaches(request) {
@@ -473,9 +507,7 @@ self.addEventListener('fetch', (event) => {
       fetchWithTimeout(event.request).then((networkResponse) => {
         if (networkResponse && networkResponse.ok) {
           const responseToCache = networkResponse.clone();
-          event.waitUntil(
-            caches.open(CACHE_NAME).then((cache) => cache.put(INDEX_URL, responseToCache))
-          );
+          event.waitUntil(putIfChanged(CACHE_NAME, INDEX_URL, responseToCache));
         }
         return networkResponse;
       }).catch(() => {
@@ -505,14 +537,10 @@ self.addEventListener('fetch', (event) => {
       // Card images are cached by serveCardImage and PREFETCH_CARDS, which prunes stale entries.
       if (isPrice && networkResponse && networkResponse.ok) {
         const responseToCache = networkResponse.clone();
-        event.waitUntil(
-          caches.open(PRICE_CACHE_NAME).then((cache) => cache.put(event.request, responseToCache))
-        );
+        event.waitUntil(putIfChanged(PRICE_CACHE_NAME, event.request, responseToCache));
       } else if (!isPrice && !isCardImage && networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
         const responseToCache = networkResponse.clone();
-        event.waitUntil(
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache))
-        );
+        event.waitUntil(putIfChanged(CACHE_NAME, event.request, responseToCache));
       }
       return networkResponse;
     }).catch(() => {
