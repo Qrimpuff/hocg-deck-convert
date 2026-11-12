@@ -124,8 +124,19 @@ impl CardImageSource {
 
 /// Card image drawn over its placeholder. Keyed on the source, so a new image replaces the
 /// previous one right away (showing the placeholder) instead of when it loads.
+///
+/// Loaded lazily unless `eager`, so lists hidden with `display: none` (e.g. the card search)
+/// don't load their images with the page. In Firefox, a page controlled by the service worker
+/// has to load and decode every image again on reload, so each image loaded at startup delays
+/// the visible ones. Images in a scroll container load only once scrolled into view, so
+/// `eager` is for images that are always shown when mounted.
 #[component]
-pub fn CardImg(img: CardImageSource, #[props(into)] style: Option<String>) -> Element {
+pub fn CardImg(
+    img: CardImageSource,
+    #[props(into)] style: Option<String>,
+    #[props(default)] eager: bool,
+) -> Element {
+    let loading = if eager { "eager" } else { "lazy" };
     // A single style attribute: mixing it with style properties (e.g. `background_size`)
     // lets it overwrite them
     let style = format!(
@@ -140,6 +151,7 @@ pub fn CardImg(img: CardImageSource, #[props(into)] style: Option<String>) -> El
                 style: "{style}",
                 width: "400",
                 height: "560",
+                loading: loading,
                 src: "{img.src}",
                 "onerror": "{img.onerror}",
             }
