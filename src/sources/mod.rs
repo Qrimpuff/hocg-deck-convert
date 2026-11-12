@@ -380,8 +380,8 @@ impl CommonCard {
         let card = self.card_illustration(db)?;
 
         let assets_url = match language {
-            CardLanguage::Japanese => "https://qrimpuff.github.io/hocg-fan-sim-assets/img/",
-            CardLanguage::English => "https://qrimpuff.github.io/hocg-fan-sim-assets/img_en/",
+            CardLanguage::Japanese => format!("{}/img/", crate::HOCG_ASSETS_URL),
+            CardLanguage::English => format!("{}/img_en/", crate::HOCG_ASSETS_URL),
         };
 
         // exact match first

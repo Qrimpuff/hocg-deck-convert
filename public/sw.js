@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.6.0';
+const CACHE_NAME = 'hocg-deck-convert-v1.7.0';
 // Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
 const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';
@@ -252,27 +252,123 @@ async function matchFromKnownCaches(request) {
   }
 }
 
-// Serve a cached card image once the network exceeds the timeout; otherwise keep waiting on the network.
-function fetchImageWithCacheFallback(request) {
-  return new Promise((resolve, reject) => {
-    const networkFetch = fetch(request);
-    const timer = setTimeout(() => {
-      matchFromKnownCaches(request).then((cached) => {
-        if (cached) resolve(cached);
-      });
-    }, NETWORK_TIMEOUT_MS);
+// Card images checked against the network while this worker runs, so each one is checked
+// at most once until the worker restarts.
+const revalidatedCardImages = new Set();
 
-    networkFetch.then(
-      (response) => {
-        clearTimeout(timer);
-        resolve(response);
-      },
-      (error) => {
-        clearTimeout(timer);
-        matchFromKnownCaches(request).then((cached) => (cached ? resolve(cached) : reject(error)));
+function corsImageRequest(url, init = {}) {
+  return new Request(url, { mode: 'cors', credentials: 'omit', ...init });
+}
+
+// Opened once per worker, instead of once per image.
+let cardCachePromise = null;
+function openCardCache() {
+  if (!cardCachePromise) {
+    cardCachePromise = caches.open(CARD_CACHE_NAME).catch((error) => {
+      cardCachePromise = null;
+      throw error;
+    });
+  }
+  return cardCachePromise;
+}
+
+async function matchCardImage(request) {
+  try {
+    const cardCache = await openCardCache();
+    return await cardCache.match(request.url, { ignoreVary: true });
+  } catch (_) {
+    return undefined;
+  }
+}
+
+// Size of a cached image, from its header when possible to avoid reading the image.
+async function cachedImageSize(response) {
+  if (response.type === 'opaque') return 0;
+  const size = parseInt(response.headers.get('content-length'), 10);
+  if (Number.isFinite(size)) return size;
+  return (await response.clone().blob()).size;
+}
+
+// Lets the page finish loading its images before the background checks start.
+const REVALIDATE_DELAY_MS = 3000;
+
+async function sendUpdatedCardImage(url, response) {
+  const blob = await response.blob();
+  const clients = await self.clients.matchAll({ type: 'window' });
+  for (const client of clients) {
+    client.postMessage({ type: 'CARD_IMAGE_UPDATED', url, blob });
+  }
+}
+
+// Checks if the image changed and, if so, updates the cache and sends the new image to the
+// pages showing it.
+//
+// GitHub Pages does not expose the ETag to CORS requests, and its Last-Modified is the deploy
+// time of the whole site, so the size is the only cheap signal: a HEAD request compares it,
+// and the image is downloaded only when it differs. An update keeping the exact same size is
+// missed until the next offline download.
+async function revalidateCardImage(url, cached) {
+  if (revalidatedCardImages.has(url)) return;
+  revalidatedCardImages.add(url);
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, REVALIDATE_DELAY_MS));
+
+    // An opaque copy has no readable size; replace it without swapping the image, since it
+    // is most likely the same.
+    const cachedSize = await cachedImageSize(cached);
+    if (cachedSize > 0) {
+      const head = await fetch(corsImageRequest(url, { method: 'HEAD', cache: 'no-store' }));
+      if (!head.ok) {
+        revalidatedCardImages.delete(url);
+        return;
       }
+      const size = parseInt(head.headers.get('content-length'), 10);
+      if (!Number.isFinite(size) || size === cachedSize) return;
+    }
+
+    const response = await fetch(corsImageRequest(url, { cache: 'no-store' }));
+    if (!response.ok) {
+      revalidatedCardImages.delete(url);
+      return;
+    }
+
+    const cardCache = await openCardCache();
+    await cardCache.put(url, response.clone());
+    if (cachedSize > 0) {
+      await sendUpdatedCardImage(url, response);
+    }
+  } catch (error) {
+    // Allow another try the next time the image is shown.
+    revalidatedCardImages.delete(url);
+    console.warn('[SW] Failed to revalidate card image', url, error);
+  }
+}
+
+// Stale-while-revalidate: serve the cached image right away and check for a newer one in the
+// background. Images not cached yet come from the network and are kept for next time.
+async function serveCardImage(event) {
+  const url = event.request.url;
+  const cached = await matchCardImage(event.request);
+  if (cached) {
+    event.waitUntil(revalidateCardImage(url, cached));
+    return cached;
+  }
+
+  // Download with CORS instead of the opaque <img> request: the response can be checked,
+  // and opaque responses take far more storage quota than their size.
+  const response = await fetch(corsImageRequest(url));
+  if (response.ok) {
+    // Just downloaded, no need to check it again.
+    revalidatedCardImages.add(url);
+    const responseToCache = response.clone();
+    event.waitUntil(
+      openCardCache()
+        .then((cache) => cache.put(url, responseToCache))
+        .catch((error) => console.warn('[SW] Failed to cache card image', url, error))
     );
-  });
+  }
+  return response;
 }
 
 self.addEventListener('install', (event) => {
@@ -398,7 +494,7 @@ self.addEventListener('fetch', (event) => {
   const isPrice = url.startsWith(PRICE_BASE_URL);
 
   if (isCardImage) {
-    event.respondWith(fetchImageWithCacheFallback(event.request));
+    event.respondWith(serveCardImage(event));
     return;
   }
 
@@ -406,7 +502,7 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     networkFetch.then((networkResponse) => {
-      // Card images are cached only by PREFETCH_CARDS, which prunes stale entries.
+      // Card images are cached by serveCardImage and PREFETCH_CARDS, which prunes stale entries.
       if (isPrice && networkResponse && networkResponse.ok) {
         const responseToCache = networkResponse.clone();
         event.waitUntil(

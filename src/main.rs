@@ -45,6 +45,12 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const GIT_HASH: Option<&str> = option_env!("GIT_HASH");
 const GIT_TIMESTAMP: Option<&str> = option_env!("GIT_TIMESTAMP");
 const HOCG_DECK_CONVERT_API: &str = "https://hocg-deck-convert-api.onrender.com";
+/// Base URL of the cards database and images. Set `HOCG_ASSETS_URL` at build time to test
+/// against a local copy of the `gh-pages` branch.
+pub const HOCG_ASSETS_URL: &str = match option_env!("HOCG_ASSETS_URL") {
+    Some(url) => url,
+    None => "https://qrimpuff.github.io/hocg-fan-sim-assets",
+};
 
 static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
@@ -91,9 +97,7 @@ fn App() -> Element {
     use_effect(|| app_state::apply_pending_deck(&CARDS_DB.read()));
 
     let _cards_db: Coroutine<()> = use_coroutine(|_rx| async move {
-        let Ok(card_db) =
-            reqwest::get("https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json").await
-        else {
+        let Ok(card_db) = reqwest::get(format!("{HOCG_ASSETS_URL}/hocg_cards.json")).await else {
             error!("Failed to fetch cards database from GitHub");
             track_error("Failed to fetch cards database from GitHub");
             *ERROR_MESSAGE.write() =
@@ -851,6 +855,25 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                         EventData {
                             format: "Unknown",
                             file_format: Some("Saved deck"),
+                            error: None,
+                        },
+                    );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
+                    return;
+                }
+
+                // Proxy sheets PDF (the deck is stored in its metadata)
+                let deck = proxy_sheets::deck_from_pdf(&contents);
+                debug!("{:?}", deck);
+                if let Some(deck) = deck {
+                    *common_deck.write() = deck.to_deck_or_pile(&db.read());
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
+                    *deck_success.write() = "Deck file format: Proxy sheets (PDF)".into();
+                    track_event(
+                        EventType::Import("Unknown".into()),
+                        EventData {
+                            format: "Unknown",
+                            file_format: Some("Proxy sheets (PDF)"),
                             error: None,
                         },
                     );

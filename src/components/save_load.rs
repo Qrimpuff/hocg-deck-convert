@@ -13,8 +13,10 @@ use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::JsValue;
 
 use crate::{
-    AUTO_SAVE_DECK, CURRENT_PAGE, CardLanguage, EDIT_DECK, IMPORT_FORMAT, PREVIEW_IMAGE_OPTIONS,
-    Page, SHOW_PRICE, VERSION, download_file,
+    AUTO_SAVE_DECK, CURRENT_PAGE, CardLanguage, CardType, EDIT_DECK, IMPORT_FORMAT,
+    PREVIEW_IMAGE_OPTIONS, Page, SHOW_PRICE, VERSION,
+    components::card::{CardImageSource, CardImg},
+    download_file,
     sources::{CommonCard, CommonDeck, DeckLike, DeckOrPile, DeckType, ImageOptions, PileOfCards},
     tracker::{EventType, TrackEvent, track_event, track_internal_url},
 };
@@ -75,24 +77,16 @@ impl SaveData {
         self.deck.to_deck_or_pile(db)
     }
 
-    fn image_path(&self, db: &CardsDatabase) -> String {
-        let card_lang = CardLanguage::Japanese;
-        let image_options = ImageOptions::card_details();
-        match &self.deck {
-            SaveDeckOrPile::Deck(save_deck) => save_deck
-                .oshi
-                .as_ref()
-                .and_then(|save_card| save_card.to_common_card(db))
-                .and_then(|card| card.image_path(db, card_lang, image_options))
-                .unwrap_or("/hocg-deck-convert/assets/cheer-back.webp".to_string()),
-            SaveDeckOrPile::Pile(save_pile) => save_pile
-                .cards
-                .first()
-                .as_ref()
-                .and_then(|save_card| save_card.to_common_card(db))
-                .and_then(|card| card.image_path(db, card_lang, image_options))
-                .unwrap_or("/hocg-deck-convert/assets/card-back.webp".to_string()),
-        }
+    fn image(&self, db: &CardsDatabase) -> CardImageSource {
+        let (save_card, card_type) = match &self.deck {
+            SaveDeckOrPile::Deck(save_deck) => (save_deck.oshi.as_ref(), CardType::Oshi),
+            SaveDeckOrPile::Pile(save_pile) => (save_pile.cards.first(), CardType::Main),
+        };
+        let card = save_card.and_then(|save_card| save_card.to_common_card(db));
+        let img_path = card.as_ref().and_then(|card| {
+            card.image_path(db, CardLanguage::Japanese, ImageOptions::card_details())
+        });
+        CardImageSource::new(card.as_ref(), img_path, card_type, db)
     }
 }
 
@@ -727,13 +721,9 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                 class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
                                 style: "flex: 1 1 14.75rem; min-width: 0;",
                                 div { class: "is-flex is-align-items-center",
-                                    img {
+                                    CardImg {
+                                        img: save.image(&db.read()),
                                         style: "height: 42px; width: 30px; min-width: 30px;",
-                                        width: "400",
-                                        height: "560",
-                                        border_radius: "4.9% / 3.5%",
-                                        src: "{save.image_path(&db.read())}",
-                                        "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
                                     }
                                 }
                                 div {
@@ -913,13 +903,9 @@ pub fn SaveLoadPage(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabas
                                                 class: "is-flex is-align-items-center is-gap-2 is-flex-grow-1",
                                                 style: "flex: 1 1 14.75rem; min-width: 0;",
                                                 div { class: "is-flex is-align-items-center",
-                                                    img {
+                                                    CardImg {
+                                                        img: save.image(&db.read()),
                                                         style: "height: 42px; width: 30px; min-width: 30px;",
-                                                        width: "400",
-                                                        height: "560",
-                                                        border_radius: "4.9% / 3.5%",
-                                                        src: "{save.image_path(&db.read())}",
-                                                        "onerror": if matches!(save.deck, SaveDeckOrPile::Deck(_)) { "this.src='/hocg-deck-convert/assets/cheer-back.webp'" } else { "this.src='/hocg-deck-convert/assets/card-back.webp'" },
                                                     }
                                                 }
                                                 div {

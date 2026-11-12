@@ -15,6 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use super::{CardsDatabase, ImageOptions};
 use crate::app_state::use_persisted;
 use crate::components::deck_validation::{DeckValidation, has_missing_proxies};
+use crate::components::save_load::SaveDeckOrPile;
 use crate::sources::{DeckLike, DeckOrPile};
 use crate::tracker::TrackEvent;
 use crate::{
@@ -661,7 +662,7 @@ async fn generate_pdf(
         })
         .collect::<Vec<_>>();
 
-    Ok(doc.with_pages(pages).save(
+    let pdf = doc.with_pages(pages).save(
         &PdfSaveOptions {
             image_optimization: Some(ImageOptimizationOptions {
                 // Don't resize, will lose image quality
@@ -671,7 +672,99 @@ async fn generate_pdf(
             ..Default::default()
         },
         &mut Vec::new(),
-    ))
+    );
+    // The attachment is a convenience for importing the deck back: keep the PDF without it
+    // rather than failing the export
+    match attach_deck(&pdf, &SaveDeckOrPile::from_deck_or_pile(deck, db)) {
+        Ok(with_deck) => Ok(with_deck),
+        Err(err) => {
+            dioxus::logger::tracing::warn!("Could not attach the deck to the PDF: {err}");
+            Ok(pdf)
+        }
+    }
+}
+
+/// Name of the file attachment holding the deck in a proxy sheets PDF
+const DECK_ATTACHMENT_NAME: &str = "hocg-deck.json";
+
+/// Attaches the deck as a JSON file, so the PDF can be imported back
+fn attach_deck(pdf: &[u8], deck: &SaveDeckOrPile) -> Result<Vec<u8>, Box<dyn Error>> {
+    use lopdf::dictionary;
+
+    let mut doc = lopdf::Document::load_mem(pdf)?;
+
+    let mut file = lopdf::Stream::new(
+        dictionary! {
+            "Type" => "EmbeddedFile",
+            "Subtype" => lopdf::Object::Name(b"application/json".to_vec()),
+        },
+        serde_json::to_vec(deck)?,
+    );
+    file.compress()?;
+    let file_id = doc.add_object(file);
+
+    let file_spec_id = doc.add_object(dictionary! {
+        "Type" => "Filespec",
+        "F" => lopdf::Object::string_literal(DECK_ATTACHMENT_NAME),
+        "Desc" => lopdf::Object::string_literal("Deck list for the hololive OCG Deck Converter"),
+        "EF" => dictionary! { "F" => file_id },
+    });
+
+    let names = dictionary! {
+        "EmbeddedFiles" => dictionary! {
+            "Names" => vec![
+                lopdf::Object::string_literal(DECK_ATTACHMENT_NAME),
+                file_spec_id.into(),
+            ],
+        },
+    };
+    let root_id = doc.trailer.get(b"Root")?.as_reference()?;
+    doc.get_object_mut(root_id)?
+        .as_dict_mut()?
+        .set("Names", names);
+
+    let mut out = Vec::new();
+    doc.save_to(&mut out)?;
+    Ok(out)
+}
+
+/// Reads back the deck attached to a PDF made by `generate_pdf`
+pub fn deck_from_pdf(bytes: &[u8]) -> Option<SaveDeckOrPile> {
+    let doc = lopdf::Document::load_mem(bytes).ok()?;
+    let root = doc.catalog().ok()?;
+    let names = doc
+        .dereference(root.get(b"Names").ok()?)
+        .ok()?
+        .1
+        .as_dict()
+        .ok()?;
+    let embedded = doc
+        .dereference(names.get(b"EmbeddedFiles").ok()?)
+        .ok()?
+        .1
+        .as_dict()
+        .ok()?;
+    let entries = doc
+        .dereference(embedded.get(b"Names").ok()?)
+        .ok()?
+        .1
+        .as_array()
+        .ok()?;
+    // name tree leaf: [name1 value1 name2 value2 ...]
+    let spec = entries
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .find(|pair| pair[0].as_str().ok() == Some(DECK_ATTACHMENT_NAME.as_bytes()))?;
+    let (_, spec) = doc.dereference(&spec[1]).ok()?;
+    let ef = doc
+        .dereference(spec.as_dict().ok()?.get(b"EF").ok()?)
+        .ok()?
+        .1
+        .as_dict()
+        .ok()?;
+    let (_, file) = doc.dereference(ef.get(b"F").ok()?).ok()?;
+    serde_json::from_slice(&file.as_stream().ok()?.decompressed_content().ok()?).ok()
 }
 
 #[component]
@@ -1127,5 +1220,38 @@ pub fn Export(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
             }
             p { class: "help is-danger", "{deck_error}" }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::components::save_load::SaveDeck;
+
+    use super::*;
+
+    fn empty_pdf() -> Vec<u8> {
+        PdfDocument::new("test")
+            .with_pages(vec![])
+            .save(&PdfSaveOptions::default(), &mut Vec::new())
+    }
+
+    #[test]
+    fn deck_round_trips_through_pdf_attachment() {
+        let deck = SaveDeckOrPile::Deck(SaveDeck {
+            name: Some("テストデッキ \"quoted\", ünïcode".into()),
+            oshi: None,
+            main_deck: vec![],
+            cheer_deck: vec![],
+        });
+
+        let pdf = attach_deck(&empty_pdf(), &deck).unwrap();
+
+        assert_eq!(deck_from_pdf(&pdf), Some(deck));
+    }
+
+    #[test]
+    fn pdf_without_deck_attachment_is_not_a_deck() {
+        assert_eq!(deck_from_pdf(&empty_pdf()), None);
+        assert_eq!(deck_from_pdf(b"not a pdf"), None);
     }
 }

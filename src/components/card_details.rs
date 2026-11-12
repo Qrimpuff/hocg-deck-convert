@@ -12,7 +12,7 @@ use crate::{
     CARDS_DB, COMMON_DECK, CardLanguage, CardType, EXPORT_FORMAT, GLOBAL_RARITY, GLOBAL_RELEASE,
     PREVIEW_CARD_LANG, PRICE_SERVICE,
     components::{
-        card::Card,
+        card::{Card, CardImageSource, CardImg},
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
         modal_popup::{ModelPopup, Popup, show_popup, update_card_details_popup},
         price_history::PriceHistory,
@@ -355,23 +355,18 @@ pub fn CardDetailsContent(
     is_edit: Signal<bool>,
     show_price: Signal<bool>,
 ) -> Element {
-    let error_img_path = use_memo(move || {
-        let error_img_path = match *card_type.read() {
-            CardType::Oshi | CardType::Cheer => "cheer-back.webp",
-            CardType::Main => "card-back.webp",
-        };
-        format!("/hocg-deck-convert/assets/{error_img_path}")
-    });
-
     let lang = CARD_DETAILS_LANG.signal();
     let mut big_card = use_signal(|| false);
 
-    let img_path = use_memo({
-        move || {
-            card.read()
-                .image_path(&db.read(), *lang.read(), ImageOptions::card_details())
-                .unwrap_or_else(|| (*error_img_path.read()).clone())
-        }
+    let img = use_memo(move || {
+        let card = card.read();
+        let db = db.read();
+        CardImageSource::new(
+            Some(&card),
+            card.image_path(&db, *lang.read(), ImageOptions::card_details()),
+            *card_type.read(),
+            &db,
+        )
     });
 
     let _db = db.read();
@@ -936,13 +931,7 @@ pub fn CardDetailsContent(
                             );
                         },
                         figure { class: "image",
-                            img {
-                                width: "400",
-                                height: "560",
-                                border_radius: "4.9% / 3.5%",
-                                src: "{img_path}",
-                                "onerror": "this.src='{error_img_path}'",
-                            }
+                            CardImg { img: img.read().clone() }
                         }
                     }
                 }

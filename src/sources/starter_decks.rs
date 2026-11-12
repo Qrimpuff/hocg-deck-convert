@@ -10,7 +10,7 @@ use crate::{
     track_event, *,
 };
 
-use super::{CardsDatabase, CommonCard, CommonDeck};
+use super::{CardsDatabase, CommonCard, CommonDeck, DeckLike};
 
 #[derive(Debug, Clone)]
 struct DeckEntry {
@@ -715,7 +715,9 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
                 },
             );
         }
-        *common_deck.write() = DeckOrPile::Deck(deck.map(|d| d.deck.clone()).unwrap_or_default());
+        let mut starter = deck.map(|d| d.deck.clone()).unwrap_or_default();
+        starter.sort(&db.read());
+        *common_deck.write() = DeckOrPile::Deck(starter);
 
         *loading.write() = false;
     };
@@ -729,7 +731,7 @@ pub fn Import(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDatabase>) ->
         debug!("{:?}", oshi);
         if let Some(oshi) = oshi {
             let mut deck = common_deck.write();
-            deck.add_card(oshi.clone(), crate::CardType::Oshi, &db.read(), false);
+            deck.add_card(oshi.clone(), crate::CardType::Oshi, &db.read(), true);
 
             track_event(
                 EventType::Import("Starter deck".into()),

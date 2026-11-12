@@ -1,3 +1,4 @@
+use base64::{Engine, prelude::BASE64_STANDARD_NO_PAD};
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use serde::Serialize;
@@ -14,6 +15,137 @@ use crate::{
 
 /// Full list of cards the popup can step through, provided by the list owner.
 pub type CardNavList = Signal<Vec<(CommonCard, CardType)>>;
+
+const GRID_WIDTH: usize = 10;
+const GRID_HEIGHT: usize = 14;
+
+/// Decodes the v3 `G` component: a 10x14 grid of average RGB colors, row-major from the top.
+fn color_grid(img_hash: &str) -> Option<Vec<u8>> {
+    let grid = img_hash
+        .split('|')
+        .find_map(|part| part.strip_prefix("G="))?;
+    let grid = BASE64_STANDARD_NO_PAD.decode(grid).ok()?;
+    (grid.len() == GRID_WIDTH * GRID_HEIGHT * 3).then_some(grid)
+}
+
+/// Draws the color grid as a BMP data URI. The browser smooths it when scaling it up to the
+/// card size.
+fn grid_placeholder(grid: &[u8]) -> String {
+    const WIDTH: usize = GRID_WIDTH;
+    const HEIGHT: usize = GRID_HEIGHT;
+    const HEADER: usize = 54;
+    // BMP rows are padded to a multiple of 4 bytes
+    const ROW: usize = (WIDTH * 3).div_ceil(4) * 4;
+
+    let size = HEADER + ROW * HEIGHT;
+    let mut bmp = Vec::with_capacity(size);
+    // file header
+    bmp.extend(b"BM");
+    bmp.extend((size as u32).to_le_bytes());
+    bmp.extend(0u32.to_le_bytes());
+    bmp.extend((HEADER as u32).to_le_bytes());
+    // BITMAPINFOHEADER
+    bmp.extend(40u32.to_le_bytes());
+    bmp.extend((WIDTH as i32).to_le_bytes());
+    bmp.extend((HEIGHT as i32).to_le_bytes());
+    bmp.extend(1u16.to_le_bytes());
+    bmp.extend(24u16.to_le_bytes());
+    bmp.extend(0u32.to_le_bytes());
+    bmp.extend(((ROW * HEIGHT) as u32).to_le_bytes());
+    bmp.extend(2835i32.to_le_bytes());
+    bmp.extend(2835i32.to_le_bytes());
+    bmp.extend(0u32.to_le_bytes());
+    bmp.extend(0u32.to_le_bytes());
+    // pixels: bottom-up rows, BGR
+    for row in grid.as_chunks::<{ WIDTH * 3 }>().0.iter().rev() {
+        for rgb in row.as_chunks::<3>().0 {
+            bmp.extend([rgb[2], rgb[1], rgb[0]]);
+        }
+        bmp.resize(bmp.len() + ROW - WIDTH * 3, 0);
+    }
+
+    format!(
+        "data:image/bmp;base64,{}",
+        base64::prelude::BASE64_STANDARD.encode(bmp)
+    )
+}
+
+/// Blurred image of the card shown while it loads, from the color grid of the image hash.
+fn placeholder(img_hash: &str) -> Option<String> {
+    color_grid(img_hash).map(|grid| grid_placeholder(&grid))
+}
+
+/// Transparent image with the size of a card, shown instead of the card back so the
+/// placeholder stays visible. It keeps the card ratio once loaded, unlike a 1x1 image.
+/// Quotes are escaped so it can be used inside the `onerror` script.
+const TRANSPARENT_IMG: &str = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22560%22/%3E";
+
+/// Attributes of a card `img`: the image, what to show if it fails, and the placeholder
+/// drawn behind it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CardImageSource {
+    pub src: String,
+    pub onerror: String,
+    pub background_image: String,
+}
+
+impl CardImageSource {
+    /// When the illustration has a placeholder, it is shown instead of the card back if
+    /// there is no image or if it fails to load.
+    pub fn new(
+        card: Option<&CommonCard>,
+        img_path: Option<String>,
+        card_type: CardType,
+        db: &CardsDatabase,
+    ) -> Self {
+        let card_back = match card.and_then(|c| c.card_type(db)).unwrap_or(card_type) {
+            CardType::Oshi | CardType::Cheer => "/hocg-deck-convert/assets/cheer-back.webp",
+            CardType::Main => "/hocg-deck-convert/assets/card-back.webp",
+        };
+
+        let placeholder = card
+            .and_then(|c| c.card_illustration(db))
+            .and_then(|illust| placeholder(&illust.img_hash));
+
+        match placeholder {
+            Some(placeholder) => Self {
+                src: img_path.unwrap_or_else(|| TRANSPARENT_IMG.into()),
+                onerror: format!("this.onerror=null;this.src='{TRANSPARENT_IMG}'"),
+                background_image: format!("url(\"{placeholder}\")"),
+            },
+            None => Self {
+                src: img_path.unwrap_or_else(|| card_back.into()),
+                onerror: format!("this.onerror=null;this.src='{card_back}'"),
+                background_image: "none".into(),
+            },
+        }
+    }
+}
+
+/// Card image drawn over its placeholder. Keyed on the source, so a new image replaces the
+/// previous one right away (showing the placeholder) instead of when it loads.
+#[component]
+pub fn CardImg(img: CardImageSource, #[props(into)] style: Option<String>) -> Element {
+    // A single style attribute: mixing it with style properties (e.g. `background_size`)
+    // lets it overwrite them
+    let style = format!(
+        "border-radius: 4.9% / 3.5%; background-image: {}; background-size: 100% 100%; background-repeat: no-repeat; {}",
+        img.background_image,
+        style.unwrap_or_default()
+    );
+    rsx! {
+        for img in std::iter::once(img) {
+            img {
+                key: "{img.src}",
+                style: "{style}",
+                width: "400",
+                height: "560",
+                src: "{img.src}",
+                "onerror": "{img.onerror}",
+            }
+        }
+    }
+}
 
 #[component]
 pub fn Card(
@@ -47,15 +179,12 @@ pub fn Card(
         "card-img"
     };
 
-    let error_img_path: &str = match card.card_type(&db.read()).unwrap_or(card_type) {
-        CardType::Oshi | CardType::Cheer => "cheer-back.webp",
-        CardType::Main => "card-back.webp",
-    };
-    let error_img_path = format!("/hocg-deck-convert/assets/{error_img_path}");
-
-    let img_path = card
-        .image_path(&db.read(), *card_lang.read(), image_options)
-        .unwrap_or_else(|| error_img_path.clone());
+    let img = CardImageSource::new(
+        Some(&card),
+        card.image_path(&db.read(), *card_lang.read(), image_options),
+        card_type,
+        &db.read(),
+    );
 
     let price_service = *PRICE_SERVICE.read();
     let show_price = show_price.map(|s| *s.read()).unwrap_or(false);
@@ -226,13 +355,7 @@ pub fn Card(
                             );
                         }
                     },
-                    img {
-                        width: "400",
-                        height: "560",
-                        border_radius: "4.9% / 3.5%",
-                        src: "{img_path}",
-                        "onerror": "this.src='{error_img_path}'",
-                    }
+                    CardImg { img }
                 }
                 if show_price {
                     span {
@@ -324,5 +447,53 @@ pub fn Card(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{color_grid, grid_placeholder, placeholder};
+    use base64::{
+        Engine,
+        prelude::{BASE64_STANDARD, BASE64_STANDARD_NO_PAD},
+    };
+
+    #[test]
+    fn placeholder_bitmap_from_grid_component() {
+        let mut grid = vec![0u8; 10 * 14 * 3];
+        // top-left cell is red, bottom-left cell is blue
+        grid[0] = 255;
+        grid[13 * 10 * 3 + 2] = 255;
+        let g = BASE64_STANDARD_NO_PAD.encode(&grid);
+
+        let decoded = color_grid(&format!("v3|H32=abc|CYM=FF8000|G={g}|L=JP")).unwrap();
+        assert_eq!(decoded, grid);
+        let uri = grid_placeholder(&decoded);
+        let bmp = BASE64_STANDARD
+            .decode(uri.strip_prefix("data:image/bmp;base64,").unwrap())
+            .unwrap();
+        assert_eq!(&bmp[0..2], b"BM");
+        assert_eq!(bmp.len(), 54 + 32 * 14);
+        assert_eq!(
+            u32::from_le_bytes(bmp[2..6].try_into().unwrap()),
+            54 + 32 * 14
+        );
+        // first stored row is the bottom one, in BGR
+        assert_eq!(&bmp[54..57], &[255, 0, 0]);
+        // last stored row is the top one
+        assert_eq!(&bmp[54 + 32 * 13..54 + 32 * 13 + 3], &[0, 0, 255]);
+
+        let short = BASE64_STANDARD_NO_PAD.encode([0u8; 30]);
+        assert_eq!(color_grid(&format!("v3|G={short}")), None);
+        assert_eq!(color_grid("v2|H32=abc|CYM=FF8000"), None);
+    }
+
+    #[test]
+    fn placeholder_needs_grid() {
+        let g = BASE64_STANDARD_NO_PAD.encode([10u8; 10 * 14 * 3]);
+        let image = placeholder(&format!("v3|H32=abc|CYM=FF8000|G={g}|L=JP")).unwrap();
+        assert!(image.starts_with("data:image/bmp;base64,"));
+
+        assert_eq!(placeholder("v2|H32=abc|CYM=FF8000"), None);
     }
 }

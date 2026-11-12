@@ -25,6 +25,9 @@ if ('serviceWorker' in navigator) {
             if (event.data && event.data.type === 'PREFETCH_PROGRESS') {
                 updateProgressUI(event.data.loaded, event.data.total, event.data.size);
             }
+            if (event.data && event.data.type === 'CARD_IMAGE_UPDATED') {
+                showUpdatedCardImage(event.data.url, event.data.blob);
+            }
         });
 
         navigator.serviceWorker.register(SW_PATH).then((registration) => {
@@ -51,6 +54,48 @@ if ('serviceWorker' in navigator) {
         initServiceWorker();
     } else {
         window.addEventListener('DOMContentLoaded', initServiceWorker);
+    }
+}
+
+// Newer versions of card images, found by the service worker after serving the cached ones.
+const updatedCardImages = new Map();
+let updatedCardImagesObserver = null;
+
+function swapUpdatedCardImage(img) {
+    const objectUrl = updatedCardImages.get(img.getAttribute('src'));
+    if (objectUrl) img.src = objectUrl;
+}
+
+function showUpdatedCardImage(url, blob) {
+    if (!url || !blob) return;
+    const previous = updatedCardImages.get(url);
+    if (previous) URL.revokeObjectURL(previous);
+    updatedCardImages.set(url, URL.createObjectURL(blob));
+
+    document.querySelectorAll('img').forEach(swapUpdatedCardImage);
+
+    // The page keeps the old image for this URL in memory, so images shown later need the
+    // swap too.
+    if (!updatedCardImagesObserver) {
+        updatedCardImagesObserver = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'attributes') {
+                    if (mutation.target.tagName === 'IMG') swapUpdatedCardImage(mutation.target);
+                    continue;
+                }
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+                    if (node.tagName === 'IMG') swapUpdatedCardImage(node);
+                    node.querySelectorAll('img').forEach(swapUpdatedCardImage);
+                }
+            }
+        });
+        updatedCardImagesObserver.observe(document.body, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ['src'],
+        });
     }
 }
 
