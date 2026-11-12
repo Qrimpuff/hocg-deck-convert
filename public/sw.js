@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.7.0';
+const CACHE_NAME = 'hocg-deck-convert-v1.7.1';
 // Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
 const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';
@@ -538,16 +538,24 @@ self.addEventListener('message', (event) => {
       caches.open(CARD_CACHE_NAME).then(async (cache) => {
         // Keep card cache aligned with the latest card DB list.
         const expectedUrls = new Set(urls);
+        // Images already cached, from a single listing of the cache: matching each URL instead
+        // takes thousands of Cache API calls on every page load once the download is done.
+        let cachedUrls = null;
         try {
           const cachedRequests = await cache.keys();
+          cachedUrls = new Set();
           await Promise.all(cachedRequests.map(async (request) => {
             const url = request.url || '';
             const isCardImage = url.startsWith(IMAGE_BASE_JP) || url.startsWith(IMAGE_BASE_EN);
             if (!isCardImage) return;
-            if (expectedUrls.has(url)) return;
+            if (expectedUrls.has(url)) {
+              cachedUrls.add(url);
+              return;
+            }
             await cache.delete(request, { ignoreVary: true });
           }));
         } catch (error) {
+          cachedUrls = null;
           console.warn('[SW] Failed pruning stale cards', error);
         }
 
@@ -567,8 +575,11 @@ self.addEventListener('message', (event) => {
         // Skip already cached URLs.
         const urlsToFetch = [];
         for (const url of urls) {
-          const cached = await cache.match(url, { ignoreVary: true });
-          if (cached) continue;
+          if (cachedUrls) {
+            if (cachedUrls.has(url)) continue;
+          } else if (await cache.match(url, { ignoreVary: true })) {
+            continue;
+          }
           urlsToFetch.push(url);
         }
 

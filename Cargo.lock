@@ -2210,7 +2210,7 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "hocg-deck-convert"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "base64 0.23.1",
  "bitflags",
@@ -2246,7 +2246,7 @@ dependencies = [
 [[package]]
 name = "hocg-fan-sim-assets-model"
 version = "0.1.0"
-source = "git+https://github.com/Qrimpuff/hocg-fan-sim-assets#9bf915e75df5fa557363706d3b1cc6211f757888"
+source = "git+https://github.com/Qrimpuff/hocg-fan-sim-assets#ed9a3744179cba182fa9459001b59260e11e29b9"
 dependencies = [
  "base64 0.22.1",
  "image",
