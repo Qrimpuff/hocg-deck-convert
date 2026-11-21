@@ -170,12 +170,6 @@ fn App() -> Element {
                             "holoDelta"
                         }
                         ", "
-                        // a {
-                        //     href: "https://daktagames.itch.io/holoduel",
-                        //     onclick: |_| { track_external_url("HoloDuel") },
-                        //     target: "_blank",
-                        //     "HoloDuel"
-                        // }
                         a {
                             href: "https://steamcommunity.com/sharedfiles/filedetails/?id=3302530285",
                             onclick: |_| { track_external_url("Tabletop Simulator") },
@@ -444,7 +438,6 @@ fn Form() -> Element {
                                 Some(DeckType::StarterDecks) => ImageOptions::deck_log(),
                                 Some(DeckType::DeckLog) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
-                                Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
                                 Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloBuri) => ImageOptions::holodelta(),
                                 _ => ImageOptions::holodelta(),
@@ -493,7 +486,6 @@ fn Form() -> Element {
                                 Some(DeckType::Unknown) => ImageOptions::card_details(),
                                 Some(DeckType::DeckLog) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
-                                Some(DeckType::HoloDuel) => ImageOptions::holodelta(),
                                 Some(DeckType::HoloBuri) => ImageOptions::holodelta(),
                                 Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
                                 Some(DeckType::ProxySheets) => ImageOptions::proxy_print(),
@@ -539,7 +531,6 @@ pub fn ImportPage() -> Element {
                                 "starter_decks" => ImageOptions::deck_log(),
                                 "deck_log" => ImageOptions::deck_log(),
                                 "holo_delta" => ImageOptions::holodelta(),
-                                "holo_duel" => ImageOptions::holodelta(),
                                 "holoburi" => ImageOptions::holodelta(),
                                 "hocg_tts" => ImageOptions::deck_log(),
                                 _ => ImageOptions::holodelta(),
@@ -548,7 +539,6 @@ pub fn ImportPage() -> Element {
                                 "starter_decks" => Some(DeckType::StarterDecks),
                                 "deck_log" => Some(DeckType::DeckLog),
                                 "holo_delta" => Some(DeckType::HoloDelta),
-                                "holo_duel" => Some(DeckType::HoloDuel),
                                 "holoburi" => Some(DeckType::HoloBuri),
                                 "hocg_tts" => Some(DeckType::TabletopSim),
                                 "unknown" => Some(DeckType::Unknown),
@@ -581,11 +571,6 @@ pub fn ImportPage() -> Element {
                             "holoburi"
                         }
                         option {
-                            value: "holo_duel",
-                            selected: *import_format.read() == Some(DeckType::HoloDuel),
-                            "HoloDuel (unmaintained)"
-                        }
-                        option {
                             value: "unknown",
                             selected: *import_format.read() == Some(DeckType::Unknown),
                             "I don't know..."
@@ -604,9 +589,6 @@ pub fn ImportPage() -> Element {
             }
             if *import_format.read() == Some(DeckType::HoloDelta) {
                 holodelta::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
-            }
-            if *import_format.read() == Some(DeckType::HoloDuel) {
-                holoduel::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *import_format.read() == Some(DeckType::HoloBuri) {
                 holoburi::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
@@ -652,7 +634,6 @@ pub fn ExportPage() -> Element {
                                 "unknown" => ImageOptions::card_details(),
                                 "deck_log" => ImageOptions::deck_log(),
                                 "holo_delta" => ImageOptions::holodelta(),
-                                "holo_duel" => ImageOptions::holodelta(),
                                 "hocg_tts" => ImageOptions::deck_log(),
                                 "holoburi" => ImageOptions::holodelta(),
                                 "proxy_sheets" => ImageOptions::proxy_print(),
@@ -664,7 +645,6 @@ pub fn ExportPage() -> Element {
                                 "unknown" => Some(DeckType::Unknown),
                                 "deck_log" => Some(DeckType::DeckLog),
                                 "holo_delta" => Some(DeckType::HoloDelta),
-                                "holo_duel" => Some(DeckType::HoloDuel),
                                 "hocg_tts" => Some(DeckType::TabletopSim),
                                 "holoburi" => Some(DeckType::HoloBuri),
                                 "proxy_sheets" => Some(DeckType::ProxySheets),
@@ -708,11 +688,6 @@ pub fn ExportPage() -> Element {
                             selected: *export_format.read() == Some(DeckType::HoloBuri),
                             "holoburi"
                         }
-                        option {
-                            value: "holo_duel",
-                            selected: *export_format.read() == Some(DeckType::HoloDuel),
-                            "HoloDuel (unmaintained)"
-                        }
                     }
                 }
             }
@@ -724,9 +699,6 @@ pub fn ExportPage() -> Element {
             }
             if *export_format.read() == Some(DeckType::HoloDelta) {
                 holodelta::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
-            }
-            if *export_format.read() == Some(DeckType::HoloDuel) {
-                holoduel::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
             }
             if *export_format.read() == Some(DeckType::TabletopSim) {
                 tabletop_sim::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
@@ -790,26 +762,6 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                         EventData {
                             format: "Unknown",
                             file_format: Some("holoDelta"),
-                            error: None,
-                        },
-                    );
-                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
-                    return;
-                }
-
-                // HoloDuel
-                let deck = holoduel::Deck::from_file(&contents);
-                debug!("{:?}", deck);
-                if let Ok(deck) = deck {
-                    *common_deck.write() =
-                        DeckOrPile::Deck(holoduel::Deck::to_common_deck(deck, &db.read()));
-                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::holodelta();
-                    *deck_success.write() = "Deck file format: HoloDuel".into();
-                    track_event(
-                        EventType::Import("Unknown".into()),
-                        EventData {
-                            format: "Unknown",
-                            file_format: Some("HoloDuel"),
                             error: None,
                         },
                     );

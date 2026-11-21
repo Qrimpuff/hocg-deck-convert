@@ -23,7 +23,6 @@ pub mod deck_log;
 pub mod edit_deck;
 pub mod holoburi;
 pub mod holodelta;
-pub mod holoduel;
 pub mod price_check;
 pub mod proxy_sheets;
 pub mod starter_decks;
@@ -34,7 +33,6 @@ pub enum DeckType {
     StarterDecks,
     DeckLog,
     HoloDelta,
-    HoloDuel,
     TabletopSim,
     HoloBuri,
     ProxySheets,
