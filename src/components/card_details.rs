@@ -213,7 +213,7 @@ pub fn CardDetailsTitle(
 
         if matches!(
             format,
-            DeckType::DeckLog | DeckType::HoloDuel | DeckType::TabletopSim
+            DeckType::DeckLog | DeckType::TabletopSim
         ) && *is_unreleased.read()
         {
             if illust.is_none_or(|i| !i.manage_id.has_value()) {
