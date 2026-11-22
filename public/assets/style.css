@@ -331,3 +331,27 @@
     opacity: 1;
     visibility: visible;
 }
+
+/* card details: one product per line, codes and dates aligned */
+.product-list {
+    align-items: baseline;
+    display: grid;
+    gap: 0.25rem 0.5rem;
+    grid-template-columns: auto 1fr auto;
+    margin-top: 0.25rem;
+}
+
+.product-list.no-codes {
+    grid-template-columns: 1fr auto;
+}
+
+.product-list .tag {
+    font-variant-numeric: tabular-nums;
+}
+
+.product-date {
+    color: var(--bulma-text-weak);
+    font-size: 0.875em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}

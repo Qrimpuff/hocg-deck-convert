@@ -33,6 +33,10 @@ if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(prefetchCards).catch(console.error);
                 }
             }
+            if (event.data && event.data.type === 'PRODUCTS_DB_UPDATED') {
+                // The app loads the product catalog again.
+                window.dispatchEvent(new Event('hocg-products-db-updated'));
+            }
         });
 
         navigator.serviceWorker.register(SW_PATH).then((registration) => {

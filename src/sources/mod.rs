@@ -18,12 +18,14 @@ use crate::{
     sources::price_check::{PriceCacheKey, PriceCheckService},
 };
 
+pub mod csv;
 pub mod deck_file;
 pub mod deck_log;
 pub mod edit_deck;
 pub mod holoburi;
 pub mod holodelta;
 pub mod price_check;
+pub mod products;
 pub mod proxy_sheets;
 pub mod starter_decks;
 pub mod tabletop_sim;
@@ -37,6 +39,7 @@ pub enum DeckType {
     HoloBuri,
     ProxySheets,
     PriceCheck,
+    Csv,
     Unknown,
 }
 

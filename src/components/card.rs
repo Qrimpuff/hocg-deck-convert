@@ -8,7 +8,8 @@ use crate::{
     PREVIEW_CARD_LANG, PRICE_SERVICE,
     components::modal_popup::{Popup, show_popup},
     sources::{
-        CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
+        CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, csv,
+        price_check::PriceCheckService,
     },
     tracker::{EventType, TrackEvent, track_event, track_external_url},
 };
@@ -226,11 +227,7 @@ pub fn Card(
     let max_amount = if !deck_is_pile
         || matches!(
             *EXPORT_FORMAT.read(),
-            Some(
-                DeckType::DeckLog
-                    | DeckType::HoloDelta
-                    | DeckType::TabletopSim
-            )
+            Some(DeckType::DeckLog | DeckType::HoloDelta | DeckType::TabletopSim)
         ) {
         card.max_amount(*card_lang.read(), &db.read())
     } else {
@@ -264,6 +261,7 @@ pub fn Card(
                     )
                     .is_none()
         }
+        Some(DeckType::Csv) => !csv::notes(&card, *PREVIEW_CARD_LANG.read(), &db.read()).is_empty(),
         Some(DeckType::PriceCheck) => {
             card.card_illustration(&db.read())
                 .is_none_or(|i| match *PRICE_SERVICE.read() {

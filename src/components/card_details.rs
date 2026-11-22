@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use crate::{
     CARDS_DB, COMMON_DECK, CardLanguage, CardType, EXPORT_FORMAT, GLOBAL_RARITY, GLOBAL_RELEASE,
-    PREVIEW_CARD_LANG, PRICE_SERVICE,
+    PREVIEW_CARD_LANG, PRICE_SERVICE, PRODUCTS_DB,
     components::{
         card::{Card, CardImageSource, CardImg},
         card_search::{FilterField, FilterRelease, Filters, TextFilter},
@@ -19,10 +19,15 @@ use crate::{
         tooltip::{Tooltip, TooltipPlacement},
     },
     sources::{
-        CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, price_check::PriceCheckService,
+        CommonCard, DeckLike, DeckOrPile, DeckType, ImageOptions, csv,
+        price_check::PriceCheckService,
+        products::{other_lang, product_label, product_url, products_language, release_date},
     },
     tracker::{EventType, TrackEvent, track_event, track_external_url},
 };
+
+/// Products listed before "Show more".
+const PRODUCTS_SHOWN: usize = 4;
 
 pub static CARD_DETAILS_LANG: GlobalSignal<CardLanguage> = Signal::global(|| CardLanguage::English);
 
@@ -205,23 +210,23 @@ pub fn CardDetailsTitle(
             return vec![];
         };
 
-        let mut warnings = vec![];
+        let mut warnings: Vec<String> = vec![];
 
         if *is_unknown.read() {
-            return vec!["This card is unknown."];
+            return vec!["This card is unknown.".into()];
         }
 
-        if matches!(
-            format,
-            DeckType::DeckLog | DeckType::TabletopSim
-        ) && *is_unreleased.read()
-        {
+        if matches!(format, DeckType::DeckLog | DeckType::TabletopSim) && *is_unreleased.read() {
             if illust.is_none_or(|i| !i.manage_id.has_value()) {
-                warnings.push("This card is unreleased.");
+                warnings.push("This card is unreleased.".into());
             } else {
                 match *PREVIEW_CARD_LANG.read() {
-                    CardLanguage::Japanese => warnings.push("This card is unreleased in Japanese."),
-                    CardLanguage::English => warnings.push("This card is unreleased in English."),
+                    CardLanguage::Japanese => {
+                        warnings.push("This card is unreleased in Japanese.".into())
+                    }
+                    CardLanguage::English => {
+                        warnings.push("This card is unreleased in English.".into())
+                    }
                 }
             }
         }
@@ -238,8 +243,15 @@ pub fn CardDetailsTitle(
                 .is_none()
         {
             match *PREVIEW_CARD_LANG.read() {
-                CardLanguage::Japanese => warnings.push("Missing Japanese proxy."),
-                CardLanguage::English => warnings.push("Missing English proxy."),
+                CardLanguage::Japanese => warnings.push("Missing Japanese proxy.".into()),
+                CardLanguage::English => warnings.push("Missing English proxy.".into()),
+            }
+        }
+
+        if format == DeckType::Csv {
+            let note = csv::notes(&card.read(), *PREVIEW_CARD_LANG.read(), &db);
+            if !note.is_empty() {
+                warnings.push(format!("{note}."));
             }
         }
 
@@ -247,24 +259,24 @@ pub fn CardDetailsTitle(
             match *PRICE_SERVICE.read() {
                 PriceCheckService::Yuyutei => {
                     if illust.is_none_or(|i| i.yuyutei_sell_paths.is_none()) {
-                        warnings.push("No price data on Yuyu-tei.");
+                        warnings.push("No price data on Yuyu-tei.".into());
                         if *is_unreleased.read() {
                             if illust.is_none_or(|i| !i.manage_id.has_value()) {
-                                warnings.push("This card is unreleased.");
+                                warnings.push("This card is unreleased.".into());
                             } else {
-                                warnings.push("This card is unreleased in Japanese.");
+                                warnings.push("This card is unreleased in Japanese.".into());
                             }
                         }
                     }
                 }
                 PriceCheckService::TcgPlayer => {
                     if illust.is_none_or(|i| i.tcgplayer_product_ids.is_none()) {
-                        warnings.push("No price data on TCGPlayer.");
+                        warnings.push("No price data on TCGPlayer.".into());
                         if *is_unreleased.read() {
                             if illust.is_none_or(|i| !i.manage_id.has_value()) {
-                                warnings.push("This card is unreleased.");
+                                warnings.push("This card is unreleased.".into());
                             } else {
-                                warnings.push("This card is unreleased in English.");
+                                warnings.push("This card is unreleased in English.".into());
                             }
                         }
                     }
@@ -357,6 +369,12 @@ pub fn CardDetailsContent(
 ) -> Element {
     let lang = CARD_DETAILS_LANG.signal();
     let mut big_card = use_signal(|| false);
+    // long product lists (reprinted cards) are collapsed until asked, for each card
+    let mut show_all_products = use_signal(|| false);
+    use_effect(move || {
+        let _ = card.read();
+        show_all_products.set(false);
+    });
 
     let img = use_memo(move || {
         let card = card.read();
@@ -413,96 +431,17 @@ pub fn CardDetailsContent(
             return "- Unknown -".to_string();
         };
 
-        let mut card_type = if *lang.read() == CardLanguage::Japanese {
-            match card.card_type {
-                hocg::CardType::OshiHoloMember => "推しホロメン",
-                hocg::CardType::HoloMember => match card.bloom_level {
-                    Some(hocg::BloomLevel::Debut) => "Debut ホロメン",
-                    Some(hocg::BloomLevel::First) => "1st ホロメン",
-                    Some(hocg::BloomLevel::Second) => "2nd ホロメン",
-                    Some(hocg::BloomLevel::Spot) => "Spot ホロメン",
-                    None => "ホロメン",
-                },
-                hocg::CardType::Support(support_type) => match support_type {
-                    hocg::SupportType::Staff => "サポート・スタッフ",
-                    hocg::SupportType::Item => "サポート・アイテム",
-                    hocg::SupportType::Event => "サポート・イベント",
-                    hocg::SupportType::Tool => "サポート・ツール",
-                    hocg::SupportType::Mascot => "サポート・マスコット",
-                    hocg::SupportType::Fan => "サポート・ファン",
-                },
-                hocg::CardType::Cheer => "エール",
-                hocg::CardType::Other => "Other",
-            }
-        } else {
-            match card.card_type {
-                hocg::CardType::OshiHoloMember => "Oshi Holo Member",
-                hocg::CardType::HoloMember => match card.bloom_level {
-                    Some(hocg::BloomLevel::Debut) => "Debut Holo Member",
-                    Some(hocg::BloomLevel::First) => "1st Holo Member",
-                    Some(hocg::BloomLevel::Second) => "2nd Holo Member",
-                    Some(hocg::BloomLevel::Spot) => "Spot Holo Member",
-                    None => "Holo Member",
-                },
-                hocg::CardType::Support(support_type) => match support_type {
-                    hocg::SupportType::Staff => "Support - Staff",
-                    hocg::SupportType::Item => "Support - Item",
-                    hocg::SupportType::Event => "Support - Event",
-                    hocg::SupportType::Tool => "Support - Tool",
-                    hocg::SupportType::Mascot => "Support - Mascot",
-                    hocg::SupportType::Fan => "Support - Fan",
-                },
-                hocg::CardType::Cheer => "Cheer",
-                hocg::CardType::Other => "Other",
-            }
-        }
-        .to_string();
-        if card.buzz {
-            if *lang.read() == CardLanguage::Japanese {
-                card_type.push_str("・Buzz");
-            } else {
-                card_type.push_str(" - Buzz");
-            }
-        }
-        if card.limited {
-            if *lang.read() == CardLanguage::Japanese {
-                card_type.push_str("・LIMITED");
-            } else {
-                card_type.push_str(" - Limited");
-            }
-        }
-
+        let lang = *lang.read();
+        let card_type = card_type_label(card, lang);
         let colors = card
             .colors
             .iter()
-            .filter_map(|c| {
-                if *lang.read() == CardLanguage::Japanese {
-                    match c {
-                        hocg::Color::White => Some("白"),
-                        hocg::Color::Green => Some("緑"),
-                        hocg::Color::Red => Some("赤"),
-                        hocg::Color::Blue => Some("青"),
-                        hocg::Color::Purple => Some("紫"),
-                        hocg::Color::Yellow => Some("黄"),
-                        hocg::Color::Colorless => None,
-                    }
-                } else {
-                    match c {
-                        hocg::Color::White => Some("White"),
-                        hocg::Color::Green => Some("Green"),
-                        hocg::Color::Red => Some("Red"),
-                        hocg::Color::Blue => Some("Blue"),
-                        hocg::Color::Purple => Some("Purple"),
-                        hocg::Color::Yellow => Some("Yellow"),
-                        hocg::Color::Colorless => None,
-                    }
-                }
-            })
+            .filter_map(|c| color_label(*c, lang))
             .join("/");
 
         if colors.is_empty() {
             card_type
-        } else if *lang.read() == CardLanguage::Japanese {
+        } else if lang == CardLanguage::Japanese {
             format!("{colors}・{card_type}")
         } else {
             format!("{colors} - {card_type}")
@@ -682,6 +621,69 @@ pub fn CardDetailsContent(
                     format!("Illustrator: {illustrator}")
                 }
             })
+    });
+
+    // Products, in the card language (or the other one when the printing isn't released in it).
+    // `(code, label, official name, date, page)`; only the code without the catalog.
+    #[allow(clippy::type_complexity)]
+    let products = use_memo(move || {
+        let db = db.read();
+        let catalog = PRODUCTS_DB.read();
+        let lang = *lang.read();
+        let Some(illust) = card.read().card_illustration(&db).cloned() else {
+            return vec![];
+        };
+        illust
+            .products_in(products_language(&illust, lang).into(), &catalog)
+            .into_iter()
+            .map(|(code, product)| match product {
+                Some(product) => {
+                    let label = product_label(code, product, lang);
+                    (
+                        code.to_string(),
+                        label.show_code,
+                        label.label,
+                        label.title,
+                        release_date(product, lang).map(String::from),
+                        product_url(product, lang).map(String::from),
+                    )
+                }
+                None => (
+                    code.to_string(),
+                    false,
+                    code.to_string(),
+                    code.to_string(),
+                    None,
+                    None,
+                ),
+            })
+            .collect::<Vec<_>>()
+    });
+
+    // How the printing was distributed (promos, prizes, PR packs, set-exclusive arts), in each
+    // release, the card language first. `(language tag, source)`
+    let distribution = use_memo(move || {
+        let db = db.read();
+        let lang = *lang.read();
+        let Some(illust) = card.read().card_illustration(&db).cloned() else {
+            return Vec::new();
+        };
+        [lang, other_lang(lang)]
+            .into_iter()
+            .flat_map(|l| {
+                let tag = match l {
+                    CardLanguage::Japanese => "JP",
+                    CardLanguage::English => "EN",
+                };
+                illust
+                    .promo_sources
+                    .value(l.into())
+                    .iter()
+                    .flatten()
+                    .map(move |source| (tag, source.clone()))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     });
 
     let urls = use_memo(move || {
@@ -1050,6 +1052,82 @@ pub fn CardDetailsContent(
                     div { class: "block", "{illustrator}" }
                 }
 
+                if !products.read().is_empty() || !distribution.read().is_empty() {
+                    div { class: "block",
+                        if !products.read().is_empty() {
+                            div {
+                                if *lang.read() == CardLanguage::Japanese {
+                                    "収録商品:"
+                                } else {
+                                    "Products:"
+                                }
+                            }
+                            div {
+                                // without any code tag, no empty code column
+                                class: if products.read().iter().any(|p| p.1) { "product-list" } else { "product-list no-codes" },
+                                for (code , show_code , name , title , date , url) in products
+                                    .read()
+                                    .iter()
+                                    .take(if *show_all_products.read() { usize::MAX } else { PRODUCTS_SHOWN })
+                                    .cloned()
+                                {
+                                    if products.read().iter().any(|p| p.1) {
+                                        span {
+                                            if show_code {
+                                                span { class: "tag", "{code}" }
+                                            }
+                                        }
+                                    }
+                                    span {
+                                        if let Some(url) = url {
+                                            a {
+                                                href: "{url}",
+                                                target: "_blank",
+                                                title: "{title} ({code})",
+                                                onclick: |_| { track_external_url("Official product page") },
+                                                "{name}"
+                                            }
+                                        } else {
+                                            span { title: "{title} ({code})", "{name}" }
+                                        }
+                                    }
+                                    span { class: "product-date", {date.unwrap_or_default()} }
+                                }
+                            }
+                            if products.read().len() > PRODUCTS_SHOWN && !*show_all_products.read() {
+                                button {
+                                    r#type: "button",
+                                    class: "button is-small is-text",
+                                    onclick: move |_| *show_all_products.write() = true,
+                                    if *lang.read() == CardLanguage::Japanese {
+                                        "他 {products.read().len() - PRODUCTS_SHOWN} 件を表示"
+                                    } else {
+                                        "Show {products.read().len() - PRODUCTS_SHOWN} more"
+                                    }
+                                }
+                            }
+                        }
+                        if !distribution.read().is_empty() {
+                            div {
+                                if *lang.read() == CardLanguage::Japanese {
+                                    "入手方法:"
+                                } else {
+                                    "Sources:"
+                                }
+                            }
+                            div { class: "product-list",
+                                for (tag , source) in distribution.read().clone() {
+                                    span {
+                                        span { class: "tag", "{tag}" }
+                                    }
+                                    span { "{source}" }
+                                    span {}
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if let Some(urls) = urls.read().as_ref() {
                     ul {
                         for url in urls {
@@ -1391,24 +1469,58 @@ enum TextSegment {
     Cheers(Vec<hocg::Color>),
 }
 
+/// The color of a cheer named in card text, e.g. "green" or "緑".
+fn cheer_color(name: &str) -> hocg::Color {
+    let s = name.to_lowercase();
+    if s.contains("白") || s.contains("white") {
+        hocg::Color::White
+    } else if s.contains("緑") || s.contains("green") {
+        hocg::Color::Green
+    } else if s.contains("赤") || s.contains("red") {
+        hocg::Color::Red
+    } else if s.contains("青") || s.contains("blue") {
+        hocg::Color::Blue
+    } else if s.contains("紫") || s.contains("purple") {
+        hocg::Color::Purple
+    } else if s.contains("黄") || s.contains("yellow") {
+        hocg::Color::Yellow
+    } else {
+        hocg::Color::Colorless
+    }
+}
+
 fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
     static RE: OnceLock<Regex> = OnceLock::new();
     static TAGS: OnceLock<Vec<String>> = OnceLock::new();
+    static COLOR_RE: OnceLock<Regex> = OnceLock::new();
 
     let re = RE.get_or_init(|| {
         const CARD_PATTERN: &str = r"(?P<card>(?P<c_b1>[〈<])(?P<c_name>[^〉>]+)(?P<c_b2>[〉>]))";
         const IN_CARD_PATTERN: &str = r#"(?P<in_card>(?P<i_en_1>")(?P<i_name_en>[^"]+)(?P<i_en_2>" in its card name)|(?P<i_jp_1>カード名に「)(?P<i_name_jp>[^」]+)(?P<i_jp_2>」))"#;
         const TAG_PATTERN: &str = r#"(?P<tag>#(?:\s?[^#\sを持つ"「〈<\[]+){1,5})"#;
+        // a list of colors sharing one "cheers", e.g. "[green, blue, and yellow] cheers",
+        // "[緑と青と黄]エール"
+        const CHEER_LIST_PATTERN: &str = r"(?P<yell_list>\[?(?:白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?:(?:,\s(?:and\s|or\s)?|\s(?:and|or)\s|と|か)(?:白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless))+\]?(?:\scheers?|エール))";
+        // the color a cheer must not be: "cheers other than blue" is printed with an icon, but
+        // "non-green cheers" with the color as text (hBP03-024), so it is matched to stay text.
+        // The Japanese text writes both as "緑以外のエール", so it stays text.
+        const CHEER_EXCEPT_PATTERN: &str = r"(?P<yell_except>cheers?\sother\sthan\s(?:白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless))";
+        const NON_COLOR_PATTERN: &str = r"(?P<non_color>non-(?:白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless))";
         const CHEER_PATTERN: &str = r"(?P<yell>(?P<y_p1>-\d\s)?(?P<y_color>白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless)(?P<y_p2>エール|-\d|\scheers?)?)";
         const SKILL_PATTERN: &str = r#"(?P<skill>(?P<s_text>oshi skill\s|推しスキル)(?P<s_b1>["「])(?P<s_name>[^"」]+)(?P<s_b2>["」]))"#;
         const EXTRA_PATTERN: &str = r#"(?P<extra>(?P<e_text>extra\s|エクストラ)(?P<e_b1>["「])(?P<e_name>[^"」]+)(?P<e_b2>["」]))"#;
         Regex::new(
             format!(
-                "(?i){CARD_PATTERN}|{IN_CARD_PATTERN}|{TAG_PATTERN}|{CHEER_PATTERN}|{SKILL_PATTERN}|{EXTRA_PATTERN}"
+                "(?i){CARD_PATTERN}|{IN_CARD_PATTERN}|{TAG_PATTERN}|{CHEER_LIST_PATTERN}|{CHEER_EXCEPT_PATTERN}|{NON_COLOR_PATTERN}|{CHEER_PATTERN}|{SKILL_PATTERN}|{EXTRA_PATTERN}"
             )
             .as_str(),
         )
         .unwrap()
+    });
+
+    let color_re = COLOR_RE.get_or_init(|| {
+        Regex::new(r"(?i)白|緑|赤|青|紫|黄|無色|white|green|red|blue|purple|yellow|colorless")
+            .unwrap()
     });
 
     let mut segments = Vec::new();
@@ -1489,24 +1601,27 @@ fn parse_augmented_text(text: &str, db: &CardsDatabase) -> Vec<TextSegment> {
             segments.push(TextSegment::Extra(extra.as_str().to_string()));
             segments.push(TextSegment::Text(cap["e_b2"].to_string()));
 
+        // "non-green": the color is written as text
+        } else if let Some(non_color) = cap.name("non_color") {
+            segments.push(TextSegment::Text(non_color.as_str().to_string()));
+
+        // Cheer icons, one before each color of the list or exception
+        } else if let Some(list) = cap.name("yell_list").or_else(|| cap.name("yell_except")) {
+            let list = list.as_str();
+            let mut list_end = 0;
+            for color_str in color_re.find_iter(list) {
+                segments.push(TextSegment::Text(
+                    list[list_end..color_str.start()].to_string(),
+                ));
+                segments.push(TextSegment::Cheers(vec![cheer_color(color_str.as_str())]));
+                segments.push(TextSegment::Text(color_str.as_str().to_string()));
+                list_end = color_str.end();
+            }
+            segments.push(TextSegment::Text(list[list_end..].to_string()));
+
         // Cheer icon
         } else if let Some(color_str) = cap.name("y_color") {
-            let s = color_str.as_str().to_lowercase();
-            let color = if s.contains("白") || s.contains("white") {
-                hocg::Color::White
-            } else if s.contains("緑") || s.contains("green") {
-                hocg::Color::Green
-            } else if s.contains("赤") || s.contains("red") {
-                hocg::Color::Red
-            } else if s.contains("青") || s.contains("blue") {
-                hocg::Color::Blue
-            } else if s.contains("紫") || s.contains("purple") {
-                hocg::Color::Purple
-            } else if s.contains("黄") || s.contains("yellow") {
-                hocg::Color::Yellow
-            } else {
-                hocg::Color::Colorless
-            };
+            let color = cheer_color(color_str.as_str());
 
             let valid_cheer = cap.name("y_p1").is_some()
                 || cap.name("y_p2").is_some()
@@ -1707,5 +1822,225 @@ fn AugmentedText(text: String, lang: Signal<CardLanguage>) -> Element {
                 }
             }
         }
+    }
+}
+
+/// The card type, with its bloom level, buzz and limited, e.g. "Debut Holo Member - Buzz".
+pub fn card_type_label(card: &hocg::Card, lang: CardLanguage) -> String {
+    let mut card_type = if lang == CardLanguage::Japanese {
+        match card.card_type {
+            hocg::CardType::OshiHoloMember => "推しホロメン",
+            hocg::CardType::HoloMember => match card.bloom_level {
+                Some(hocg::BloomLevel::Debut) => "Debut ホロメン",
+                Some(hocg::BloomLevel::First) => "1st ホロメン",
+                Some(hocg::BloomLevel::Second) => "2nd ホロメン",
+                Some(hocg::BloomLevel::Spot) => "Spot ホロメン",
+                None => "ホロメン",
+            },
+            hocg::CardType::Support(support_type) => match support_type {
+                hocg::SupportType::Staff => "サポート・スタッフ",
+                hocg::SupportType::Item => "サポート・アイテム",
+                hocg::SupportType::Event => "サポート・イベント",
+                hocg::SupportType::Tool => "サポート・ツール",
+                hocg::SupportType::Mascot => "サポート・マスコット",
+                hocg::SupportType::Fan => "サポート・ファン",
+            },
+            hocg::CardType::Cheer => "エール",
+            hocg::CardType::Other => "Other",
+        }
+    } else {
+        match card.card_type {
+            hocg::CardType::OshiHoloMember => "Oshi Holo Member",
+            hocg::CardType::HoloMember => match card.bloom_level {
+                Some(hocg::BloomLevel::Debut) => "Debut Holo Member",
+                Some(hocg::BloomLevel::First) => "1st Holo Member",
+                Some(hocg::BloomLevel::Second) => "2nd Holo Member",
+                Some(hocg::BloomLevel::Spot) => "Spot Holo Member",
+                None => "Holo Member",
+            },
+            hocg::CardType::Support(support_type) => match support_type {
+                hocg::SupportType::Staff => "Support - Staff",
+                hocg::SupportType::Item => "Support - Item",
+                hocg::SupportType::Event => "Support - Event",
+                hocg::SupportType::Tool => "Support - Tool",
+                hocg::SupportType::Mascot => "Support - Mascot",
+                hocg::SupportType::Fan => "Support - Fan",
+            },
+            hocg::CardType::Cheer => "Cheer",
+            hocg::CardType::Other => "Other",
+        }
+    }
+    .to_string();
+    if card.buzz {
+        if lang == CardLanguage::Japanese {
+            card_type.push_str("・Buzz");
+        } else {
+            card_type.push_str(" - Buzz");
+        }
+    }
+    if card.limited {
+        if lang == CardLanguage::Japanese {
+            card_type.push_str("・LIMITED");
+        } else {
+            card_type.push_str(" - Limited");
+        }
+    }
+    card_type
+}
+
+/// The name of a color; colorless has none.
+pub fn color_label(color: hocg::Color, lang: CardLanguage) -> Option<&'static str> {
+    let japanese = lang == CardLanguage::Japanese;
+    Some(match color {
+        hocg::Color::White => {
+            if japanese {
+                "白"
+            } else {
+                "White"
+            }
+        }
+        hocg::Color::Green => {
+            if japanese {
+                "緑"
+            } else {
+                "Green"
+            }
+        }
+        hocg::Color::Red => {
+            if japanese {
+                "赤"
+            } else {
+                "Red"
+            }
+        }
+        hocg::Color::Blue => {
+            if japanese {
+                "青"
+            } else {
+                "Blue"
+            }
+        }
+        hocg::Color::Purple => {
+            if japanese {
+                "紫"
+            } else {
+                "Purple"
+            }
+        }
+        hocg::Color::Yellow => {
+            if japanese {
+                "黄"
+            } else {
+                "Yellow"
+            }
+        }
+        hocg::Color::Colorless => return None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use TextSegment::{Cheers, Text};
+
+    fn parse(text: &str) -> Vec<TextSegment> {
+        parse_augmented_text(text, &CardsDatabase::new())
+    }
+
+    fn icons(text: &str) -> Vec<hocg::Color> {
+        parse(text)
+            .into_iter()
+            .filter_map(|s| match s {
+                Cheers(c) => Some(c),
+                _ => None,
+            })
+            .flatten()
+            .collect()
+    }
+
+    #[test]
+    fn single_cheers_get_an_icon() {
+        use hocg::Color::*;
+        assert_eq!(
+            parse("Reveal 1 yellow cheer from your cheer deck."),
+            vec![
+                Text("Reveal 1 ".into()),
+                Cheers(vec![Yellow]),
+                Text("yellow cheer from your cheer deck.".into()),
+            ]
+        );
+        assert_eq!(icons("[green cheer or blue cheer]"), vec![Green, Blue]);
+        assert_eq!(icons("[緑エールか青エール]1枚"), vec![Green, Blue]);
+    }
+
+    #[test]
+    fn color_lists_get_an_icon_per_color() {
+        use hocg::Color::*;
+        // hBP10-002
+        assert_eq!(
+            parse("Send all [green, blue, and yellow] cheers from your archive"),
+            vec![
+                Text("Send all [".into()),
+                Cheers(vec![Green]),
+                Text("green, ".into()),
+                Cheers(vec![Blue]),
+                Text("blue, and ".into()),
+                Cheers(vec![Yellow]),
+                Text("yellow] cheers from your archive".into()),
+            ]
+        );
+        // hBP10-022, hBP09-089
+        assert_eq!(
+            icons("If your stage has green, blue, and yellow cheers, restore"),
+            vec![Green, Blue, Yellow]
+        );
+        assert_eq!(
+            icons("自分のステージに[緑と青と黄]エールがあるなら"),
+            vec![Green, Blue, Yellow]
+        );
+    }
+
+    #[test]
+    fn excluded_cheers_get_an_icon() {
+        use hocg::Color::*;
+        // hBP06-048: the card prints the excluded color as an icon too
+        assert_eq!(
+            parse("If cheers other than blue are attached"),
+            vec![
+                Text("If cheers other than ".into()),
+                Cheers(vec![Blue]),
+                Text("blue are attached".into()),
+            ]
+        );
+        // hSD12-010
+        assert_eq!(
+            icons("archive 1 cheer other than purple from"),
+            vec![Purple]
+        );
+    }
+
+    #[test]
+    fn non_color_cheers_stay_text() {
+        // hBP03-024, hBP02-052: printed with the color as text
+        assert_eq!(
+            parse("If 2 or more non-green cheers are attached"),
+            vec![Text("If 2 or more non-green cheers are attached".into())]
+        );
+        assert_eq!(icons("If a non-purple cheer is attached"), vec![]);
+        // the Japanese text can't tell these from hBP06-048's icon, so it stays text
+        assert_eq!(icons("このホロメンに紫以外のエールが付いている時"), vec![]);
+    }
+
+    #[test]
+    fn holomem_colors_get_no_icon() {
+        // hBP09-089: the Oshi color, then a cheer without a color
+        assert_eq!(
+            icons(
+                "If your Oshi holomem's color is green, blue or yellow, send the top card of your cheer deck"
+            ),
+            vec![]
+        );
+        assert_eq!(icons("自分の推しホロメンの色が緑か青か黄なら"), vec![]);
+        assert_eq!(icons("Reveal 1 [blue holomem or purple holomem]"), vec![]);
     }
 }

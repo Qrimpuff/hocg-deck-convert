@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use components::deck_preview::DeckPreview;
 use dioxus::{
-    logger::tracing::{debug, error},
+    logger::tracing::{debug, error, warn},
     prelude::*,
 };
 use futures::StreamExt;
@@ -20,7 +20,7 @@ use gloo::{
     utils::{document, window},
 };
 use hocg_fan_sim_assets_model::{self as hocg, CardOrderingOptions};
-use hocg_fan_sim_assets_model::{CardsDatabase, Language};
+use hocg_fan_sim_assets_model::{CardsDatabase, Language, ProductsDatabase};
 use icu_timezone::TimeZoneIdMapper;
 use itertools::Itertools;
 use price_check::PriceCache;
@@ -55,6 +55,8 @@ pub const HOCG_ASSETS_URL: &str = match option_env!("HOCG_ASSETS_URL") {
 
 static ERROR_MESSAGE: GlobalSignal<String> = Signal::global(Default::default);
 static CARDS_DB: GlobalSignal<CardsDatabase> = Signal::global(Default::default);
+/// The products cards are released in. Optional: empty until loaded, or if it can't be.
+static PRODUCTS_DB: GlobalSignal<ProductsDatabase> = Signal::global(Default::default);
 static ALL_CARDS_SORTED: GlobalSignal<Vec<(hocg::Card, (String, String))>> =
     Signal::global(Default::default);
 static CARDS_PRICES: GlobalSignal<PriceCache> = Signal::global(Default::default);
@@ -122,6 +124,26 @@ async fn load_cards_db() -> Result<(), &'static str> {
     Ok(())
 }
 
+/// Fetches the product catalog. It is optional data: on failure the current one is kept (empty
+/// at first), and the app works without it.
+async fn load_products_db() {
+    let response = match reqwest::get(format!("{HOCG_ASSETS_URL}/hocg_products.json")).await {
+        Ok(response) if response.status().is_success() => response,
+        Ok(response) => {
+            warn!("Product catalog unavailable: {}", response.status());
+            return;
+        }
+        Err(err) => {
+            warn!("Failed to fetch product catalog: {err}");
+            return;
+        }
+    };
+    match response.json::<ProductsDatabase>().await {
+        Ok(products) => *PRODUCTS_DB.write() = products,
+        Err(err) => warn!("Failed to parse product catalog: {err}"),
+    }
+}
+
 #[component]
 fn App() -> Element {
     done_loading();
@@ -143,6 +165,19 @@ fn App() -> Element {
     let _cards_db_updates = use_signal(move || {
         EventListener::new(&window(), "hocg-cards-db-updated", move |_| {
             cards_db.send(());
+        })
+    });
+
+    // Same for the product catalog, loaded alongside the cards without waiting for them.
+    let products_db = use_coroutine(|mut updates: UnboundedReceiver<()>| async move {
+        load_products_db().await;
+        while updates.next().await.is_some() {
+            load_products_db().await;
+        }
+    });
+    let _products_db_updates = use_signal(move || {
+        EventListener::new(&window(), "hocg-products-db-updated", move |_| {
+            products_db.send(());
         })
     });
 
@@ -440,6 +475,7 @@ fn Form() -> Element {
                                 Some(DeckType::HoloDelta) => ImageOptions::holodelta(),
                                 Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
                                 Some(DeckType::HoloBuri) => ImageOptions::holodelta(),
+                                Some(DeckType::Csv) => ImageOptions::card_details(),
                                 _ => ImageOptions::holodelta(),
                             };
                         },
@@ -490,6 +526,7 @@ fn Form() -> Element {
                                 Some(DeckType::TabletopSim) => ImageOptions::deck_log(),
                                 Some(DeckType::ProxySheets) => ImageOptions::proxy_print(),
                                 Some(DeckType::PriceCheck) => ImageOptions::price_check(),
+                                Some(DeckType::Csv) => ImageOptions::card_details(),
                                 _ => ImageOptions::holodelta(),
                             };
                         },
@@ -533,6 +570,7 @@ pub fn ImportPage() -> Element {
                                 "holo_delta" => ImageOptions::holodelta(),
                                 "holoburi" => ImageOptions::holodelta(),
                                 "hocg_tts" => ImageOptions::deck_log(),
+                                "csv" => ImageOptions::card_details(),
                                 _ => ImageOptions::holodelta(),
                             };
                             *import_format.write() = match ev.value().as_str() {
@@ -541,19 +579,20 @@ pub fn ImportPage() -> Element {
                                 "holo_delta" => Some(DeckType::HoloDelta),
                                 "holoburi" => Some(DeckType::HoloBuri),
                                 "hocg_tts" => Some(DeckType::TabletopSim),
+                                "csv" => Some(DeckType::Csv),
                                 "unknown" => Some(DeckType::Unknown),
                                 _ => None,
                             };
                         },
                         option {
-                            value: "starter_decks",
-                            selected: *import_format.read() == Some(DeckType::StarterDecks),
-                            "Starter decks"
-                        }
-                        option {
                             value: "deck_log",
                             selected: *import_format.read() == Some(DeckType::DeckLog),
                             "Deck Log (Bushiroad)"
+                        }
+                        option {
+                            value: "starter_decks",
+                            selected: *import_format.read() == Some(DeckType::StarterDecks),
+                            "Starter decks"
                         }
                         option {
                             value: "holo_delta",
@@ -561,14 +600,19 @@ pub fn ImportPage() -> Element {
                             "holoDelta"
                         }
                         option {
-                            value: "hocg_tts",
-                            selected: *import_format.read() == Some(DeckType::TabletopSim),
-                            "Tabletop Simulator (by Noodlebrain)"
+                            value: "csv",
+                            selected: *import_format.read() == Some(DeckType::Csv),
+                            "Card list (CSV)"
                         }
                         option {
                             value: "holoburi",
                             selected: *import_format.read() == Some(DeckType::HoloBuri),
                             "holoburi"
+                        }
+                        option {
+                            value: "hocg_tts",
+                            selected: *import_format.read() == Some(DeckType::TabletopSim),
+                            "Tabletop Simulator (by Noodlebrain)"
                         }
                         option {
                             value: "unknown",
@@ -595,6 +639,13 @@ pub fn ImportPage() -> Element {
             }
             if *import_format.read() == Some(DeckType::TabletopSim) {
                 tabletop_sim::Import { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *import_format.read() == Some(DeckType::Csv) {
+                csv::Import {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    products: PRODUCTS_DB.signal(),
+                }
             }
             if *import_format.read() == Some(DeckType::Unknown) {
                 UnknownImport { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
@@ -638,6 +689,7 @@ pub fn ExportPage() -> Element {
                                 "holoburi" => ImageOptions::holodelta(),
                                 "proxy_sheets" => ImageOptions::proxy_print(),
                                 "price_check" => ImageOptions::price_check(),
+                                "csv" => ImageOptions::card_details(),
                                 _ => ImageOptions::holodelta(),
                             };
                             *export_format.write() = match ev.value().as_str() {
@@ -649,6 +701,7 @@ pub fn ExportPage() -> Element {
                                 "holoburi" => Some(DeckType::HoloBuri),
                                 "proxy_sheets" => Some(DeckType::ProxySheets),
                                 "price_check" => Some(DeckType::PriceCheck),
+                                "csv" => Some(DeckType::Csv),
                                 _ => None,
                             };
                             *SHOW_PRICE.write() = *export_format.read() == Some(DeckType::PriceCheck);
@@ -659,14 +712,14 @@ pub fn ExportPage() -> Element {
                             "None"
                         }
                         option {
-                            value: "proxy_sheets",
-                            selected: *export_format.read() == Some(DeckType::ProxySheets),
-                            "Proxy sheets (PDF)"
-                        }
-                        option {
                             value: "price_check",
                             selected: *export_format.read() == Some(DeckType::PriceCheck),
                             "Price check"
+                        }
+                        option {
+                            value: "proxy_sheets",
+                            selected: *export_format.read() == Some(DeckType::ProxySheets),
+                            "Proxy sheets (PDF)"
                         }
                         option {
                             value: "deck_log",
@@ -679,14 +732,19 @@ pub fn ExportPage() -> Element {
                             "holoDelta"
                         }
                         option {
-                            value: "hocg_tts",
-                            selected: *export_format.read() == Some(DeckType::TabletopSim),
-                            "Tabletop Simulator (by Noodlebrain)"
+                            value: "csv",
+                            selected: *export_format.read() == Some(DeckType::Csv),
+                            "Card list (CSV)"
                         }
                         option {
                             value: "holoburi",
                             selected: *export_format.read() == Some(DeckType::HoloBuri),
                             "holoburi"
+                        }
+                        option {
+                            value: "hocg_tts",
+                            selected: *export_format.read() == Some(DeckType::TabletopSim),
+                            "Tabletop Simulator (by Noodlebrain)"
                         }
                     }
                 }
@@ -708,6 +766,14 @@ pub fn ExportPage() -> Element {
             }
             if *export_format.read() == Some(DeckType::ProxySheets) {
                 proxy_sheets::Export { common_deck: COMMON_DECK.signal(), db: CARDS_DB.signal() }
+            }
+            if *export_format.read() == Some(DeckType::Csv) {
+                csv::Export {
+                    common_deck: COMMON_DECK.signal(),
+                    db: CARDS_DB.signal(),
+                    products: PRODUCTS_DB.signal(),
+                    prices: CARDS_PRICES.signal(),
+                }
             }
             if *export_format.read() == Some(DeckType::PriceCheck) {
                 price_check::Export {
@@ -842,6 +908,33 @@ pub fn UnknownImport(mut common_deck: Signal<DeckOrPile>, db: Signal<CardsDataba
                         EventData {
                             format: "Unknown",
                             file_format: Some("Proxy sheets (PDF)"),
+                            error: None,
+                        },
+                    );
+                    AUTO_SAVE_DECK.write().replace(common_deck.read().clone());
+                    return;
+                }
+
+                // CSV card list
+                if let Ok(text) = std::str::from_utf8(&contents)
+                    && let Ok(imported) = csv::import_csv(text, &db.read(), &PRODUCTS_DB.read())
+                    && !imported.deck.is_empty()
+                {
+                    *common_deck.write() = imported.deck;
+                    *PREVIEW_IMAGE_OPTIONS.write() = ImageOptions::card_details();
+                    *deck_success.write() = if imported.issues.is_empty() {
+                        "Deck file format: Card list (CSV)".into()
+                    } else {
+                        format!(
+                            "Deck file format: Card list (CSV), {} rows to check (see the Card list (CSV) import)",
+                            imported.issues.len()
+                        )
+                    };
+                    track_event(
+                        EventType::Import("Unknown".into()),
+                        EventData {
+                            format: "Unknown",
+                            file_format: Some("CSV"),
                             error: None,
                         },
                     );
