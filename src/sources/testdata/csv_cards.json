@@ -1,0 +1,1945 @@
+{
+ "hBP01-007": {
+  "card_number": "hBP01-007",
+  "name": {
+   "jp": "星街すいせい",
+   "en": "Hoshimachi Suisei"
+  },
+  "card_type": "oshi_holomem",
+  "colors": [
+   "blue"
+  ],
+  "life": 5,
+  "oshi_skills": [
+   {
+    "holo_power": 2,
+    "name": {
+     "jp": "ほうき星",
+     "en": "Comet"
+    },
+    "text": {
+     "jp": "[ターンに1回]この推しホロメンか自分の青ホロメンが相手のバックホロメンにダメージを与えた時に使える:その相手のバックホロメン1人に特殊ダメージ50を与える。",
+     "en": "[1/Turn]Usable when this Oshi holomem or your blue holomem deals Damage to your opponent's back holomem:Deal 50 Special Damage to that back holomem."
+    }
+   },
+   {
+    "kind": "special",
+    "holo_power": 2,
+    "name": {
+     "jp": "シューティングスター",
+     "en": "Shooting Star"
+    },
+    "text": {
+     "jp": "[ゲームに1回]自分の青ホロメンが相手のセンターホロメンかコラボホロメンにダメージを与えた時に使える:相手のバックホロメン1人にそれと同じ数値の特殊ダメージを与える。",
+     "en": "[1/Game]Usable when your blue holomem deals Damage to your opponent's center holomem or collab holomem:Deal the same amount of Special Damage to 1 of your opponent's back holomem."
+    }
+   }
+  ],
+  "max_amount": {
+   "jp": 1,
+   "en": 1
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      35
+     ],
+     "en": [
+      37
+     ]
+    },
+    "rarity": "OSR",
+    "illustrator": "水鈴",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-007_OSR.webp",
+     "en": "hBP01/EN_hBP01-007_OSR.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10014"
+    ],
+    "tcgplayer_product_ids": [
+     645588
+    ],
+    "delta_art_index": 0,
+    "holoburi_art_key": "OSR"
+   },
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      36
+     ],
+     "en": [
+      161
+     ]
+    },
+    "rarity": "OUR",
+    "illustrator": "水鈴",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-007_OUR.webp",
+     "en": "hBP01/EN_hBP01-007_OUR.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10015"
+    ],
+    "tcgplayer_product_ids": [
+     645589
+    ],
+    "delta_art_index": 1,
+    "holoburi_art_key": "OUR"
+   },
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      37
+     ],
+     "en": [
+      162
+     ]
+    },
+    "rarity": "SEC",
+    "illustrator": "水鈴",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-007_SEC.webp",
+     "en": "hBP01/EN_hBP01-007_SEC.webp"
+    },
+    "similarity_index": 3,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10016"
+    ],
+    "tcgplayer_product_ids": [
+     645590
+    ],
+    "delta_art_index": 2,
+    "holoburi_art_key": "SEC"
+   },
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      1445
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "望田とうり",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Exstreamer Cup Finals 2025 prizes"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-007_P_01.webp",
+     "en": "proxies/hPR/hBP01-007_P_01.webp"
+    },
+    "similarity_index": 4,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 6
+   },
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      1446
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "望田とうり",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Exstreamer Cup Finals 2025 prizes"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-007_P_02.webp",
+     "en": "proxies/hPR/hBP01-007_P_02.webp"
+    },
+    "similarity_index": 5,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 5
+   },
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      1447
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "望田とうり",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Exstreamer Cup Finals 2025 prizes"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-007_P_03.webp",
+     "en": "proxies/hPR/hBP01-007_P_03.webp"
+    },
+    "similarity_index": 6,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 4
+   },
+   {
+    "card_number": "hBP01-007",
+    "manage_id": {
+     "jp": [
+      1448
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "望田とうり",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Exstreamer Cup Finals 2025 prizes"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-007_P_04.webp",
+     "en": "proxies/hPR/hBP01-007_P_04.webp"
+    },
+    "similarity_index": 7,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 3
+   }
+  ]
+ },
+ "hBP01-021": {
+  "card_number": "hBP01-021",
+  "name": {
+   "jp": "ときのそら",
+   "en": "Tokino Sora"
+  },
+  "card_type": "holomem",
+  "colors": [
+   "white"
+  ],
+  "hp": 100,
+  "bloom_level": "debut",
+  "arts": [
+   {
+    "cheers": [
+     "white"
+    ],
+    "name": {
+     "jp": "みんな～こんそめ～",
+     "en": "Everyone~ Konsome~"
+    },
+    "power": "30"
+   }
+  ],
+  "extra": {
+   "jp": "このホロメンはデッキに何枚でも入れられる",
+   "en": "You may include any number of this holomem in the deck"
+  },
+  "tags": [
+   {
+    "jp": "#JP",
+    "en": "#JP"
+   },
+   {
+    "jp": "#0期生",
+    "en": "#Gen 0"
+   },
+   {
+    "jp": "#歌",
+    "en": "#Singing"
+   }
+  ],
+  "baton_pass": [
+   "colorless"
+  ],
+  "max_amount": {
+   "jp": 50,
+   "en": 50
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP01-021",
+    "manage_id": {
+     "jp": [
+      53
+     ],
+     "en": [
+      3
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hSD01",
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-021_C.webp",
+     "en": "COMMON/EN_hBP01-021_C.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10032"
+    ],
+    "tcgplayer_product_ids": [
+     645616
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP01-021",
+    "manage_id": {
+     "jp": [
+      2510
+     ],
+     "en": [
+      1777
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "天井めろ",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP01-021_C_02.webp",
+     "en": "hEB01/EN_hBP01-021_C_02.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10065"
+    ],
+    "tcgplayer_product_ids": [
+     718711
+    ],
+    "delta_art_index": 1
+   },
+   {
+    "card_number": "hBP01-021",
+    "manage_id": {
+     "jp": [
+      2667
+     ],
+     "en": [
+      1878
+     ]
+    },
+    "rarity": "HR",
+    "illustrator": "天井めろ",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP01-021_HR.webp",
+     "en": "hEB01/EN_hBP01-021_HR.webp"
+    },
+    "similarity_index": 3,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10066"
+    ],
+    "tcgplayer_product_ids": [
+     718712
+    ],
+    "delta_art_index": 2,
+    "holoburi_art_key": "HR"
+   },
+   {
+    "card_number": "hBP01-021",
+    "manage_id": {
+     "jp": [
+      189
+     ],
+     "en": [
+      276
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hPR"
+     ],
+     "en": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Entry PR Pack vol 1"
+     ],
+     "en": [
+      "Welcome Pack 2025",
+      "Monthly Tournament Pack Vol.01 2025"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-021_P.webp",
+     "en": "hPR/EN_hBP01-021_P.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10002"
+    ],
+    "tcgplayer_product_ids": [
+     646904
+    ],
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hBP01-032": {
+  "card_number": "hBP01-032",
+  "name": {
+   "jp": "アキ・ローゼンタール",
+   "en": "Aki Rosenthal"
+  },
+  "card_type": "holomem",
+  "colors": [
+   "green"
+  ],
+  "hp": 100,
+  "bloom_level": "debut",
+  "arts": [
+   {
+    "cheers": [
+     "colorless"
+    ],
+    "name": {
+     "jp": "アロ～ナ！",
+     "en": "Alo~na!"
+    },
+    "power": "30"
+   }
+  ],
+  "extra": {
+   "jp": "このホロメンはデッキに何枚でも入れられる",
+   "en": "You may include any number of this holomem in the deck"
+  },
+  "tags": [
+   {
+    "jp": "#JP",
+    "en": "#JP"
+   },
+   {
+    "jp": "#1期生",
+    "en": "#Gen 1"
+   },
+   {
+    "jp": "#ハーフエルフ",
+    "en": "#Half-Elf"
+   },
+   {
+    "jp": "#お酒",
+    "en": "#Alcohol"
+   }
+  ],
+  "baton_pass": [
+   "colorless"
+  ],
+  "max_amount": {
+   "jp": 50,
+   "en": 50
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP01-032",
+    "manage_id": {
+     "jp": [
+      66
+     ],
+     "en": [
+      61
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-032_C.webp",
+     "en": "hBP01/EN_hBP01-032_C.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10045"
+    ],
+    "tcgplayer_product_ids": [
+     645637
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP01-032",
+    "manage_id": {
+     "jp": [
+      1254
+     ],
+     "en": [
+      1221
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP05"
+     ],
+     "en": [
+      "hBP05"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP05/hBP01-032_02_C.webp",
+     "en": "hBP05/EN_hBP01-032_02_C.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp05/10192"
+    ],
+    "tcgplayer_product_ids": [
+     689927
+    ],
+    "delta_art_index": 1
+   },
+   {
+    "card_number": "hBP01-032",
+    "manage_id": {},
+    "rarity": "C",
+    "illustrator": null,
+    "img_path": {
+     "jp": "unreleased/hBP01-032_C.webp",
+     "en": null
+    },
+    "similarity_index": 3,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": null,
+    "delta_art_index": null
+   },
+   {
+    "card_number": "hBP01-032",
+    "manage_id": {
+     "jp": [
+      1370
+     ],
+     "en": [
+      1349
+     ]
+    },
+    "rarity": "HR",
+    "illustrator": "deru",
+    "products": {
+     "jp": [
+      "hBP05"
+     ],
+     "en": [
+      "hBP05"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP05/hBP01-032_HR.webp",
+     "en": "hBP05/EN_hBP01-032_HR.webp"
+    },
+    "similarity_index": 4,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp05/10204"
+    ],
+    "tcgplayer_product_ids": [
+     689928
+    ],
+    "delta_art_index": 2,
+    "holoburi_art_key": "HR"
+   },
+   {
+    "card_number": "hBP01-032",
+    "manage_id": {
+     "jp": [
+      178
+     ],
+     "en": [
+      278
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hPR"
+     ],
+     "en": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Basic PR Pack vol 1"
+     ],
+     "en": [
+      "Welcome Pack 2025",
+      "Monthly Tournament Pack Vol.01 2025"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-032_P.webp",
+     "en": "hPR/EN_hBP01-032_P.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10012"
+    ],
+    "tcgplayer_product_ids": [
+     647305
+    ],
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hBP01-081": {
+  "card_number": "hBP01-081",
+  "name": {
+   "jp": "星街すいせい",
+   "en": "Hoshimachi Suisei"
+  },
+  "card_type": "holomem",
+  "colors": [
+   "blue"
+  ],
+  "hp": 210,
+  "bloom_level": "second",
+  "keywords": [
+   {
+    "type": "collab",
+    "name": {
+     "jp": "空を駆ける光",
+     "en": "The Light that Sparks Across the Sky"
+    },
+    "text": {
+     "jp": "自分のエールデッキの上から1枚を、自分の青ホロメンに送る。",
+     "en": "Send the top card of your cheer deck to your blue holomem."
+    }
+   }
+  ],
+  "arts": [
+   {
+    "cheers": [
+     "blue",
+     "blue",
+     "blue",
+     "colorless"
+    ],
+    "name": {
+     "jp": "輝く彗星",
+     "en": "Shining Comet"
+    },
+    "power": "60+",
+    "advantage": [
+     "red",
+     50
+    ],
+    "text": {
+     "jp": "このホロメンの青エール2枚をアーカイブできる:このホロメンに重なっているホロメン1枚につき、このアーツ+60。その後、このアーツの対象を相手のバックホロメン1人に変更できる。",
+     "en": "You may archive 2 blue cheers from this holomem: This Arts gets +60 for each holomem stacked to this holomem. You may change the target of this Arts to 1 of your opponent's back holomem."
+    }
+   }
+  ],
+  "tags": [
+   {
+    "jp": "#JP",
+    "en": "#JP"
+   },
+   {
+    "jp": "#0期生",
+    "en": "#Gen 0"
+   },
+   {
+    "jp": "#歌",
+    "en": "#Singing"
+   }
+  ],
+  "baton_pass": [
+   "colorless",
+   "colorless"
+  ],
+  "max_amount": {
+   "jp": 4,
+   "en": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "jp": [
+      120
+     ],
+     "en": [
+      109
+     ]
+    },
+    "rarity": "RR",
+    "illustrator": "でいりー",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-081_RR_02.webp",
+     "en": "hBP01/EN_hBP01-081_RR.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10099",
+     "/hocg/card/hbp01/10147"
+    ],
+    "tcgplayer_product_ids": [
+     645730
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "jp": [
+      2525
+     ],
+     "en": [
+      1788
+     ]
+    },
+    "rarity": "RR",
+    "illustrator": "ZETTO",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP01-081_RR_02.webp",
+     "en": "hEB01/EN_hBP01-081_RR_02.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10097"
+    ],
+    "tcgplayer_product_ids": [
+     718743
+    ],
+    "delta_art_index": 4
+   },
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "en": [
+      229
+     ]
+    },
+    "rarity": "SR",
+    "illustrator": "でいりー",
+    "products": {
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": null,
+     "en": "hBP01/EN_hBP01-081_SR.webp"
+    },
+    "similarity_index": 3,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": [
+     645731
+    ],
+    "delta_art_index": null
+   },
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "jp": [
+      1174
+     ]
+    },
+    "rarity": "SR",
+    "illustrator": "雪子",
+    "products": {
+     "jp": [
+      "hCS01"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "1st Anniversary Celebration Set"
+     ]
+    },
+    "img_path": {
+     "jp": "hCS01/hBP01-081_02_SR.webp",
+     "en": "proxies/hCS01/hBP01-081_02_SR.webp"
+    },
+    "similarity_index": 4,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10125"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 3
+   },
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "jp": [
+      2626
+     ],
+     "en": [
+      1889
+     ]
+    },
+    "rarity": "SR",
+    "illustrator": "ZETTO",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP01-081_SR_02.webp",
+     "en": "hEB01/EN_hBP01-081_SR_02.webp"
+    },
+    "similarity_index": 5,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10098"
+    ],
+    "tcgplayer_product_ids": [
+     718744
+    ],
+    "delta_art_index": 5,
+    "holoburi_art_key": "SR"
+   },
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "jp": [
+      121
+     ],
+     "en": [
+      230
+     ]
+    },
+    "rarity": "UR",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP01"
+     ],
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-081_UR_02.webp",
+     "en": "hBP01/EN_hBP01-081_UR.webp"
+    },
+    "similarity_index": 6,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10100",
+     "/hocg/card/hbp01/10148"
+    ],
+    "tcgplayer_product_ids": [
+     645732
+    ],
+    "delta_art_index": 1
+   },
+   {
+    "card_number": "hBP01-081",
+    "manage_id": {
+     "jp": [
+      2602
+     ],
+     "en": [
+      1943
+     ]
+    },
+    "rarity": "UR",
+    "illustrator": "ZETTO",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP01-081_UR_02.webp",
+     "en": "hEB01/EN_hBP01-081_UR_02.webp"
+    },
+    "similarity_index": 7,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10099"
+    ],
+    "tcgplayer_product_ids": [
+     718745
+    ],
+    "delta_art_index": 6,
+    "holoburi_art_key": "UR"
+   }
+  ]
+ },
+ "hBP01-108": {
+  "card_number": "hBP01-108",
+  "name": {
+   "jp": "じゃあ敵だね",
+   "en": "So, That Makes You My Enemy"
+  },
+  "card_type": {
+   "support": "event"
+  },
+  "limited": true,
+  "text": {
+   "jp": "相手のセンターホロメンとバックホロメン1人を交代させる。",
+   "en": "Swap your opponent's center holomem with 1 back holomem."
+  },
+  "max_amount": {
+   "jp": 4,
+   "en": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP01-108",
+    "manage_id": {
+     "jp": [
+      149
+     ],
+     "en": [
+      135
+     ]
+    },
+    "rarity": "U",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP01",
+      "hSD02",
+      "hSD03",
+      "hSD05",
+      "hSD08",
+      "hSD09",
+      "hSD12"
+     ],
+     "en": [
+      "hBP01",
+      "hSD02",
+      "hSD03",
+      "hSD05",
+      "hSD12"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP01/hBP01-108_U.webp",
+     "en": "hBP01/EN_hBP01-108_U.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp01/10128"
+    ],
+    "tcgplayer_product_ids": [
+     645783,
+     707384
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP01-108",
+    "manage_id": {
+     "en": [
+      255
+     ]
+    },
+    "rarity": "S",
+    "illustrator": "",
+    "products": {
+     "en": [
+      "hBP01"
+     ]
+    },
+    "img_path": {
+     "jp": null,
+     "en": "hBP01/EN_hBP01-108_S.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": [
+     645784
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP01-108",
+    "manage_id": {
+     "jp": [
+      834
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "冬ゆき",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "World Grand Prix May 2025 participation"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-108_P.webp",
+     "en": "proxies/hPR/hBP01-108_P.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10076"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 1
+   },
+   {
+    "card_number": "hBP01-108",
+    "manage_id": {
+     "en": [
+      1123
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "冬ゆき",
+    "products": {
+     "en": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "en": [
+      "Bloom Cup January-March 2026 participation"
+     ]
+    },
+    "img_path": {
+     "jp": null,
+     "en": "hPR/EN_hBP01-108_P.webp"
+    },
+    "similarity_index": 3,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": [
+     671613
+    ],
+    "delta_art_index": null
+   },
+   {
+    "card_number": "hBP01-108",
+    "manage_id": {
+     "jp": [
+      2692
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Super PR Pack vol 5"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP01-108_P_01.webp",
+     "en": null
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10282"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hBP02-026": {
+  "card_number": "hBP02-026",
+  "name": {
+   "jp": "大神ミオ",
+   "en": "Ookami Mio"
+  },
+  "card_type": "holomem",
+  "colors": [
+   "green"
+  ],
+  "hp": 100,
+  "bloom_level": "first",
+  "keywords": [
+   {
+    "type": "bloom",
+    "name": {
+     "jp": "アイドルとして成長した姿",
+     "en": "Grown as an Idol"
+    },
+    "text": {
+     "jp": "自分のステージの#ゲーマーズを持つホロメン1人を選ぶ。自分のエールデッキから、選んだホロメンと同色のエール1枚を自分のホロメンに送る。そしてエールデッキをシャッフルする。",
+     "en": "Search 1 cheer from your cheer deck with the same color as 1 holomem with #GAMERS on your stage, and send it to your holomem. Shuffle your cheer deck."
+    }
+   }
+  ],
+  "arts": [
+   {
+    "cheers": [
+     "colorless"
+    ],
+    "name": {
+     "jp": "今年も見守っててね！",
+     "en": "Please Watch Over Me This Year too!"
+    },
+    "power": "20"
+   }
+  ],
+  "tags": [
+   {
+    "jp": "#JP",
+    "en": "#JP"
+   },
+   {
+    "jp": "#ゲーマーズ",
+    "en": "#GAMERS"
+   },
+   {
+    "jp": "#ケモミミ",
+    "en": "#Kemomimi"
+   },
+   {
+    "jp": "#料理",
+    "en": "#Cooking"
+   }
+  ],
+  "baton_pass": [
+   "colorless"
+  ],
+  "max_amount": {
+   "jp": 4,
+   "en": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP02-026",
+    "manage_id": {
+     "jp": [
+      293
+     ],
+     "en": [
+      326
+     ]
+    },
+    "rarity": "U",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP02"
+     ],
+     "en": [
+      "hBP02"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP02/hBP02-026_U.webp",
+     "en": "hBP02/EN_hBP02-026_U.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp02/10052"
+    ],
+    "tcgplayer_product_ids": [
+     657582
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP02-026",
+    "manage_id": {
+     "jp": [
+      2533
+     ],
+     "en": [
+      1821
+     ]
+    },
+    "rarity": "U",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP02-026_U_02.webp",
+     "en": "hEB01/EN_hBP02-026_U_02.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10116"
+    ],
+    "tcgplayer_product_ids": [
+     718765
+    ],
+    "delta_art_index": 2
+   },
+   {
+    "card_number": "hBP02-026",
+    "manage_id": {
+     "jp": [
+      396
+     ],
+     "en": [
+      436
+     ]
+    },
+    "rarity": "S",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hBP02"
+     ],
+     "en": [
+      "hBP02"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP02/hBP02-026_S.webp",
+     "en": "hBP02/EN_hBP02-026_S.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp02/10053"
+    ],
+    "tcgplayer_product_ids": [
+     657583
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP02-026",
+    "manage_id": {
+     "jp": [
+      2634
+     ],
+     "en": [
+      1922
+     ]
+    },
+    "rarity": "SR",
+    "illustrator": "",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hBP02-026_SR_02.webp",
+     "en": "hEB01/EN_hBP02-026_SR_02.webp"
+    },
+    "similarity_index": 3,
+    "yuyutei_sell_paths": [
+     "/hocg/card/heb01/10117"
+    ],
+    "tcgplayer_product_ids": [
+     718766
+    ],
+    "delta_art_index": 3,
+    "holoburi_art_key": "SR"
+   },
+   {
+    "card_number": "hBP02-026",
+    "manage_id": {
+     "jp": [
+      2136
+     ]
+    },
+    "rarity": "SR",
+    "illustrator": "ゆゆはる",
+    "products": {
+     "jp": [
+      "hCO01"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "holoka Collection -2025 Live Set-"
+     ]
+    },
+    "img_path": {
+     "jp": "hCO01/hBP02-026_SR.webp",
+     "en": "proxies/hCO01/hBP02-026_SR.webp"
+    },
+    "similarity_index": 4,
+    "yuyutei_sell_paths": [
+     "/hocg/card/ohc02/10001"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 1
+   }
+  ]
+ },
+ "hBP08-068": {
+  "card_number": "hBP08-068",
+  "name": {
+   "jp": "一伊那尓栖",
+   "en": "Ninomae Ina'nis"
+  },
+  "card_type": "holomem",
+  "colors": [
+   "purple"
+  ],
+  "hp": 140,
+  "bloom_level": "debut",
+  "keywords": [
+   {
+    "type": "collab",
+    "name": {
+     "jp": "きタコれ！",
+     "en": "Tako-This!"
+    },
+    "text": {
+     "jp": "自分が後攻で最初のターンなら、このターンの間、相手のステージのホロメン全員は、すべての色を持つホロメンとして扱う。",
+     "en": "If you went second and it is your first turn, during this turn, all holomem on your opponent's stage are regarded as holomem with all colors."
+    }
+   }
+  ],
+  "arts": [
+   {
+    "cheers": [
+     "purple"
+    ],
+    "name": {
+     "jp": "引きこもり娘は外出の夢を見た",
+     "en": "Dreamt I Went Outside"
+    },
+    "power": "10",
+    "text": {
+     "jp": "相手の推しホロメンと異なる色を持つ相手のセンターホロメンとコラボホロメンに特殊ダメージ20を与える。",
+     "en": "Deal 20 special damage to your opponent's center holomem and collab holomem with a different color from your opponent's Oshi holomem."
+    }
+   }
+  ],
+  "tags": [
+   {
+    "jp": "#EN",
+    "en": "#EN"
+   },
+   {
+    "jp": "#Myth",
+    "en": "#Myth"
+   },
+   {
+    "jp": "#絵",
+    "en": "#Painting"
+   },
+   {
+    "jp": "#海",
+    "en": "#Sea"
+   }
+  ],
+  "baton_pass": [
+   "colorless"
+  ],
+  "max_amount": {
+   "jp": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP08-068",
+    "manage_id": {
+     "jp": [
+      2271
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "黒星紅白",
+    "products": {
+     "jp": [
+      "hBP08"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP08/hBP08-068_C.webp",
+     "en": "proxies/hBP08/hBP08-068_C.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp08/10144"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP08-068",
+    "manage_id": {},
+    "rarity": "S",
+    "illustrator": null,
+    "img_path": {
+     "jp": null,
+     "en": "unreleased/hBP08-068_S.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": null,
+    "tcgplayer_product_ids": null,
+    "delta_art_index": null
+   },
+   {
+    "card_number": "hBP08-068",
+    "manage_id": {
+     "jp": [
+      2466
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "黒星紅白",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Basic PR Pack vol 12"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP08-068_P.webp",
+     "en": null
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10230"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hBP09-094": {
+  "card_number": "hBP09-094",
+  "name": {
+   "jp": "大空警察",
+   "en": "Oozora Police"
+  },
+  "card_type": {
+   "support": "event"
+  },
+  "limited": true,
+  "text": {
+   "jp": "このカードは、自分の推しホロメンが〈大空スバル〉で、前の相手のターンに自分のホロメンがダウンしていなければ使えない。\n\n相手のバックホロメン1人を選ぶ。選んだホロメンをお休みさせる。そのホロメンは、次の相手のリセットステップでアクティブにならない。",
+   "en": "This card can only be used if your Oshi holomem is <Oozora Subaru>, and your holomem was downed during your opponent's previous turn.\n\nChoose 1 of your opponent's back holomem. Rest the chosen holomem. The chosen holomem does not become active during your opponent's next reset phase."
+  },
+  "max_amount": {
+   "jp": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hBP09-094",
+    "manage_id": {
+     "jp": [
+      2811
+     ]
+    },
+    "rarity": "U",
+    "illustrator": "さかなへん",
+    "products": {
+     "jp": [
+      "hBP09"
+     ]
+    },
+    "img_path": {
+     "jp": "hBP09/hBP09-094_U.webp",
+     "en": "proxies/hBP09/hBP09-094_U.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hbp09/10196"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP09-094",
+    "manage_id": {
+     "jp": [
+      2991
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "さかなへん",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Basic PR Pack vol 13"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP09-094_P.webp",
+     "en": null
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10251"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hBP09-094",
+    "manage_id": {
+     "jp": [
+      2992
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "こまいぬ",
+    "products": {
+     "jp": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Basic PR Pack vol 13"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hBP09-094_P_02.webp",
+     "en": "proxies/hPR/hBP09-094_P_02.webp"
+    },
+    "similarity_index": 2,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hbp10/10256"
+    ],
+    "tcgplayer_product_ids": null,
+    "delta_art_index": null
+   }
+  ]
+ },
+ "hSD02-014": {
+  "card_number": "hSD02-014",
+  "name": {
+   "jp": "ぽよ余",
+   "en": "Poyoyo"
+  },
+  "card_type": {
+   "support": "mascot"
+  },
+  "text": {
+   "jp": "このマスコットが付いているホロメンのHP+20。\n\n◆〈百鬼あやめ〉に付いていたら能力追加\nこのマスコットが付いているホロメンがBloomした時、自分のデッキを1枚引く。\n\nマスコットは、自分のホロメン1人につき1枚だけ付けられる。",
+   "en": "The holomem this mascot is attached to gets +20 HP.\n\n◆Additional ability if attached to 〈Nakiri Ayame〉\nWhen the holomem this mascot is attached to blooms, draw 1 card.\n\nOnly 1 mascot can be attached to each of your holomem."
+  },
+  "tags": [
+   {
+    "jp": "#白上'sキャラクター",
+    "en": "#Shirakami's Character"
+   }
+  ],
+  "max_amount": {
+   "jp": 4,
+   "en": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hSD02-014",
+    "manage_id": {
+     "jp": [
+      238
+     ],
+     "en": [
+      529
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "はずき",
+    "products": {
+     "jp": [
+      "hSD02",
+      "hBP06"
+     ],
+     "en": [
+      "hSD02",
+      "hBP06"
+     ]
+    },
+    "img_path": {
+     "jp": "COMMON/hSD02-014_C.webp",
+     "en": "hSD02/EN_hSD02-014_C.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hsd02/10014"
+    ],
+    "tcgplayer_product_ids": [
+     657530
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hSD02-014",
+    "manage_id": {
+     "jp": [
+      1727
+     ],
+     "en": [
+      1683
+     ]
+    },
+    "rarity": "P",
+    "illustrator": "はずき",
+    "products": {
+     "jp": [
+      "hPR"
+     ],
+     "en": [
+      "hPR"
+     ]
+    },
+    "promo_sources": {
+     "jp": [
+      "Basic PR Pack vol 8"
+     ],
+     "en": [
+      "Monthly Tournament Pack Vol. 4 2026"
+     ]
+    },
+    "img_path": {
+     "jp": "hPR/hSD02-014_P.webp",
+     "en": "hPR/EN_hSD02-014_P.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/promo-hsd10/10036"
+    ],
+    "tcgplayer_product_ids": [
+     704932
+    ],
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hSD13-017": {
+  "card_number": "hSD13-017",
+  "name": {
+   "jp": "JUSTICE, JUST LIKE THAT!!!!",
+   "en": "JUSTICE, JUST LIKE THAT!!!!"
+  },
+  "card_type": {
+   "support": "event"
+  },
+  "limited": true,
+  "text": {
+   "jp": "このカードは、自分のステージのホロメン全員が#Justiceを持つホロメンでなければ使えない。\n\n自分のステージのホロメン1人を選ぶ。選んだホロメンに重なっているホロメン1～2枚を手札に戻す。このターンの間、この能力で戻したホロメン1枚につき、選んだホロメンのアーツ+20。",
+   "en": "This card can only be used if all holomem on your stage are holomem with #Justice.\n\nChoose 1 holomem on your stage. Return 1~2 stacked holomem from the chosen holomem to hand. During this turn, the chosen holomem gets Arts+20 for each holomem returned by this ability."
+  },
+  "max_amount": {
+   "jp": 4,
+   "en": 4
+  },
+  "illustrations": [
+   {
+    "card_number": "hSD13-017",
+    "manage_id": {
+     "jp": [
+      1785
+     ],
+     "en": [
+      1719
+     ]
+    },
+    "rarity": "U",
+    "illustrator": "黒井ススム",
+    "products": {
+     "jp": [
+      "hSD13"
+     ],
+     "en": [
+      "hSD13"
+     ]
+    },
+    "img_path": {
+     "jp": "hSD13/hSD13-017_U.webp",
+     "en": "hSD13/EN_hSD13-017_U.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hsd13/10017"
+    ],
+    "tcgplayer_product_ids": [
+     707406
+    ],
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hY01-001": {
+  "card_number": "hY01-001",
+  "name": {
+   "jp": "白エール",
+   "en": "White Cheer"
+  },
+  "card_type": "cheer",
+  "colors": [
+   "white"
+  ],
+  "text": {
+   "jp": "■ホロメンがステージから離れる時、そのホロメンのエールすべてをアーカイブする。\n■ホロメンがバトンタッチする時、そのホロメンのエールを指定された枚数アーカイブする。",
+   "en": "■If a holomem leaves the stage, archive all of that holomem's cheers.\n■If a holomem Baton Passes, archive the specified number of that holomem's cheers."
+  },
+  "max_amount": {
+   "jp": 20,
+   "en": 20
+  },
+  "illustrations": [
+   {
+    "card_number": "hY01-001",
+    "manage_id": {
+     "jp": [
+      168
+     ],
+     "en": [
+      23
+     ]
+    },
+    "rarity": "C",
+    "illustrator": "はずき",
+    "products": {
+     "jp": [
+      "hSD01",
+      "hBP01",
+      "hBP02",
+      "hBP03",
+      "hYS01",
+      "hSD05",
+      "hSD08",
+      "hSD14"
+     ],
+     "en": [
+      "hSD01",
+      "hBP01",
+      "hYS01",
+      "hBP02",
+      "hSD05",
+      "hBP03",
+      "hSD14"
+     ]
+    },
+    "img_path": {
+     "jp": "COMMON/hY01-001_C.webp",
+     "en": "COMMON/EN_hY01-001_C.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/yell01/10001"
+    ],
+    "tcgplayer_product_ids": [
+     646621
+    ],
+    "delta_art_index": 0
+   },
+   {
+    "card_number": "hY01-001",
+    "manage_id": {
+     "jp": [
+      2670
+     ],
+     "en": [
+      1836
+     ]
+    },
+    "rarity": "S",
+    "illustrator": "はずき",
+    "products": {
+     "jp": [
+      "hEB01"
+     ],
+     "en": [
+      "hEB01"
+     ]
+    },
+    "img_path": {
+     "jp": "hEB01/hY01-001_S.webp",
+     "en": "hEB01/EN_hY01-001_S.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/yell01/10065"
+    ],
+    "tcgplayer_product_ids": [
+     718914
+    ],
+    "delta_art_index": 0
+   }
+  ]
+ },
+ "hYS01-001": {
+  "card_number": "hYS01-001",
+  "name": {
+   "jp": "七詩ムメイ",
+   "en": "Nanashi Mumei"
+  },
+  "card_type": "oshi_holomem",
+  "colors": [
+   "white"
+  ],
+  "life": 5,
+  "oshi_skills": [
+   {
+    "holo_power": 2,
+    "name": {
+     "jp": "ホワイトバトン",
+     "en": "White Baton"
+    },
+    "text": {
+     "jp": "[ターンに1回]このターンの間、自分の白コラボホロメンのアーツ+20。",
+     "en": "[1/Turn]During this turn, your white collab holomem get Arts+20."
+    }
+   },
+   {
+    "kind": "special",
+    "holo_power": 1,
+    "name": {
+     "jp": "クイックガード",
+     "en": "Quick Guard"
+    },
+    "text": {
+     "jp": "[ゲームに1回]相手のターンで、自分の白ホロメンが相手からダメージを受ける時に使える:そのホロメン1人が受けるダメージ-20。",
+     "en": "[1/Game]During your opponent's turn, usable if your white holomem would take Damage from your opponent:That holomem takes -20 Damage."
+    }
+   }
+  ],
+  "max_amount": {
+   "jp": 1,
+   "en": 1
+  },
+  "illustrations": [
+   {
+    "card_number": "hYS01-001",
+    "manage_id": {
+     "jp": [
+      172
+     ],
+     "en": [
+      27
+     ]
+    },
+    "rarity": "OC",
+    "illustrator": "松尾 省吾",
+    "products": {
+     "jp": [
+      "hYS01"
+     ],
+     "en": [
+      "hYS01"
+     ]
+    },
+    "img_path": {
+     "jp": "hY01/hYS01-001_OC.webp",
+     "en": "hYS01/EN_hYS01-001_OC.webp"
+    },
+    "similarity_index": 1,
+    "yuyutei_sell_paths": [
+     "/hocg/card/hys01/10001"
+    ],
+    "tcgplayer_product_ids": [
+     646617
+    ],
+    "delta_art_index": 0
+   }
+  ]
+ }
+}

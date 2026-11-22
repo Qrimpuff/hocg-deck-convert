@@ -668,6 +668,72 @@ fn starter_decks(db: &CardsDatabase) -> &'static Vec<DeckEntry> {
                     cheer_deck: vec![card("hY06-001", (Japanese, 561), 20, db)],
                 },
             },
+            // hSD20 - スタートデッキ アソビ★まわり隊！推し 百灯キョーコ
+            DeckEntry {
+                deck_id: "hSD20-001".into(),
+                display: "hSD20 - Start Deck [ASOBI★MAWARI-TAI!] Hyakuto Kyoko".into(),
+                oshi_options: None,
+                deck: CommonDeck {
+                    name: Some("Start Deck [ASOBI★MAWARI-TAI!] Hyakuto Kyoko".into()),
+                    oshi: Some(card("hSD20-001", (Japanese, 3028), 1, db)),
+                    main_deck: vec![
+                        card("hSD20-002", (Japanese, 3029), 5, db),
+                        card("hSD20-003", (Japanese, 3030), 4, db),
+                        card("hSD20-004", (Japanese, 3031), 4, db),
+                        card("hSD20-005", (Japanese, 3032), 2, db),
+                        card("hSD20-006", (Japanese, 3033), 2, db),
+                        card("hSD20-007", (Japanese, 3034), 4, db),
+                        card("hSD20-008", (Japanese, 3035), 5, db),
+                        card("hSD20-009", (Japanese, 3036), 2, db),
+                        card("hSD20-010", (Japanese, 3037), 2, db),
+                        card("hSD20-011", (Japanese, 3038), 2, db),
+                        card("hSD20-012", (Japanese, 3039), 4, db),
+                        card("hSD20-013", (Japanese, 3040), 2, db),
+                        card("hSD20-014", (Japanese, 3041), 2, db),
+                        card("hBP01-104", (Japanese, 145), 2, db),
+                        card("hBP05-074", (Japanese, 1264), 2, db),
+                        card("hSD01-017", (Japanese, 17), 2, db),
+                        card("hSD14-010", (Japanese, 3042), 4, db),
+                    ],
+                    cheer_deck: vec![
+                        card("hY03-001", (Japanese, 170), 15, db),
+                        card("hY04-001", (Japanese, 171), 5, db),
+                    ],
+                },
+            },
+            // hSD21 - スタートデッキ アソビ★まわり隊！推し 熱千めら
+            DeckEntry {
+                deck_id: "hSD21-001".into(),
+                display: "hSD21 - Start Deck [ASOBI★MAWARI-TAI!] Achichi Mela".into(),
+                oshi_options: None,
+                deck: CommonDeck {
+                    name: Some("Start Deck [ASOBI★MAWARI-TAI!] Achichi Mela".into()),
+                    oshi: Some(card("hSD21-001", (Japanese, 3043), 1, db)),
+                    main_deck: vec![
+                        card("hSD21-002", (Japanese, 3044), 5, db),
+                        card("hSD21-003", (Japanese, 3045), 4, db),
+                        card("hSD21-004", (Japanese, 3046), 4, db),
+                        card("hSD21-005", (Japanese, 3047), 2, db),
+                        card("hSD21-006", (Japanese, 3048), 2, db),
+                        card("hSD21-007", (Japanese, 3049), 4, db),
+                        card("hSD21-008", (Japanese, 3050), 2, db),
+                        card("hSD20-008", (Japanese, 3035), 5, db),
+                        card("hSD20-009", (Japanese, 3036), 2, db),
+                        card("hSD20-010", (Japanese, 3037), 2, db),
+                        card("hSD20-011", (Japanese, 3038), 2, db),
+                        card("hSD20-012", (Japanese, 3039), 4, db),
+                        card("hSD20-013", (Japanese, 3040), 2, db),
+                        card("hBP01-104", (Japanese, 145), 2, db),
+                        card("hBP05-074", (Japanese, 1264), 2, db),
+                        card("hSD01-017", (Japanese, 17), 2, db),
+                        card("hSD14-010", (Japanese, 3042), 4, db),
+                    ],
+                    cheer_deck: vec![
+                        card("hY05-001", (Japanese, 267), 15, db),
+                        card("hY04-001", (Japanese, 171), 5, db),
+                    ],
+                },
+            },
         ]
     })
 }

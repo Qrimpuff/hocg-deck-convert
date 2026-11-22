@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hocg-deck-convert-v1.7.3';
+const CACHE_NAME = 'hocg-deck-convert-v1.8.0';
 // Cache Storage is shared by the whole origin, so only this prefix is owned by the app.
 const APP_CACHE_PREFIX = 'hocg-deck-convert-';
 const BASE_PATH = '/hocg-deck-convert';
@@ -14,6 +14,15 @@ const PRICE_CACHE_NAME = 'hocg-deck-convert-prices';
 const PRICE_BASE_URL = 'https://qrimpuff.github.io/hocg-fan-sim-prices/';
 
 const CARDS_DB_URL = 'https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_cards.json';
+const PRODUCTS_DB_URL = 'https://qrimpuff.github.io/hocg-fan-sim-assets/hocg_products.json';
+
+// Databases served from the cache and checked for updates in the background, with the message
+// that tells the pages to load a newer one. The product catalog is optional: while it is missing
+// (an error response), nothing is cached and the pages work without it.
+const DATABASES = new Map([
+  [CARDS_DB_URL, 'CARDS_DB_UPDATED'],
+  [PRODUCTS_DB_URL, 'PRODUCTS_DB_UPDATED']
+]);
 
 // Static assets that should always be available offline.
 const ASSETS = [
@@ -405,73 +414,80 @@ async function serveCardImage(event) {
   return response;
 }
 
-async function matchCardsDb() {
+async function matchDatabase(url) {
   try {
     const appCache = await caches.open(CACHE_NAME);
-    return await appCache.match(CARDS_DB_URL, { ignoreVary: true });
+    return await appCache.match(url, { ignoreVary: true });
   } catch (_) {
     return undefined;
   }
 }
 
-async function sendCardsDbUpdated() {
+function matchCardsDb() {
+  return matchDatabase(CARDS_DB_URL);
+}
+
+async function sendDatabaseUpdated(url) {
   const clients = await self.clients.matchAll({ type: 'window' });
   for (const client of clients) {
-    client.postMessage({ type: 'CARDS_DB_UPDATED' });
+    client.postMessage({ type: DATABASES.get(url) });
   }
 }
 
-// Checks for a newer card database and, if found, updates the cache and tells the pages to
-// load it again.
+// Checks for a newer database and, if found, updates the cache and tells the pages to load it
+// again.
 //
 // GitHub Pages' Last-Modified is the deploy time of the whole site, so it changes on every
-// deploy of the assets site, even without card changes. When it differs, the content is
-// compared too, so the pages only reload the cards when they changed.
-async function revalidateCardsDb() {
+// deploy of the assets site, even without changes to this file. When it differs, the content is
+// compared too, so the pages only reload the database when it changed.
+async function revalidateDatabase(url) {
   // Lets the page finish loading its images before the check, and the cache write.
   await new Promise((resolve) => setTimeout(resolve, REVALIDATE_DELAY_MS));
 
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(CARDS_DB_URL, { ignoreVary: true });
-  const response = await fetch(CARDS_DB_URL);
+  const cached = await cache.match(url, { ignoreVary: true });
+  const response = await fetch(url);
   if (!response.ok) return;
   if (cached && isSameVersion(cached, response)) return;
 
   const text = await response.clone().text();
   const changed = !cached || (await cached.text()) !== text;
   // Also stored when unchanged, to keep the new Last-Modified for the next check.
-  await cache.put(CARDS_DB_URL, response);
+  await cache.put(url, response);
   if (changed) {
-    await sendCardsDbUpdated();
+    await sendDatabaseUpdated(url);
   }
 }
 
-// One check at a time, shared by all the pages loading the card database.
-let cardsDbRevalidation = null;
-function revalidateCardsDbOnce() {
-  if (!cardsDbRevalidation) {
-    cardsDbRevalidation = revalidateCardsDb()
-      .catch((error) => console.warn('[SW] Failed to revalidate card database', error))
-      .finally(() => {
-        cardsDbRevalidation = null;
-      });
+// One check at a time per database, shared by all the pages loading it.
+const databaseRevalidations = new Map();
+function revalidateDatabaseOnce(url) {
+  if (!databaseRevalidations.has(url)) {
+    databaseRevalidations.set(
+      url,
+      revalidateDatabase(url)
+        .catch((error) => console.warn('[SW] Failed to revalidate', url, error))
+        .finally(() => {
+          databaseRevalidations.delete(url);
+        })
+    );
   }
-  return cardsDbRevalidation;
+  return databaseRevalidations.get(url);
 }
 
-// Stale-while-revalidate: the card database is large, so the cached copy is served right away
+// Stale-while-revalidate: the databases are large, so the cached copy is served right away
 // instead of waiting for the network, and a newer one is loaded by the pages when found.
-async function serveCardsDb(event) {
-  const cached = await matchCardsDb();
+async function serveDatabase(event, url) {
+  const cached = await matchDatabase(url);
   if (cached) {
-    event.waitUntil(revalidateCardsDbOnce());
+    event.waitUntil(revalidateDatabaseOnce(url));
     return cached;
   }
 
   const response = await fetch(event.request);
   if (response.ok) {
     const responseToCache = response.clone();
-    event.waitUntil(putIfChanged(CACHE_NAME, CARDS_DB_URL, responseToCache));
+    event.waitUntil(putIfChanged(CACHE_NAME, url, responseToCache));
   }
   return response;
 }
@@ -529,8 +545,8 @@ self.addEventListener('install', (event) => {
 
         await cacheAddAllBestEffort(cache, extractExternalScriptLinks(htmlText));
 
-        // Best-effort cache of cross-origin cards DB (avoid failing SW install if offline/CORS).
-        await cacheAddAllBestEffort(cache, [CARDS_DB_URL]);
+        // Best-effort cache of the cross-origin databases (avoid failing SW install if offline/CORS).
+        await cacheAddAllBestEffort(cache, Array.from(DATABASES.keys()));
 
         // Best-effort cache of any external stylesheets (and their referenced assets) from index.html.
         try {
@@ -616,8 +632,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url === CARDS_DB_URL) {
-    event.respondWith(serveCardsDb(event));
+  if (DATABASES.has(url)) {
+    event.respondWith(serveDatabase(event, url));
     return;
   }
 

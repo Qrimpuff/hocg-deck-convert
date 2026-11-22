@@ -64,13 +64,19 @@ fn main() {
 
     collect_files(public_dir, public_dir, &mut files);
 
-    let mut assets_block = String::from("const ASSETS = [\n");
+    // Keep the file's own line endings (Git may check it out with CRLF on Windows)
+    let newline = if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let mut assets_block = format!("const ASSETS = [{newline}");
     for (i, f) in files.iter().enumerate() {
         assets_block.push_str(&format!("  {}", f));
         if i < files.len() - 1 {
             assets_block.push(',');
         }
-        assets_block.push('\n');
+        assets_block.push_str(newline);
     }
     assets_block.push_str("];");
 

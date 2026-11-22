@@ -9,12 +9,15 @@ use crate::app_state::use_persisted;
 
 use crate::{
     ALL_CARDS_SORTED, CARDS_DB, COMMON_DECK, CardLanguage, CardType, EDIT_DECK, GLOBAL_RARITY,
-    GLOBAL_RELEASE,
+    GLOBAL_RELEASE, PRODUCTS_DB,
     components::{
         card::{Card, CardNavList},
         modal_popup::ModelPopup,
     },
-    sources::{CommonCard, DeckLike, DeckOrPile, ImageOptions},
+    sources::{
+        CommonCard, DeckLike, DeckOrPile, ImageOptions,
+        products::{category_label, product_codes, product_label, products_by_category},
+    },
     tracker::{EventType, TrackEvent, track_event},
 };
 
@@ -92,6 +95,14 @@ pub enum FilterRelease {
     Japanese,
     English,
     Unreleased,
+}
+
+/// A product of the catalog, by expansion code.
+#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
+pub enum FilterProduct {
+    #[default]
+    All,
+    Product(String),
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Default, Hash, Serialize, Deserialize)]
@@ -251,6 +262,8 @@ pub struct Filters {
     pub bloom_level: FilterBloomLevel,
     pub rarity: FilterRarity,
     pub release: FilterRelease,
+    #[serde(default)]
+    pub product: FilterProduct,
 }
 
 impl Filters {
@@ -546,6 +559,15 @@ fn filter_cards(
                 .illustrator
                 .iter()
                 .any(|illustrator| TextFilter::multi_check(filters, illustrator));
+            // How the printing was distributed (promos, prizes, PR packs)
+            found |= [
+                &illust.promo_sources.japanese,
+                &illust.promo_sources.english,
+            ]
+            .into_iter()
+            .flatten()
+            .flatten()
+            .any(|text| TextFilter::multi_check(filters, text));
             found
         })
         // filter by rarity
@@ -576,6 +598,20 @@ fn filter_cards(
             FilterRelease::Japanese => illust.manage_id.japanese.is_some(),
             FilterRelease::English => illust.manage_id.english.is_some(),
             FilterRelease::Unreleased => !illust.manage_id.has_value(),
+        })
+        // filter by product, in the language of the release filter
+        .filter(|(_, _, illust, _)| match &filters.product {
+            FilterProduct::All => true,
+            FilterProduct::Product(code) => {
+                let in_language = |language| product_codes(illust, language).contains(code);
+                match filters.release {
+                    FilterRelease::Japanese => in_language(CardLanguage::Japanese),
+                    FilterRelease::English => in_language(CardLanguage::English),
+                    FilterRelease::All | FilterRelease::Unreleased => {
+                        in_language(CardLanguage::Japanese) || in_language(CardLanguage::English)
+                    }
+                }
+            }
         })
         // remove duplicate looking cards in search
         .unique_by(|(_, _, i, _)| {
@@ -682,6 +718,18 @@ pub fn CardSearch(
     let mut disable_filter_rarity = use_persisted(persist("disable_filter_rarity"), || false);
     let mut filter_release = use_persisted(persist("filter_release"), || default_filters.release);
     let mut disable_filter_release = use_persisted(persist("disable_filter_release"), || false);
+    let mut filter_product = use_persisted(persist("filter_product"), || {
+        default_filters.product.clone()
+    });
+    // the product filter needs the catalog, which is optional: without it, or for a product it
+    // no longer lists, the filter is hidden and ignored
+    let has_catalog = use_memo(|| !PRODUCTS_DB.read().is_empty());
+    let product_filter = use_memo(move || match &*filter_product.read() {
+        FilterProduct::Product(code) if PRODUCTS_DB.read().contains_key(code) => {
+            FilterProduct::Product(code.clone())
+        }
+        _ => FilterProduct::All,
+    });
 
     let update_filter = move |event: Event<FormData>| {
         let filter = event.value();
@@ -711,6 +759,7 @@ pub fn CardSearch(
             *filter_tag.read() != FilterTag::All,
             *filter_rarity.read() != FilterRarity::All,
             *filter_release.read() != FilterRelease::All,
+            *product_filter.read() != FilterProduct::All,
         ]
         .iter()
         .filter(|&&x| x)
@@ -737,6 +786,7 @@ pub fn CardSearch(
                 bloom_level: filter_bloom_level.to_owned(),
                 rarity: filter_rarity.to_owned(),
                 release: filter_release.to_owned(),
+                product: product_filter.read().clone(),
             }
         } else {
             default_filters.clone()
@@ -1292,6 +1342,73 @@ pub fn CardSearch(
                                 }
                             }
                         }
+                        // Product, from the catalog
+                        if *has_catalog.read() {
+                            div { class: "cell",
+                                label {
+                                    "for": "card_product_{popup_id}",
+                                    class: "label",
+                                    "Product"
+                                }
+                                div { class: "control",
+                                    div { class: "select",
+                                        select {
+                                            id: "card_product_{popup_id}",
+                                            oninput: move |ev| {
+                                                *filter_product.write() = match ev.value().as_str() {
+                                                    "" => FilterProduct::All,
+                                                    code => FilterProduct::Product(code.into()),
+                                                };
+                                                if let Some(container) = container_ref.write().as_mut() {
+                                                    scroll_to_top(container);
+                                                }
+                                                if *filter_product.read() != FilterProduct::All {
+                                                    track_event(
+                                                        EventType::EditDeck,
+                                                        EventData {
+                                                            action: "Advanced filtering".into(),
+                                                            filter_type: Some("Product".into()),
+                                                        },
+                                                    );
+                                                }
+                                            },
+                                            option {
+                                                value: "",
+                                                selected: *product_filter.read() == FilterProduct::All,
+                                                "All"
+                                            }
+                                            for (category , products) in products_by_category(&PRODUCTS_DB.read())
+                                                .into_iter()
+                                                .map(|(category, products)| {
+                                                    (
+                                                        category.map(category_label).unwrap_or_else(|| "Other".into()),
+                                                        products
+                                                            .into_iter()
+                                                            .map(|(code, product)| (code.clone(), product_label(code, product, *card_lang.read())))
+                                                            .collect::<Vec<_>>(),
+                                                    )
+                                                })
+                                            {
+                                                optgroup { label: "{category}",
+                                                    for (code , label) in products {
+                                                        option {
+                                                            value: "{code}",
+                                                            title: "{label.title}",
+                                                            selected: *product_filter.read() == FilterProduct::Product(code.clone()),
+                                                            if label.show_code {
+                                                                "{code} - {label.label}"
+                                                            } else {
+                                                                "{label.label}"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     // Reset
                     div { class: "field",
@@ -1312,7 +1429,10 @@ pub fn CardSearch(
                                     *disable_filter_rarity.write() = false;
                                     *GLOBAL_RARITY.write() = FilterRarity::All;
                                     *filter_release.write() = FilterRelease::All;
+                                    // same as picking "All" in the release filter
+                                    *card_lang.write() = CardLanguage::English;
                                     *disable_filter_release.write() = false;
+                                    *filter_product.write() = FilterProduct::All;
                                     *GLOBAL_RELEASE.write() = FilterRelease::All;
                                     *cards_filter.write() = String::new();
                                     *card_amount.write() = CARD_INCREMENT;
@@ -1462,5 +1582,70 @@ pub fn CardSearchTitle(filters: Filters) -> Element {
             }
         }
 
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture_cards() -> Vec<(hocg::Card, (String, String))> {
+        let db: CardsDatabase =
+            serde_json::from_str(include_str!("../sources/testdata/csv_cards.json")).unwrap();
+        db.into_values()
+            .map(|card| {
+                let cache = prepare_text_cache(&card);
+                (card, cache)
+            })
+            .collect()
+    }
+
+    fn found(filters: Filters) -> Vec<(String, String)> {
+        filter_cards(&fixture_cards(), filters)
+            .into_iter()
+            .map(|(illust, _)| (illust.card_number, illust.rarity.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn product_filter_follows_the_release_language() {
+        let hsd01 = |release| Filters {
+            card_type: FilterCardType::HoloMember,
+            release,
+            product: FilterProduct::Product("hSD01".into()),
+            ..Default::default()
+        };
+        // hBP01-021 C is in the start deck only in English
+        let sora = ("hBP01-021".to_string(), "C".to_string());
+        assert!(found(hsd01(FilterRelease::English)).contains(&sora));
+        assert!(!found(hsd01(FilterRelease::Japanese)).contains(&sora));
+        assert!(found(hsd01(FilterRelease::All)).contains(&sora));
+
+        // every printing found is in the product
+        let hbp09 = found(Filters {
+            product: FilterProduct::Product("hBP09".into()),
+            ..Default::default()
+        });
+        assert_eq!(hbp09, vec![("hBP09-094".to_string(), "U".to_string())]);
+    }
+
+    #[test]
+    fn search_matches_sources() {
+        let search = |text: &str| {
+            found(Filters {
+                texts: TextFilter::from_text_field(text),
+                ..Default::default()
+            })
+        };
+        // a source: an art exclusive to a set, and a promo
+        assert!(
+            search("anniversary celebration")
+                .contains(&("hBP01-081".to_string(), "SR".to_string()))
+        );
+        assert!(search("world grand prix").contains(&("hBP01-108".to_string(), "P".to_string())));
+        // a PR pack, now part of the sources
+        assert!(
+            search("basic pr pack vol 13").contains(&("hBP09-094".to_string(), "P".to_string()))
+        );
     }
 }
