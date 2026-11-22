@@ -227,12 +227,7 @@ pub fn Card(
     let max_amount = if !deck_is_pile
         || matches!(
             *EXPORT_FORMAT.read(),
-            Some(
-                DeckType::DeckLog
-                    | DeckType::HoloDelta
-                    | DeckType::HoloDuel
-                    | DeckType::TabletopSim
-            )
+            Some(DeckType::DeckLog | DeckType::HoloDelta | DeckType::TabletopSim)
         ) {
         card.max_amount(*card_lang.read(), &db.read())
     } else {
@@ -251,7 +246,6 @@ pub fn Card(
     let is_warning_card = match *EXPORT_FORMAT.read() {
         Some(DeckType::DeckLog) => is_unknown || is_unreleased,
         Some(DeckType::HoloDelta) => is_unknown,
-        Some(DeckType::HoloDuel) => is_unknown || is_unreleased,
         Some(DeckType::TabletopSim) => is_unknown || is_unreleased,
         Some(DeckType::ProxySheets) => {
             card.card_type(&db.read()) != Some(CardType::Cheer)

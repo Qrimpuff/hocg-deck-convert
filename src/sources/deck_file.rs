@@ -19,12 +19,11 @@ use crate::{
     tracker::TrackEvent,
 };
 
-use super::{CardsDatabase, CommonDeck, DeckType, holoburi, holodelta, holoduel, tabletop_sim};
+use super::{CardsDatabase, CommonDeck, DeckType, holoburi, holodelta, tabletop_sim};
 
 #[derive(Debug, Clone)]
 enum Deck {
     HoloDelta(holodelta::Deck),
-    HoloDuel(holoduel::Deck),
     TabletopSim(tabletop_sim::Deck),
     HoloBuri(holoburi::Deck),
 }
@@ -33,7 +32,6 @@ impl Deck {
     pub fn from_file(deck_type: DeckType, bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
         Ok(match deck_type {
             DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_file(bytes)?),
-            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_file(bytes)?),
             DeckType::TabletopSim => Deck::TabletopSim(tabletop_sim::Deck::from_file(bytes)?),
             DeckType::HoloBuri => Deck::HoloBuri(holoburi::Deck::from_file(bytes)?),
             _ => unreachable!("this is not a json deck"),
@@ -43,7 +41,6 @@ impl Deck {
     pub fn from_text(deck_type: DeckType, text: &str) -> Result<Self, Box<dyn Error>> {
         Ok(match deck_type {
             DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_text(text)?),
-            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_text(text)?),
             DeckType::TabletopSim => Deck::TabletopSim(tabletop_sim::Deck::from_text(text)?),
             DeckType::HoloBuri => Deck::HoloBuri(holoburi::Deck::from_text(text)?),
             _ => unreachable!("this is not a json deck"),
@@ -53,7 +50,6 @@ impl Deck {
     pub fn to_file(&self) -> Result<Vec<u8>, Box<dyn Error>> {
         Ok(match self {
             Deck::HoloDelta(deck) => deck.to_file()?,
-            Deck::HoloDuel(deck) => deck.to_file()?,
             Deck::TabletopSim(deck) => deck.to_file()?,
             Deck::HoloBuri(deck) => deck.to_file()?,
         })
@@ -62,7 +58,6 @@ impl Deck {
     pub fn to_text(&self) -> Result<String, Box<dyn Error>> {
         Ok(match self {
             Deck::HoloDelta(deck) => deck.to_text()?,
-            Deck::HoloDuel(deck) => deck.to_text()?,
             Deck::TabletopSim(deck) => deck.to_text()?,
             Deck::HoloBuri(deck) => deck.to_text()?,
         })
@@ -71,7 +66,6 @@ impl Deck {
     fn from_common_deck(deck_type: DeckType, deck: CommonDeck, db: &CardsDatabase) -> Option<Self> {
         Some(match deck_type {
             DeckType::HoloDelta => Deck::HoloDelta(holodelta::Deck::from_common_deck(deck, db)?),
-            DeckType::HoloDuel => Deck::HoloDuel(holoduel::Deck::from_common_deck(deck, db)?),
             DeckType::TabletopSim => {
                 Deck::TabletopSim(tabletop_sim::Deck::from_common_deck(deck, db)?)
             }
@@ -83,7 +77,6 @@ impl Deck {
     fn to_common_deck(value: Self, db: &CardsDatabase) -> CommonDeck {
         match value {
             Deck::HoloDelta(deck) => holodelta::Deck::to_common_deck(deck, db),
-            Deck::HoloDuel(deck) => holoduel::Deck::to_common_deck(deck, db),
             Deck::TabletopSim(deck) => tabletop_sim::Deck::to_common_deck(deck, db),
             Deck::HoloBuri(deck) => holoburi::Deck::to_common_deck(deck, db),
         }

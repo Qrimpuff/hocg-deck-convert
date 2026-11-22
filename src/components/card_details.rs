@@ -216,11 +216,7 @@ pub fn CardDetailsTitle(
             return vec!["This card is unknown.".into()];
         }
 
-        if matches!(
-            format,
-            DeckType::DeckLog | DeckType::HoloDuel | DeckType::TabletopSim
-        ) && *is_unreleased.read()
-        {
+        if matches!(format, DeckType::DeckLog | DeckType::TabletopSim) && *is_unreleased.read() {
             if illust.is_none_or(|i| !i.manage_id.has_value()) {
                 warnings.push("This card is unreleased.".into());
             } else {
