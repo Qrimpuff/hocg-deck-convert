@@ -1,4 +1,6 @@
-use base64::{Engine, prelude::BASE64_STANDARD_NO_PAD};
+use std::{cell::RefCell, collections::HashMap};
+
+use base64::Engine;
 use dioxus::prelude::*;
 use hocg_fan_sim_assets_model::{self as hocg, CardsDatabase};
 use serde::Serialize;
@@ -17,23 +19,15 @@ use crate::{
 /// Full list of cards the popup can step through, provided by the list owner.
 pub type CardNavList = Signal<Vec<(CommonCard, CardType)>>;
 
-const GRID_WIDTH: usize = 10;
-const GRID_HEIGHT: usize = 14;
+/// Size the placeholder is decoded at. The preview is smooth, so the browser can stretch a
+/// small image to the card size without it looking different.
+const PLACEHOLDER_WIDTH: usize = 20;
+const PLACEHOLDER_HEIGHT: usize = 28;
 
-/// Decodes the v3 `G` component: a 10x14 grid of average RGB colors, row-major from the top.
-fn color_grid(img_hash: &str) -> Option<Vec<u8>> {
-    let grid = img_hash
-        .split('|')
-        .find_map(|part| part.strip_prefix("G="))?;
-    let grid = BASE64_STANDARD_NO_PAD.decode(grid).ok()?;
-    (grid.len() == GRID_WIDTH * GRID_HEIGHT * 3).then_some(grid)
-}
-
-/// Draws the color grid as a BMP data URI. The browser smooths it when scaling it up to the
-/// card size.
-fn grid_placeholder(grid: &[u8]) -> String {
-    const WIDTH: usize = GRID_WIDTH;
-    const HEIGHT: usize = GRID_HEIGHT;
+/// Draws RGBA pixels (row-major from the top) as a BMP data URI, dropping the alpha.
+fn bmp_data_uri(rgba: &[u8]) -> String {
+    const WIDTH: usize = PLACEHOLDER_WIDTH;
+    const HEIGHT: usize = PLACEHOLDER_HEIGHT;
     const HEADER: usize = 54;
     // BMP rows are padded to a multiple of 4 bytes
     const ROW: usize = (WIDTH * 3).div_ceil(4) * 4;
@@ -58,9 +52,9 @@ fn grid_placeholder(grid: &[u8]) -> String {
     bmp.extend(0u32.to_le_bytes());
     bmp.extend(0u32.to_le_bytes());
     // pixels: bottom-up rows, BGR
-    for row in grid.as_chunks::<{ WIDTH * 3 }>().0.iter().rev() {
-        for rgb in row.as_chunks::<3>().0 {
-            bmp.extend([rgb[2], rgb[1], rgb[0]]);
+    for row in rgba.as_chunks::<{ WIDTH * 4 }>().0.iter().rev() {
+        for px in row.as_chunks::<4>().0 {
+            bmp.extend([px[2], px[1], px[0]]);
         }
         bmp.resize(bmp.len() + ROW - WIDTH * 3, 0);
     }
@@ -71,9 +65,30 @@ fn grid_placeholder(grid: &[u8]) -> String {
     )
 }
 
-/// Blurred image of the card shown while it loads, from the color grid of the image hash.
-fn placeholder(img_hash: &str) -> Option<String> {
-    color_grid(img_hash).map(|grid| grid_placeholder(&grid))
+/// Blurred image of the card shown while it loads, from the illustration's CardHash.
+/// `None` when the illustration has none (empty in older databases) or it can't be decoded.
+/// Decoded once per illustration: decoding takes tens of microseconds, and cards build their
+/// image on every render.
+fn placeholder(img_placeholder: &str) -> Option<String> {
+    thread_local! {
+        static CACHE: RefCell<HashMap<String, Option<String>>> = RefCell::default();
+    }
+    if img_placeholder.is_empty() {
+        return None;
+    }
+    CACHE.with_borrow_mut(|cache| {
+        cache
+            .entry(img_placeholder.to_owned())
+            .or_insert_with(|| {
+                hocg::cardhash::decode(
+                    img_placeholder,
+                    PLACEHOLDER_WIDTH as u32,
+                    PLACEHOLDER_HEIGHT as u32,
+                )
+                .map(|rgba| bmp_data_uri(&rgba))
+            })
+            .clone()
+    })
 }
 
 /// Transparent image with the size of a card, shown instead of the card back so the
@@ -106,7 +121,7 @@ impl CardImageSource {
 
         let placeholder = card
             .and_then(|c| c.card_illustration(db))
-            .and_then(|illust| placeholder(&illust.img_hash));
+            .and_then(|illust| placeholder(&illust.img_placeholder));
 
         match placeholder {
             Some(placeholder) => Self {
@@ -460,48 +475,43 @@ pub fn Card(
 
 #[cfg(test)]
 mod tests {
-    use super::{color_grid, grid_placeholder, placeholder};
-    use base64::{
-        Engine,
-        prelude::{BASE64_STANDARD, BASE64_STANDARD_NO_PAD},
-    };
+    use super::{bmp_data_uri, placeholder};
+    use base64::{Engine, prelude::BASE64_STANDARD};
+    use hocg_fan_sim_assets_model::cardhash;
 
     #[test]
-    fn placeholder_bitmap_from_grid_component() {
-        let mut grid = vec![0u8; 10 * 14 * 3];
-        // top-left cell is red, bottom-left cell is blue
-        grid[0] = 255;
-        grid[13 * 10 * 3 + 2] = 255;
-        let g = BASE64_STANDARD_NO_PAD.encode(&grid);
+    fn bmp_from_rgba_pixels() {
+        let mut rgba = vec![0u8; 20 * 28 * 4];
+        // top-left pixel is red, bottom-left pixel is blue
+        rgba[0] = 255;
+        rgba[27 * 20 * 4 + 2] = 255;
 
-        let decoded = color_grid(&format!("v3|H32=abc|CYM=FF8000|G={g}|L=JP")).unwrap();
-        assert_eq!(decoded, grid);
-        let uri = grid_placeholder(&decoded);
+        let uri = bmp_data_uri(&rgba);
         let bmp = BASE64_STANDARD
             .decode(uri.strip_prefix("data:image/bmp;base64,").unwrap())
             .unwrap();
+        // 20 BGR pixels are 60 bytes, already a multiple of 4
+        let size = 54 + 60 * 28;
         assert_eq!(&bmp[0..2], b"BM");
-        assert_eq!(bmp.len(), 54 + 32 * 14);
+        assert_eq!(bmp.len(), size);
         assert_eq!(
             u32::from_le_bytes(bmp[2..6].try_into().unwrap()),
-            54 + 32 * 14
+            size as u32
         );
         // first stored row is the bottom one, in BGR
         assert_eq!(&bmp[54..57], &[255, 0, 0]);
         // last stored row is the top one
-        assert_eq!(&bmp[54 + 32 * 13..54 + 32 * 13 + 3], &[0, 0, 255]);
-
-        let short = BASE64_STANDARD_NO_PAD.encode([0u8; 30]);
-        assert_eq!(color_grid(&format!("v3|G={short}")), None);
-        assert_eq!(color_grid("v2|H32=abc|CYM=FF8000"), None);
+        assert_eq!(&bmp[54 + 60 * 27..54 + 60 * 27 + 3], &[0, 0, 255]);
     }
 
     #[test]
-    fn placeholder_needs_grid() {
-        let g = BASE64_STANDARD_NO_PAD.encode([10u8; 10 * 14 * 3]);
-        let image = placeholder(&format!("v3|H32=abc|CYM=FF8000|G={g}|L=JP")).unwrap();
+    fn placeholder_from_card_hash() {
+        let hash = cardhash::encode(&[120u8; 40 * 56 * 3], 40, 56);
+        let image = placeholder(&hash).unwrap();
         assert!(image.starts_with("data:image/bmp;base64,"));
 
-        assert_eq!(placeholder("v2|H32=abc|CYM=FF8000"), None);
+        // older databases have no placeholder
+        assert_eq!(placeholder(""), None);
+        assert_eq!(placeholder("v3|H32=abc|CYM=FF8000"), None);
     }
 }
